@@ -7,6 +7,10 @@ git@github.com:wangzijian2002/LinkMe.git
 ```bash
 go mod tidy
 ```
+## 手动创建数据库
+```bash
+mysql -uroot -proot -e "create database linkme;"
+```
 ## 使用wire进行依赖注入
 ```bash
 wire # 注意需要在wire.go文件所在目录下使用
