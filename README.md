@@ -7,12 +7,16 @@ git@github.com:wangzijian2002/LinkMe.git
 ```bash
 go mod tidy
 ```
+## 使用wire进行依赖注入
+```bash
+wire # 注意需要在wire.go文件所在目录下使用
+```
 ## 构建并启动项目
 ```bash
 go build -o linkme . && ./linkme
 ```
 ## 使用air启动项目(可选)
-```air
-go install github.com/cosmtrek/air@1.49.0 # 注意go版本不得低于air指定版本
+```bash
+go install github.com/cosmtrek/air@1.49.0 # 注意go版本不得低于air指定版本，本项目使用golang版本为1.22
 air
 ```
