@@ -13,6 +13,7 @@ mysql -uroot -proot -e "create database linkme;"
 ```
 ## 使用wire进行依赖注入
 ```bash
+go install github.com/google/wire/cmd/wire@latest
 wire # 注意需要在wire.go文件所在目录下使用
 ```
 ## 构建并启动项目
