@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkme-record-mysql
+  labels:
+    app: linkme-record-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linkme-record-mysql
+  template:
+    metadata:
+      name: linkme-record-mysql
+      labels:
+        app: linkme-record-mysql
+    spec:
+      containers:
+        - name: linkme-record-mysql
+          image: mysql:8.0
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: linkme
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: mysql-storage
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: link-mysql-pvc
