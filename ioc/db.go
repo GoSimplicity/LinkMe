@@ -12,9 +12,9 @@ type config struct {
 	DSN string `yaml:"dsn"`
 }
 
+// InitDB 初始化数据库
 func InitDB() *gorm.DB {
 	var c config
-
 	if err := viper.UnmarshalKey("db", &c); err != nil {
 		panic(fmt.Errorf("初始化失败：%v", err))
 	}
@@ -22,6 +22,7 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
+	// 初始化表
 	if err = dao.InitTables(db); err != nil {
 		panic(err)
 	}

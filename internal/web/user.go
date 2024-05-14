@@ -41,6 +41,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	})
 }
 
+// SignUp 注册
 func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	emailBool, err := uh.Email.MatchString(req.Email)
 	if err != nil {
@@ -89,6 +90,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	}, err
 }
 
+// Login 登陆
 func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 	u, err := uh.svc.Login(ctx, req.Email, req.Password)
 	t := tools.NewJWTHandler()
@@ -111,6 +113,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 	}, err
 }
 
+// Logout 登出
 func (uh *UserHandler) Logout(ctx *gin.Context) {
 	fmt.Println("退出登陆")
 }

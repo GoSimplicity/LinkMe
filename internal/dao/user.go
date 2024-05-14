@@ -43,6 +43,7 @@ type User struct {
 	About        string     `gorm:"type=varchar(4096)"`
 }
 
+// CreateUser 创建用户
 func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 	var m *mysql.MySQLError
 	u.CreateTime = time.Now().UnixMilli()
@@ -57,6 +58,7 @@ func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 	return err
 }
 
+// FindByID 根据ID查询用户数据
 func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
 	var user User
 	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
@@ -68,6 +70,8 @@ func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
 	}
 	return user, nil
 }
+
+// FindByEmail 根据Email查询用户信息
 func (ud *userDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var user User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
