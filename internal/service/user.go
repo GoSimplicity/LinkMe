@@ -28,6 +28,7 @@ func NewUserService(repo repository.UserRepository) UserService {
 	}
 }
 
+// SignUp 注册逻辑
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -37,13 +38,16 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	return us.repo.CreateUser(ctx, u)
 }
 
+// Login 登陆逻辑
 func (us *userService) Login(ctx context.Context, email string, password string) (domain.User, error) {
 	u, err := us.repo.FindByEmail(ctx, email)
+	// 如果用户没有找到(未注册)，则返回空对象
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return domain.User{}, err
 	} else if err != nil {
 		return domain.User{}, err
 	}
+	// 将密文密码转为明文
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
 		return domain.User{}, ErrInvalidUserOrPassword
