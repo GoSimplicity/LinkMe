@@ -17,15 +17,16 @@ func NewJWTMiddleware(hdl ijwt.Handler) *JWTMiddleware {
 	}
 }
 
-// CheckLogin 校验JWT Token
+// CheckLogin 校验JWT
 func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Request.URL.Path
+		// 如果请求的路径是下述路径，则不进行token验证
 		if path == "/users/signup" ||
 			path == "/users/login" {
 			return
 		}
-
+		// 从请求中提取token
 		tokenStr := m.ExtractToken(ctx)
 		var uc ijwt.UserClaims
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
@@ -41,6 +42,7 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		// 检查会话是否有效
 		err = m.CheckSession(ctx, uc.Ssid)
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
