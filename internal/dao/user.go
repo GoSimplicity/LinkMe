@@ -31,7 +31,7 @@ func NewUserDAO(db *gorm.DB) UserDAO {
 }
 
 type User struct {
-	ID           uint       `gorm:"primarykey"`
+	ID           int64      `gorm:"primarykey"`
 	CreateTime   int64      `gorm:"column:created_at;type:bigint"`
 	UpdatedTime  int64      `gorm:"column:updated_at;type:bigint"`
 	DeletedTime  int64      `gorm:"column:deleted_at;type:bigint;index"`

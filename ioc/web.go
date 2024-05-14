@@ -5,9 +5,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitWebServer(userHdl *web.UserHandler) *gin.Engine {
+func InitWebServer(userHdl *web.UserHandler, m []gin.HandlerFunc) *gin.Engine {
 	server := gin.Default()
-	//server.Use(mdwl...)
+	server.Use(m...)
 	userHdl.RegisterRoutes(server)
 	return server
 }
