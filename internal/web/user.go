@@ -4,6 +4,7 @@ import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/service"
+	tools "LinkMe/internal/tools/jwt"
 	. "LinkMe/pkg/gin-plug"
 	"errors"
 	"fmt"
@@ -35,6 +36,9 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/logout", uh.Logout)
+	userGroup.GET("/hello", func(ctx *gin.Context) {
+		ctx.JSON(200, "hello world!")
+	})
 }
 
 func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
@@ -87,7 +91,9 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 
 func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 	u, err := uh.svc.Login(ctx, req.Email, req.Password)
+	t := tools.NewJWTHandler()
 	if err == nil {
+		err = t.SetLoginToken(ctx, u.ID)
 		return Result{
 			Code: RequestsOK,
 			Msg:  "登陆成功",
@@ -104,6 +110,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 		Msg:  "系统错误",
 	}, err
 }
+
 func (uh *UserHandler) Logout(ctx *gin.Context) {
 	fmt.Println("退出登陆")
 }
