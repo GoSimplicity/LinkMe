@@ -40,6 +40,7 @@ type User struct {
 	Birthday     *time.Time `gorm:"column:birthday;type:datetime"`
 	Email        string     `gorm:"type:varchar(100);uniqueIndex"`
 	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`
+	About        string     `gorm:"type=varchar(4096)"`
 }
 
 func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
