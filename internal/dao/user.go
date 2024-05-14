@@ -1,15 +1,23 @@
 package dao
 
 import (
-	"LinkMe/internal/domain"
 	"context"
+	"errors"
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"time"
 )
 
+var (
+	ErrCodeDuplicateEmailNumber uint16 = 1062
+	ErrDuplicateEmail                  = errors.New("邮箱冲突")
+	ErrUserNotFound                    = errors.New("用户未找到")
+)
+
 type UserDAO interface {
-	CreateUser(ctx context.Context, u domain.User) error
-	FindByID(ctx context.Context, id int64) (domain.User, error)
+	CreateUser(ctx context.Context, u User) error
+	FindByID(ctx context.Context, id int64) (User, error)
+	FindByEmail(ctx context.Context, email string) (User, error)
 }
 
 type userDAO struct {
@@ -23,21 +31,50 @@ func NewUserDAO(db *gorm.DB) UserDAO {
 }
 
 type User struct {
-	gorm.Model
-	Username     string    `gorm:"varchar(255);uniqueIndex(255)"` // 用户名，数据库中唯一索引
-	PasswordHash string    `json:"-"`                             // 密码的哈希值
-	Nickname     string    `gorm:"size:50"`                       // 昵称，限制长度为50字符
-	Birthday     time.Time `gorm:"column:birthday;type:datetime"`
-	Email        *string   `gorm:"type:varchar(100);uniqueIndex"` // 邮箱，可为空，唯一索引
-	Phone        *string   `gorm:"type:varchar(15);uniqueIndex"`  // 手机号，可为空，唯一索引，最大长度为15位
+	ID           uint       `gorm:"primarykey"`
+	CreateTime   int64      `gorm:"column:created_at;type:bigint"`
+	UpdatedTime  int64      `gorm:"column:updated_at;type:bigint"`
+	DeletedTime  int64      `gorm:"column:deleted_at;type:bigint;index"`
+	Nickname     string     `gorm:"size:50"`
+	PasswordHash string     `gorm:"not null"`
+	Birthday     *time.Time `gorm:"column:birthday;type:datetime"`
+	Email        string     `gorm:"type:varchar(100);uniqueIndex"`
+	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`
 }
 
-func (u2 *userDAO) CreateUser(ctx context.Context, u domain.User) error {
-	//TODO implement me
-	panic("implement me")
+func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
+	var m *mysql.MySQLError
+	u.CreateTime = time.Now().UnixMilli()
+	u.UpdatedTime = time.Now().UnixMilli()
+	err := ud.db.WithContext(ctx).Create(&u).Error
+	if errors.As(err, &m) {
+		if m.Number == ErrCodeDuplicateEmailNumber {
+			return ErrDuplicateEmail
+		}
+		return err
+	}
+	return err
 }
 
-func (u2 *userDAO) FindByID(ctx context.Context, id int64) (domain.User, error) {
-	//TODO implement me
-	panic("implement me")
+func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
+	var user User
+	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, err
+	}
+	return user, nil
+}
+func (ud *userDAO) FindByEmail(ctx context.Context, email string) (User, error) {
+	var user User
+	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, err
+	}
+	return user, nil
 }
