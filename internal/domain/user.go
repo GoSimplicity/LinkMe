@@ -10,4 +10,5 @@ type User struct {
 	Password   string
 	Birthday   *time.Time
 	CreateTime int64
+	About      string
 }
