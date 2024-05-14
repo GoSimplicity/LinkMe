@@ -14,7 +14,6 @@ var (
 type UserRepository interface {
 	CreateUser(ctx context.Context, u domain.User) error
 	FindByID(ctx context.Context, id int64) (domain.User, error)
-	FindByUsername(ctx context.Context, username string) (domain.User, error)
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 }
@@ -29,29 +28,30 @@ func NewUserRepository(dao dao.UserDAO) UserRepository {
 	}
 }
 
+// CreateUser 创建用户
 func (ur *userRepository) CreateUser(ctx context.Context, u domain.User) error {
 	return ur.dao.CreateUser(ctx, fromDomainUser(u))
 }
 
+// FindByID 通过ID查询用户
 func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, error) {
 	u, err := ur.dao.FindByID(ctx, id)
 	return toDomainUser(u), err
 }
 
-func (ur *userRepository) FindByUsername(ctx context.Context, username string) (domain.User, error) {
-	//TODO implement me
-	panic("implement me")
-}
+// FindByPhone 通过电话查询用户
 func (ur *userRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
+// FindByEmail 通过Email查询用户
 func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := ur.dao.FindByEmail(ctx, email)
 	return toDomainUser(u), err
 }
 
+// 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) dao.User {
 	return dao.User{
 		PasswordHash: u.Password,
@@ -62,6 +62,7 @@ func fromDomainUser(u domain.User) dao.User {
 	}
 }
 
+// 将dao层对象转为领域层对象
 func toDomainUser(u dao.User) domain.User {
 	return domain.User{
 		ID:         u.ID,
