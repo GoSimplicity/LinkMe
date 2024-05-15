@@ -1,4 +1,4 @@
-package gin_plug
+package ginp
 
 import (
 	"github.com/gin-gonic/gin"
