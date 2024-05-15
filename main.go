@@ -5,7 +5,7 @@ import "LinkMe/config"
 func main() {
 	config.InitViper()
 	server := InitWebServer()
-	if err := server.Run(":9998"); err != nil {
+	if err := server.Run(":9999"); err != nil {
 		panic(err)
 	}
 }
