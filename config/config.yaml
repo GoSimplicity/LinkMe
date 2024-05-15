@@ -1,2 +1,4 @@
 db:
   dsn: "root:root@tcp(localhost:3306)/linkme"
+redis:
+  addr: "localhost:6379"

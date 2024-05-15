@@ -3,6 +3,7 @@
 package main
 
 import (
+	"LinkMe/internal/cache"
 	"LinkMe/internal/dao"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/service"
@@ -16,9 +17,12 @@ import (
 
 func InitWebServer() *gin.Engine {
 	wire.Build(
+		cache.NewUserCache,
 		ioc.InitDB,
 		ioc.InitWebServer,
 		ioc.InitMiddlewares,
+		ioc.InitRedis,
+		ioc.InitLogger,
 		ijwt.NewJWTHandler,
 		web.NewUserHandler,
 		service.NewUserService,

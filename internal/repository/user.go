@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"LinkMe/internal/cache"
 	"LinkMe/internal/dao"
 	"LinkMe/internal/domain"
+	"LinkMe/pkg/logger"
 	"context"
 )
 
@@ -19,12 +21,16 @@ type UserRepository interface {
 }
 
 type userRepository struct {
-	dao dao.UserDAO
+	dao   dao.UserDAO
+	cache cache.UserCache
+	l     logger.Logger
 }
 
-func NewUserRepository(dao dao.UserDAO) UserRepository {
+func NewUserRepository(dao dao.UserDAO, cache cache.UserCache, l logger.Logger) UserRepository {
 	return &userRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cache,
+		l:     l,
 	}
 }
 
@@ -35,8 +41,24 @@ func (ur *userRepository) CreateUser(ctx context.Context, u domain.User) error {
 
 // FindByID 通过ID查询用户
 func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, error) {
+	// 尝试从缓存中获取用户
+	du, err := ur.cache.Get(ctx, id)
+	if err == nil {
+		// 如果在缓存中找到，直接返回
+		return du, nil
+	}
+	// 如果缓存中未找到，从数据库中查找
 	u, err := ur.dao.FindByID(ctx, id)
-	return toDomainUser(u), err
+	if err != nil {
+		return domain.User{}, err
+	}
+	du = toDomainUser(u)
+	go func() {
+		if setErr := ur.cache.Set(ctx, du); setErr != nil {
+			ur.l.Error("缓存Set失败", logger.Error(setErr))
+		}
+	}()
+	return du, nil
 }
 
 // FindByPhone 通过电话查询用户
