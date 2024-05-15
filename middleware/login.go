@@ -23,7 +23,8 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		path := ctx.Request.URL.Path
 		// 如果请求的路径是下述路径，则不进行token验证
 		if path == "/users/signup" ||
-			path == "/users/login" {
+			path == "/users/login" ||
+			path == "/users/refresh_token" {
 			return
 		}
 		// 从请求中提取token
@@ -39,6 +40,11 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		}
 		if token == nil || !token.Valid {
 			// token 非法或过期
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		// 检查是否携带ua头
+		if uc.UserAgent == "" {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}

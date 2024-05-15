@@ -1,9 +1,12 @@
 package jwt
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"strings"
 	"time"
 )
@@ -24,9 +27,10 @@ type Handler interface {
 
 type UserClaims struct {
 	jwt.RegisteredClaims
-	Uid       int64
-	Ssid      string
-	UserAgent string
+	Uid         int64
+	Ssid        string
+	UserAgent   string
+	ContentType string
 }
 
 type RefreshClaims struct {
@@ -36,12 +40,14 @@ type RefreshClaims struct {
 }
 
 type handler struct {
+	client        redis.Cmdable
 	signingMethod jwt.SigningMethod
 	rcExpiration  time.Duration
 }
 
-func NewJWTHandler() Handler {
+func NewJWTHandler(c redis.Cmdable) Handler {
 	return &handler{
+		client:        c,
 		signingMethod: jwt.SigningMethodHS512,
 		rcExpiration:  time.Hour * 24 * 7,
 	}
@@ -59,9 +65,10 @@ func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) error {
 // SetJWTToken 设置短Token
 func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
 	uc := UserClaims{
-		Uid:       uid,
-		Ssid:      ssid,
-		UserAgent: ctx.GetHeader("User-Agent"),
+		Uid:         uid,
+		Ssid:        ssid,
+		UserAgent:   ctx.GetHeader("User-Agent"),
+		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
 		},
@@ -82,7 +89,7 @@ func (h *handler) setRefreshToken(ctx *gin.Context, uid int64, ssid string) erro
 		Uid:  uid,
 		Ssid: ssid,
 		RegisteredClaims: jwt.RegisteredClaims{
-			//
+			// 设置刷新时间为一周
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.rcExpiration)),
 		},
 	}
@@ -101,7 +108,7 @@ func (h *handler) ExtractToken(ctx *gin.Context) string {
 	if authCode == "" {
 		return ""
 	}
-	// 约定Authorization 头部格式为 Bearer tokenString
+	// Authorization 头部格式需为 Bearer string
 	s := strings.Split(authCode, " ")
 	if len(s) != 2 {
 		return ""
@@ -109,10 +116,23 @@ func (h *handler) ExtractToken(ctx *gin.Context) string {
 	return s[1]
 }
 
+// CheckSession 检查会话状态
 func (h *handler) CheckSession(ctx *gin.Context, ssid string) error {
+	// 判断缓存中是否存在指定键
+	c, err := h.client.Exists(ctx, fmt.Sprintf("linkme:user:ssid:%s", ssid)).Result()
+	if err != nil {
+		return err
+	}
+	if c != 0 {
+		return errors.New("token失效")
+	}
 	return nil
 }
 
+// ClearToken 清空token
 func (h *handler) ClearToken(ctx *gin.Context) error {
-	return nil
+	ctx.Header("X-Refresh-Token", "")
+	ctx.Header("X-JWT-Token", "")
+	uc := ctx.MustGet("user").(UserClaims)
+	return h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", uc.Ssid), "", h.rcExpiration).Err()
 }

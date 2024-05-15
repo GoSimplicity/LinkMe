@@ -3,6 +3,7 @@ package ioc
 import (
 	ijwt "LinkMe/internal/tools/jwt"
 	"LinkMe/middleware"
+	"LinkMe/pkg/logger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"strings"
@@ -10,7 +11,7 @@ import (
 )
 
 // InitMiddlewares 初始化中间件
-func InitMiddlewares(ih ijwt.Handler) []gin.HandlerFunc {
+func InitMiddlewares(ih ijwt.Handler, l logger.Logger) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowCredentials: true,
@@ -28,5 +29,6 @@ func InitMiddlewares(ih ijwt.Handler) []gin.HandlerFunc {
 			println("this is my middleware")
 		},
 		middleware.NewJWTMiddleware(ih).CheckLogin(),
+		middleware.NewLogMiddleware(l).Log(),
 	}
 }

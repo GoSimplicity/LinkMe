@@ -4,20 +4,24 @@ go 1.22.3
 
 require (
 	github.com/dlclark/regexp2 v1.11.0
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-sql-driver/mysql v1.7.0
+	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
+	github.com/redis/go-redis/v9 v9.5.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/swaggo/swag v1.16.3
+	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.23.0
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/gorm v1.25.10
 )
 
 require (
-	github.com/gin-contrib/cors v1.7.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 )
 
 require (
