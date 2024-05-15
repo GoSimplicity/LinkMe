@@ -1,4 +1,4 @@
-package gin_plug
+package ginp
 
 type Result struct {
 	Code int    `json:"code"`

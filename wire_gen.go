@@ -7,6 +7,7 @@
 package main
 
 import (
+	"LinkMe/internal/cache"
 	"LinkMe/internal/dao"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/service"
@@ -25,11 +26,14 @@ import (
 func InitWebServer() *gin.Engine {
 	db := ioc.InitDB()
 	userDAO := dao.NewUserDAO(db)
-	userRepository := repository.NewUserRepository(userDAO)
+	cmdable := ioc.InitRedis()
+	userCache := cache.NewUserCache(cmdable)
+	logger := ioc.InitLogger()
+	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
 	userService := service.NewUserService(userRepository)
-	userHandler := web.NewUserHandler(userService)
-	handler := jwt.NewJWTHandler()
-	v := ioc.InitMiddlewares(handler)
+	handler := jwt.NewJWTHandler(cmdable)
+	userHandler := web.NewUserHandler(userService, handler, logger)
+	v := ioc.InitMiddlewares(handler, logger)
 	engine := ioc.InitWebServer(userHandler, v)
 	return engine
 }
