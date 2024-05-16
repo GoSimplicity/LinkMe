@@ -1,5 +1,5 @@
 # LinkMe - 开源论坛项目
-![图层 1](https://github.com/wangzijian2002/LinkMe/assets/111679874/8d611e4a-fc21-4600-9d94-7ba6d83e29a1)
+![ LinkMe ] ( https://socialify.git.ci/wangzijian2002/LinkMe/image?description=1& font=Source%20Code%20Pro& forks=1&issues=1&language=1&logo=https%3A%2F%2Fgithub.com%2Fwangzijian2002 %2FLinkMe%2Fassets%2F71474660%2F22ef2063-ab82-481f-898f-29d95fa70236&name=1& pattern=Solid& pulls=1&stargazers=1&theme= Dark）
 
 
 ## 项目简介
