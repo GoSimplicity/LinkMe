@@ -4,8 +4,9 @@ import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/pkg/logger"
+	"LinkMe/internal/repository/models"
 	"context"
+	"go.uber.org/zap"
 )
 
 var (
@@ -23,10 +24,10 @@ type UserRepository interface {
 type userRepository struct {
 	dao   dao.UserDAO
 	cache cache.UserCache
-	l     logger.Logger
+	l     *zap.Logger
 }
 
-func NewUserRepository(dao dao.UserDAO, cache cache.UserCache, l logger.Logger) UserRepository {
+func NewUserRepository(dao dao.UserDAO, cache cache.UserCache, l *zap.Logger) UserRepository {
 	return &userRepository{
 		dao:   dao,
 		cache: cache,
@@ -55,7 +56,7 @@ func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, 
 	du = toDomainUser(u)
 	go func() {
 		if setErr := ur.cache.Set(ctx, du); setErr != nil {
-			ur.l.Error("缓存Set失败", logger.Error(setErr))
+			ur.l.Error("缓存Set失败", zap.Error(setErr))
 		}
 	}()
 	return du, nil
@@ -74,8 +75,8 @@ func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain
 }
 
 // 将领域层对象转为dao层对象
-func fromDomainUser(u domain.User) dao.User {
-	return dao.User{
+func fromDomainUser(u domain.User) models.User {
+	return models.User{
 		PasswordHash: u.Password,
 		Nickname:     u.Nickname,
 		Birthday:     u.Birthday,
@@ -85,7 +86,7 @@ func fromDomainUser(u domain.User) dao.User {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainUser(u dao.User) domain.User {
+func toDomainUser(u models.User) domain.User {
 	return domain.User{
 		ID:         u.ID,
 		Password:   u.PasswordHash,
