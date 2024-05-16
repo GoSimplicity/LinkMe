@@ -21,7 +21,6 @@ coverage/
 *.gcov
 *.gcda
 *.testwise.xml
-logs/
 *.log
 *.svn/
 *.git/
