@@ -6,11 +6,11 @@ import (
 	"LinkMe/internal/service"
 	ijwt "LinkMe/internal/utils/jwt"
 	. "LinkMe/pkg/ginp"
-	"LinkMe/pkg/logger"
 	"errors"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 const (
@@ -23,10 +23,10 @@ type UserHandler struct {
 	PassWord *regexp.Regexp
 	svc      service.UserService
 	ijwt     ijwt.Handler
-	l        logger.Logger
+	l        *zap.Logger
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l logger.Logger) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger) *UserHandler {
 	return &UserHandler{
 		Email:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		PassWord: regexp.MustCompile(passwordRegexPattern, regexp.None),
@@ -41,7 +41,8 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/logout", uh.Logout)
-	userGroup.POST("/refresh_token", uh.RefreshToken)
+	userGroup.PUT("/refresh_token", uh.RefreshToken)
+	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
 	})
@@ -90,7 +91,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 			Msg:  "邮箱冲突",
 		}, nil
 	}
-	uh.l.Error("注册失败", logger.Error(err))
+	uh.l.Error("注册失败", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
 		Msg:  "系统异常",
@@ -113,7 +114,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 			Msg:  "用户名或密码不对",
 		}, nil
 	}
-	uh.l.Error("登陆失败", logger.Error(err))
+	uh.l.Error("登陆失败", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
 		Msg:  "系统错误",
@@ -124,7 +125,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 func (uh *UserHandler) Logout(ctx *gin.Context) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		uh.l.Error("登出失败", logger.Error(err))
+		uh.l.Error("登出失败", zap.Error(err))
 		ctx.JSON(ServerERROR, gin.H{"error": "系统异常"})
 		return
 	}

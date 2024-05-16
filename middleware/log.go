@@ -3,11 +3,10 @@ package middleware
 import (
 	"bytes"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"time"
-
-	"LinkMe/pkg/logger"
 )
 
 type AccessLog struct {
@@ -20,10 +19,10 @@ type AccessLog struct {
 }
 
 type LogMiddleware struct {
-	l logger.Logger
+	l *zap.Logger
 }
 
-func NewLogMiddleware(l logger.Logger) *LogMiddleware {
+func NewLogMiddleware(l *zap.Logger) *LogMiddleware {
 	return &LogMiddleware{
 		l: l,
 	}
@@ -40,7 +39,7 @@ func (lm *LogMiddleware) Log() gin.HandlerFunc {
 		// 读取请求体
 		bodyBytes, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			lm.l.Error("请求体读取失败", logger.Error(err))
+			lm.l.Error("请求体读取失败", zap.Error(err))
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -56,6 +55,6 @@ func (lm *LogMiddleware) Log() gin.HandlerFunc {
 		al.Status = c.Writer.Status()
 		al.RespBody = c.Writer.Header().Get("Content-Type")
 		al.Duration = time.Since(start)
-		lm.l.Info("请求日志", logger.Any("accessLog", al))
+		lm.l.Info("请求日志", zap.Any("accessLog", al))
 	}
 }
