@@ -14,7 +14,7 @@
 | PasswordHash | string     | 用户密码的哈希值       | 不为空                   |
 | Birthday     | *time.Time | 用户生日           | 日期时间类型                |
 | Email        | string     | 用户电子邮箱地址       | 字符串类型，最大长度100个字符，唯一索引 |
-| Phone        | *string    | 用户电话号码         | 字符串类型，最大长度15个字符，唯一索引  |
+| Phone        | string     | 用户电话号码         | 字符串类型，最大长度15个字符，唯一索引  |
 | About        | string     | 用户个人简介         | 字符串类型，最大长度4096个字符     |
 
 ## 2. 文章表 (posts)
@@ -45,7 +45,7 @@
 | 字段名  | 类型           | 描述      | 约束条件 |
 |------|--------------|---------|------|
 | ID   | int64        | 版块唯一标识符 | 主键   |
-| Name | varchar(255) | 版块名称    | 唯一   |
+| Name | string       | 版块名称    | 唯一   |
 
 ## 4. 用户互动表 (user_interactions)
 
@@ -69,7 +69,7 @@
 | UserID           | int64                                                          | 用户ID    | 外键，关联用户表     |
 | NotificationType | ENUM('new_comment', 'new_like', 'new_message', 'new_follower') | 通知类型    |              |
 | TargetID         | int64                                                          | 目标ID    | 外键，关联帖子表或用户表 |
-| ReadStatus       | BOOLEAN                                                        | 阅读状态    | 默认值：FALSE    |
+| ReadStatus       | bool                                                           | 阅读状态    | 默认值：FALSE    |
 | CreateTime       | int64                                                          | 通知创建时间戳 |              |
 
 ## 6. 文章标签表 (tags)
@@ -79,7 +79,7 @@
 | 字段名  | 类型           | 描述      | 约束条件 |
 |------|--------------|---------|------|
 | ID   | int64        | 标签唯一标识符 | 主键   |
-| Name | varchar(255) | 标签名称    | 唯一   |
+| Name | string       | 标签名称    | 唯一   |
 
 ## 7. 文章与标签关联表 (post_tags)
 
