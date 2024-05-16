@@ -1,4 +1,4 @@
-package web
+package api
 
 type SignUpReq struct {
 	Email           string `json:"email"`
