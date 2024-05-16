@@ -4,7 +4,6 @@
 *.swp
 *.swo
 dist/
-doc/
 build/
 target/
 out/
