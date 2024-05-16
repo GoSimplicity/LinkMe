@@ -1,7 +1,7 @@
 package ioc
 
 import (
-	"LinkMe/internal/dao"
+	"LinkMe/internal/repository/dao"
 	"fmt"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"

@@ -1,10 +1,10 @@
-package web
+package api
 
 import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/service"
-	ijwt "LinkMe/internal/tools/jwt"
+	ijwt "LinkMe/internal/utils/jwt"
 	. "LinkMe/pkg/ginp"
 	"LinkMe/pkg/logger"
 	"errors"
