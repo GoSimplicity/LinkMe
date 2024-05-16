@@ -11,7 +11,6 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
 )
 
 const (
@@ -126,10 +125,10 @@ func (uh *UserHandler) Logout(ctx *gin.Context) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
 		uh.l.Error("登出失败", logger.Error(err))
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "系统异常"})
+		ctx.JSON(ServerERROR, gin.H{"error": "系统异常"})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"message": "登出成功"})
+	ctx.JSON(RequestsOK, gin.H{"message": "登出成功"})
 }
 
 // RefreshToken 刷新令牌
@@ -144,24 +143,24 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
 		return ijwt.Key2, nil
 	})
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatus(ServerERROR)
 		return
 	}
 	if token == nil || !token.Valid {
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatus(ServerERROR)
 		return
 	}
 	// 检查会话状态是否异常
 	if err = uh.ijwt.CheckSession(ctx, rc.Ssid); err != nil {
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatus(ServerERROR)
 		return
 	}
 	// 刷新短token
 	if err = uh.ijwt.SetJWTToken(ctx, rc.Uid, rc.Ssid); err != nil {
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatus(ServerERROR)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
+	ctx.JSON(RequestsOK, gin.H{
 		"message": "令牌刷新成功",
 	})
 }
