@@ -1,9 +1,9 @@
 package repository
 
 import (
-	"LinkMe/internal/cache"
-	"LinkMe/internal/dao"
 	"LinkMe/internal/domain"
+	"LinkMe/internal/repository/cache"
+	"LinkMe/internal/repository/dao"
 	"LinkMe/pkg/logger"
 	"context"
 )
