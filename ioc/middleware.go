@@ -1,7 +1,7 @@
 package ioc
 
 import (
-	ijwt "LinkMe/internal/tools/jwt"
+	ijwt "LinkMe/internal/utils/jwt"
 	"LinkMe/middleware"
 	"LinkMe/pkg/logger"
 	"github.com/gin-contrib/cors"

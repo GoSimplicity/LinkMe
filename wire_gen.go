@@ -7,12 +7,12 @@
 package main
 
 import (
-	"LinkMe/internal/cache"
-	"LinkMe/internal/dao"
+	"LinkMe/internal/api"
 	"LinkMe/internal/repository"
+	"LinkMe/internal/repository/cache"
+	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/service"
-	"LinkMe/internal/tools/jwt"
-	"LinkMe/internal/web"
+	"LinkMe/internal/utils/jwt"
 	"LinkMe/ioc"
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +32,7 @@ func InitWebServer() *gin.Engine {
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
 	userService := service.NewUserService(userRepository)
 	handler := jwt.NewJWTHandler(cmdable)
-	userHandler := web.NewUserHandler(userService, handler, logger)
+	userHandler := api.NewUserHandler(userService, handler, logger)
 	v := ioc.InitMiddlewares(handler, logger)
 	engine := ioc.InitWebServer(userHandler, v)
 	return engine
