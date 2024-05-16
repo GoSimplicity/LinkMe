@@ -1,10 +1,10 @@
 package middleware
 
 import (
+	. "LinkMe/internal/constants"
 	ijwt "LinkMe/internal/tools/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
 )
 
 type JWTMiddleware struct {
@@ -35,23 +35,23 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		})
 		if err != nil {
 			// token 错误
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatus(RequestsERROR)
 			return
 		}
 		if token == nil || !token.Valid {
 			// token 非法或过期
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatus(RequestsERROR)
 			return
 		}
 		// 检查是否携带ua头
 		if uc.UserAgent == "" {
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatus(RequestsERROR)
 			return
 		}
 		// 检查会话是否有效
 		err = m.CheckSession(ctx, uc.Ssid)
 		if err != nil {
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatus(RequestsERROR)
 			return
 		}
 		ctx.Set("user", uc)
