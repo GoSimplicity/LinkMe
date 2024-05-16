@@ -1,3 +1,9 @@
+
+<div style="text-align: center;">
+  <img src="https://github.com/wangzijian2002/LinkMe/assets/71474660/99438093-21b1-42a0-8a62-d6fb3dacb209" alt="Link-Me" />
+</div>
+
+
 # LinkMe - 开源论坛项目
 ## 项目简介
 LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供一个简洁、高效、可扩展的在线交流平台。本项目使用DDD领域设计理念，采用模块化的设计，使得添加新功能或进行定制化修改变得非常容易。LinkMe 支持多种数据库后端，并且可以通过 Kubernetes 进行部署。
