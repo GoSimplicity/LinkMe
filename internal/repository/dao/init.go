@@ -1,6 +1,9 @@
 package dao
 
-import "gorm.io/gorm"
+import (
+	. "LinkMe/internal/repository/models"
+	"gorm.io/gorm"
+)
 
 // InitTables 初始化数据库表
 func InitTables(db *gorm.DB) error {
