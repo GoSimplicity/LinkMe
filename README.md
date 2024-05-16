@@ -1,6 +1,6 @@
 # LinkMe - 开源论坛项目
-![ LinkMe ] ( https://socialify.git.ci/wangzijian2002/LinkMe/image?description=1& font=Source%20Code%20Pro& forks=1&issues=1&language=1&logo=https%3A%2F%2Fgithub.com%2Fwangzijian2002 %2FLinkMe%2Fassets%2F71474660%2F22ef2063-ab82-481f-898f-29d95fa70236&name=1& pattern=Solid& pulls=1&stargazers=1&theme= Dark）
 
+![LinkMe](https://socialify.git.ci/wangzijian2002/LinkMe/image?description=1&font=Source%20Code%20Pro&forks=1&issues=1&language=1&logo=https%3A%2F%2Fgithub.com%2Fwangzijian2002%2FLinkMe%2Fassets%2F71474660%2F22ef2063-ab82-481f-898f-29d95fa70236&name=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
 
 ## 项目简介
 LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供一个简洁、高效、可扩展的在线交流平台。本项目使用DDD领域设计理念，采用模块化的设计，使得添加新功能或进行定制化修改变得非常容易。LinkMe 支持多种数据库后端，并且可以通过 Kubernetes 进行部署。
