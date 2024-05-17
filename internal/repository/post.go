@@ -84,6 +84,7 @@ func fromDomainPost(p domain.Post) models.Post {
 		Content:      p.Content,
 		CreateTime:   p.CreateTime,
 		UpdatedTime:  p.UpdatedTime,
+		Author:       p.Author.Id,
 		Status:       p.Status.String(),
 		Visibility:   p.Visibility,
 		Slug:         p.Slug,
