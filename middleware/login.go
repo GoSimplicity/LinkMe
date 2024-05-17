@@ -2,7 +2,7 @@ package middleware
 
 import (
 	. "LinkMe/internal/constants"
-	ijwt "LinkMe/internal/utils/jwt"
+	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
