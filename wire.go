@@ -8,8 +8,8 @@ import (
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/service"
-	ijwt "LinkMe/internal/utils/jwt"
 	"LinkMe/ioc"
+	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	_ "github.com/google/wire"
@@ -17,17 +17,23 @@ import (
 
 func InitWebServer() *gin.Engine {
 	wire.Build(
-		cache.NewUserCache,
 		ioc.InitDB,
 		ioc.InitWebServer,
 		ioc.InitMiddlewares,
 		ioc.InitRedis,
 		ioc.InitLogger,
+		//ioc.InitMongoDB,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
+		api.NewPostHandler,
 		service.NewUserService,
+		service.NewPostService,
 		repository.NewUserRepository,
+		repository.NewPostRepository,
+		cache.NewUserCache,
+		//cache.NewPostCache,
 		dao.NewUserDAO,
+		dao.NewPostDAO,
 	)
 	return gin.Default()
 }
