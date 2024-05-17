@@ -21,22 +21,23 @@
 
 文章表用于存储用户发布的文章信息。
 
-| 字段名          | 类型     | 描述                | 约束条件                |
-|--------------|--------|-------------------|---------------------|
-| ID           | int64  | 文章唯一标识符           | 主键                  |
-| UserID       | int64  | 文章作者的用户ID         | 不为空，索引              |
-| Title        | string | 文章标题              | 最大长度为255个字符，不为空     |
-| Content      | string | 文章内容              | 文本类型，不为空            |
-| CreateTime   | int64  | 文章创建时间戳           | 不为空                 |
-| UpdatedTime  | int64  | 文章最后更新时间戳         | 不为空                 |
-| DeletedTime  | int64  | 文章删除时间戳（软删除）      | 索引                  |
-| Status       | string | 文章状态（如：草稿、发布等）    | 默认值为'draft'         |
-| Visibility   | string | 文章可见性（如：公开、私密等）   | 默认值为'public'        |
-| Slug         | string | 文章的唯一标识，用于生成友好URL | 最大长度为100个字符，唯一索引    |
-| CategoryID   | int64  | 文章分类的ID           | 索引                  |
-| Tags         | string | 文章标签，以逗号分隔        | 默认值为空字符串，最大长度255个字符 |
-| CommentCount | int64  | 文章的评论数量           | 默认值为0               |
-| ViewCount    | int64  | 文章的浏览次数           | 默认值为0               |
+| 字段名          | 类型     | 描述                      | 约束条件                |
+|--------------|--------|-------------------------|---------------------|
+| ID           | int64  | 文章唯一标识符                 | 主键,自增               |
+| Author       | int64  | 文章作者的用户ID               | 不为空，索引              |
+| Title        | string | 文章标题                    | 最大长度为255个字符，不为空     |
+| Content      | string | 文章内容                    | 文本类型，不为空            |
+| CreateTime   | int64  | 文章创建时间戳                 | 不为空                 |
+| UpdatedTime  | int64  | 文章最后更新时间戳               | 不为空                 |
+| DeletedTime  | int64  | 文章删除时间戳（软删除）            | 索引                  |
+| Status       | string | 文章状态（如：草稿、发布等）          | 默认值为'draft'         |
+| Visibility   | string | 文章可见性（如：公开、私密等）         | 默认值为'public'        |
+| Slug         | string | 文章的唯一标识(UUID)，用于生成友好URL | 最大长度为100个字符，唯一索引    |
+| CategoryID   | int64  | 文章分类的ID                 | 索引                  |
+| Tags         | string | 文章标签，以逗号分隔              | 默认值为空字符串，最大长度255个字符 |
+| CommentCount | int64  | 文章的评论数量                 | 默认值为0               |
+| ViewCount    | int64  | 文章的浏览次数                 | 默认值为0               |
+
 
 ## 3. 版块表 (categories)
 
