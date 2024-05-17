@@ -77,11 +77,13 @@ func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain
 // 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) models.User {
 	return models.User{
+		ID:           u.ID,
 		PasswordHash: u.Password,
 		Nickname:     u.Nickname,
 		Birthday:     u.Birthday,
 		Email:        u.Email,
 		Phone:        u.Phone,
+		CreateTime:   u.CreateTime,
 	}
 }
 

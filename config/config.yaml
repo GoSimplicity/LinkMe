@@ -4,3 +4,5 @@ redis:
   addr: "localhost:6379"
 log:
   filepath: "logs/linkme.json"
+mongo:
+  addr: "mongodb://root:123456@localhost:27017/linkme"
