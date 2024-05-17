@@ -1,8 +1,8 @@
 package ioc
 
 import (
-	ijwt "LinkMe/internal/utils/jwt"
 	"LinkMe/middleware"
+	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
