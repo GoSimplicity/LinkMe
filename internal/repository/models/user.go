@@ -11,6 +11,6 @@ type User struct {
 	PasswordHash string     `gorm:"not null"`
 	Birthday     *time.Time `gorm:"column:birthday;type:datetime"`
 	Email        string     `gorm:"type:varchar(100);uniqueIndex"`
-	Phone        string     `gorm:"type:varchar(15);uniqueIndex"`
+	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`
 	About        string     `gorm:"type=varchar(4096)"`
 }
