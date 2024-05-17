@@ -47,8 +47,7 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 }
 
 func (p *postRepository) UpdateStatus(ctx context.Context, postId int64, status domain.PostStatus) error {
-	//TODO implement me
-	panic("implement me")
+	return p.dao.UpdateStatus(ctx, postId, uint8(status))
 }
 
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {

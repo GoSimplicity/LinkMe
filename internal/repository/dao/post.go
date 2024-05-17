@@ -18,6 +18,7 @@ type PostDAO interface {
 	UpdateById(ctx context.Context, pst Post) error                                               // 根据ID更新一个帖子记录
 	Sync(ctx context.Context, post Post) (int64, error)                                           // 用于同步帖子记录
 	SyncStatus(ctx context.Context, uid int64, id int64, status uint8) error                      // 同步帖子的状态
+	UpdateStatus(ctx context.Context, postId int64, status uint8) error                           // 更新帖子的状态
 	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error)            // 根据作者ID获取帖子记录
 	GetById(ctx context.Context, id int64) (Post, error)                                          // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                              // 根据ID获取一个已发布的帖子记录
@@ -64,6 +65,19 @@ func (p *postDAO) UpdateById(ctx context.Context, pst Post) error {
 	if res.RowsAffected == 0 {
 		p.l.Error("帖子更新失败", zap.Error(PostUpdateERROR))
 		return PostUpdateERROR
+	}
+	return nil
+}
+
+func (p *postDAO) UpdateStatus(ctx context.Context, postId int64, status uint8) error {
+	now := time.Now().UnixMilli()
+	if err := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", postId).
+		Updates(map[string]any{
+			"status":     status,
+			"updated_at": now,
+		}).Error; err != nil {
+		p.l.Error("帖子状态更新失败", zap.Error(err))
+		return err
 	}
 	return nil
 }
