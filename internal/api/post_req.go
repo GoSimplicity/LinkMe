@@ -18,8 +18,8 @@ type ListReq struct {
 }
 
 type ListPubReq struct {
-	Page int // 当前页码
-	Size int // 每页数据量
+	Page int    // 当前页码
+	Size *int64 // 每页数据量
 }
 
 type UpdateReq struct {
