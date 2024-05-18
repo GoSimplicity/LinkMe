@@ -1,9 +1,13 @@
 package dao
 
 import (
+	"LinkMe/internal/domain"
 	. "LinkMe/internal/repository/models"
 	"context"
 	"errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"time"
@@ -14,28 +18,28 @@ var (
 )
 
 type PostDAO interface {
-	Insert(ctx context.Context, pst Post) (int64, error)                                          // 创建一个新的帖子记录
-	UpdateById(ctx context.Context, pst Post) error                                               // 根据ID更新一个帖子记录
-	Sync(ctx context.Context, post Post) (int64, error)                                           // 用于同步帖子记录
-	SyncStatus(ctx context.Context, uid int64, id int64, status uint8) error                      // 同步帖子的状态
-	UpdateStatus(ctx context.Context, postId int64, post Post) error                              // 更新帖子的状态
-	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error)            // 根据作者ID获取帖子记录
-	GetById(ctx context.Context, id int64) (Post, error)                                          // 根据ID获取一个帖子记录
-	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                              // 根据ID获取一个已发布的帖子记录
-	ListPub(ctx context.Context, start time.Time, offset int, limit int) ([]PublishedPost, error) // 获取已发布的帖子记录列表
+	Insert(ctx context.Context, pst Post) (int64, error)                               // 创建一个新的帖子记录
+	UpdateById(ctx context.Context, pst Post) error                                    // 根据ID更新一个帖子记录
+	Sync(ctx context.Context, post Post) (int64, error)                                // 用于同步帖子记录
+	SyncStatus(ctx context.Context, uid int64, id int64, status uint8) error           // 同步帖子的状态
+	UpdateStatus(ctx context.Context, postId int64, post Post) error                   // 更新帖子的状态
+	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) // 根据作者ID获取帖子记录
+	GetById(ctx context.Context, id int64) (Post, error)                               // 根据ID获取一个帖子记录
+	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                   // 根据ID获取一个已发布的帖子记录
+	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error)         // 获取已发布的帖子记录列表
 }
 
 type postDAO struct {
-	//client *mongo.Client
-	l  *zap.Logger
-	db *gorm.DB
+	client *mongo.Client
+	l      *zap.Logger
+	db     *gorm.DB
 }
 
-func NewPostDAO(db *gorm.DB, l *zap.Logger) PostDAO {
+func NewPostDAO(db *gorm.DB, l *zap.Logger, client *mongo.Client) PostDAO {
 	return &postDAO{
-		//client: client,
-		l:  l,
-		db: db,
+		client: client,
+		l:      l,
+		db:     db,
 	}
 }
 
@@ -107,7 +111,56 @@ func (p *postDAO) GetPubById(ctx context.Context, id int64) (PublishedPost, erro
 	panic("implement me")
 }
 
-func (p *postDAO) ListPub(ctx context.Context, start time.Time, offset int, limit int) ([]PublishedPost, error) {
-	//TODO implement me
-	panic("implement me")
+// mysql版
+//func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
+//	now := time.Now().UnixMilli()
+//	status := domain.PostStatus(1)
+//	// 添加查询上下文超时，以避免长时间运行的查询
+//	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+//	defer cancel()
+//	var posts []Post
+//	// 执行查询，并限制结果数量
+//	err := p.db.WithContext(ctx).
+//		Where("update_at < ? AND status = ?", now, status).
+//		Offset(pagination.Offset).Limit(pagination.Size).
+//		First(&posts).Error
+//	return posts, err
+//}
+
+func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
+	now := time.Now().UnixMilli()
+	status := domain.PostStatus(1)
+	// 添加查询上下文超时，以避免长时间运行的查询
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	// 选择数据库和集合
+	collection := p.client.Database("linkme").Collection("posts")
+	// 定义查询条件
+	filter := bson.M{
+		"update_at": bson.M{"$lt": now},
+		"status":    status,
+	}
+	// 定义查询选项，包括偏移量和限制
+	opts := options.FindOptions{
+		Skip:  pagination.Offset,
+		Limit: pagination.Size,
+	}
+	// 执行查询
+	var posts []Post
+	cursor, err := collection.Find(ctx, filter, &opts)
+	if err != nil {
+		p.l.Error("数据库查询失败", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	// 解码查询结果
+	for cursor.Next(ctx) {
+		var post Post
+		if er := cursor.Decode(&post); er != nil {
+			p.l.Error("数据库解码失败", zap.Error(er))
+			return nil, er
+		}
+		posts = append(posts, post)
+	}
+	return posts, nil
 }
