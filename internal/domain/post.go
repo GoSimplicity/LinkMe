@@ -22,13 +22,13 @@ type Post struct {
 }
 
 type Pagination struct {
-	Page int // 当前页码
-	Size int // 每页数据量
-
+	Page int    // 当前页码
+	Size *int64 // 每页数据量
 	// 以下字段通常在服务端内部使用，不需要客户端传递
-	Offset int // 数据偏移量
-	Total  int // 总数据量
+	Offset *int64 // 数据偏移量
+	Total  *int64 // 总数据量
 }
+
 type PostStatus uint8
 
 const (
