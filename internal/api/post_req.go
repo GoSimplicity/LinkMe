@@ -16,3 +16,12 @@ type WithDrawReq struct {
 
 type ListReq struct {
 }
+
+type ListPubReq struct {
+	Page int // 当前页码
+	Size int // 每页数据量
+}
+
+type UpdateReq struct {
+	PostId int64 `json:"postId,omitempty"`
+}

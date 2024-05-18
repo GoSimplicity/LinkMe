@@ -37,8 +37,7 @@ func (p *postService) Create(ctx context.Context, post domain.Post) (int64, erro
 }
 
 func (p *postService) Update(ctx context.Context, post domain.Post) error {
-	//TODO implement me
-	panic("implement me")
+	return p.repo.Update(ctx, post)
 }
 
 func (p *postService) Publish(ctx context.Context, postId int64, post domain.Post) error {
@@ -67,8 +66,7 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (d
 }
 
 func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	return p.repo.ListPublishedPosts(ctx, pagination)
 }
 
 func (p *postService) Delete(ctx context.Context, postId int64) error {

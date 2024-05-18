@@ -22,7 +22,7 @@ func InitWebServer() *gin.Engine {
 		ioc.InitMiddlewares,
 		ioc.InitRedis,
 		ioc.InitLogger,
-		//ioc.InitMongoDB,
+		ioc.InitMongoDB,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
