@@ -35,14 +35,13 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(200, "hello")
 	})
-
 }
 
 func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 	// 获取当前登陆的用户信息
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	id, err := ph.svc.Create(ctx, domain.Post{
-		ID:      req.Id,
+		ID:      req.PostId,
 		Content: req.Content,
 		Title:   req.Title,
 		Author: domain.Author{
@@ -64,7 +63,13 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 }
 
 func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error) {
-	if err := ph.svc.Publish(ctx, req.PostId); err != nil {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	if err := ph.svc.Publish(ctx, req.PostId, domain.Post{
+		ID: req.PostId,
+		Author: domain.Author{
+			Id: uc.Uid,
+		},
+	}); err != nil {
 		ph.l.Error("文章发布失败", zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
@@ -79,7 +84,13 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 }
 
 func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, error) {
-	if err := ph.svc.Withdraw(ctx, req.PostId); err != nil {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	if err := ph.svc.Withdraw(ctx, req.PostId, domain.Post{
+		ID: req.PostId,
+		Author: domain.Author{
+			Id: uc.Uid,
+		},
+	}); err != nil {
 		ph.l.Error("文章撤销失败", zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
