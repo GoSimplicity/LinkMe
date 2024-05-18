@@ -66,8 +66,12 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	pub, err := p.dao.ListPub(ctx, pagination)
+	if err != nil {
+		p.l.Error("公开文章获取失败", zap.Error(err))
+		return nil, err
+	}
+	return toDomainPost(pub), err
 }
 
 func (p *postRepository) Delete(ctx context.Context, postId int64) error {
@@ -95,18 +99,39 @@ func fromDomainPost(p domain.Post) models.Post {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainPost(p models.Post) domain.Post {
-	return domain.Post{
-		ID:           p.ID,
-		Title:        p.Title,
-		Content:      p.Content,
-		CreateTime:   p.CreateTime,
-		UpdatedTime:  p.UpdatedTime,
-		Visibility:   p.Visibility,
-		Slug:         p.Slug,
-		CategoryID:   p.CategoryID,
-		Tags:         p.Tags,
-		CommentCount: p.CommentCount,
-		ViewCount:    p.ViewCount,
+//
+//	func toDomainPost(p models.Post) domain.Post {
+//		return domain.Post{
+//			ID:           p.ID,
+//			Title:        p.Title,
+//			Content:      p.Content,
+//			CreateTime:   p.CreateTime,
+//			UpdatedTime:  p.UpdatedTime,
+//			Visibility:   p.Visibility,
+//			Slug:         p.Slug,
+//			CategoryID:   p.CategoryID,
+//			Tags:         p.Tags,
+//			CommentCount: p.CommentCount,
+//			ViewCount:    p.ViewCount,
+//		}
+//	}
+
+func toDomainPost(p []models.Post) []domain.Post {
+	domainPosts := make([]domain.Post, len(p)) // 创建与输入切片等长的domain.Post切片
+	for i, repoPost := range p {
+		domainPosts[i] = domain.Post{
+			ID:           repoPost.ID,
+			Title:        repoPost.Title,
+			Content:      repoPost.Content,
+			CreateTime:   repoPost.CreateTime,
+			UpdatedTime:  repoPost.UpdatedTime,
+			Visibility:   repoPost.Visibility,
+			Slug:         repoPost.Slug,
+			CategoryID:   repoPost.CategoryID,
+			Tags:         repoPost.Tags,
+			CommentCount: repoPost.CommentCount,
+			ViewCount:    repoPost.ViewCount,
+		}
 	}
+	return domainPosts
 }
