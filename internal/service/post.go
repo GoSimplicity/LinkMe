@@ -10,8 +10,8 @@ import (
 type PostService interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)                                 // 用于创建新帖子
 	Update(ctx context.Context, post domain.Post) error                                          // 用于更新现有帖子
-	Publish(ctx context.Context, postId int64) error                                             // 用于发布帖子
-	Withdraw(ctx context.Context, postId int64) error                                            // 用于撤回帖子
+	Publish(ctx context.Context, postId int64, post domain.Post) error                           // 用于发布帖子
+	Withdraw(ctx context.Context, postId int64, post domain.Post) error                          // 用于撤回帖子
 	GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error)                // 获取作者的草稿
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                          // 获取特定ID的帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 获取特定ID的已发布帖子
@@ -41,12 +41,14 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	panic("implement me")
 }
 
-func (p *postService) Publish(ctx context.Context, postId int64) error {
-	return p.repo.UpdateStatus(ctx, postId, domain.Published)
+func (p *postService) Publish(ctx context.Context, postId int64, post domain.Post) error {
+	post.Status = domain.PostStatus(1)
+	return p.repo.UpdateStatus(ctx, postId, post)
 }
 
-func (p *postService) Withdraw(ctx context.Context, postId int64) error {
-	return p.repo.UpdateStatus(ctx, postId, domain.Withdrawn)
+func (p *postService) Withdraw(ctx context.Context, postId int64, post domain.Post) error {
+	post.Status = domain.PostStatus(2)
+	return p.repo.UpdateStatus(ctx, postId, post)
 }
 
 func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {

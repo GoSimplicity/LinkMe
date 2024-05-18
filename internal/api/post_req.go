@@ -1,7 +1,7 @@
 package api
 
 type EditReq struct {
-	Id      int64  `json:"id,omitempty"`
+	PostId  int64  `json:"postId,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
 }
