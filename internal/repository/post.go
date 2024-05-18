@@ -12,7 +12,7 @@ import (
 type PostRepository interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)                                                // 创建一个新的帖子
 	Update(ctx context.Context, post domain.Post) error                                                         // 更新一个现有的帖子
-	UpdateStatus(ctx context.Context, postId int64, status domain.PostStatus) error                             // 更新帖子的状态
+	UpdateStatus(ctx context.Context, postId int64, status domain.Post) error                                   // 更新帖子的状态
 	GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) // 根据作者ID获取草稿帖子
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                                         // 根据ID获取一个帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                                // 根据ID获取一个已发布的帖子
@@ -46,8 +46,8 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	return p.dao.UpdateById(ctx, fromDomainPost(post))
 }
 
-func (p *postRepository) UpdateStatus(ctx context.Context, postId int64, status domain.PostStatus) error {
-	return p.dao.UpdateStatus(ctx, postId, uint8(status))
+func (p *postRepository) UpdateStatus(ctx context.Context, postId int64, post domain.Post) error {
+	return p.dao.UpdateStatus(ctx, postId, fromDomainPost(post))
 }
 
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {
