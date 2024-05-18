@@ -63,7 +63,7 @@ LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供
 ## 开始使用
 ### 克隆项目
 ```bash
-git@github.com:wangzijian2002/LinkMe.git
+git@github.com:GoSimplicity/LinkMe.git
 ```
 ### 安装依赖
 ```bash
