@@ -42,13 +42,11 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 }
 
 func (p *postService) Publish(ctx context.Context, postId int64) error {
-	//TODO implement me
-	panic("implement me")
+	return p.repo.UpdateStatus(ctx, postId, domain.Published)
 }
 
 func (p *postService) Withdraw(ctx context.Context, postId int64) error {
-	//TODO implement me
-	panic("implement me")
+	return p.repo.UpdateStatus(ctx, postId, domain.Withdrawn)
 }
 
 func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
