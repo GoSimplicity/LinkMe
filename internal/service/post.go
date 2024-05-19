@@ -10,8 +10,8 @@ import (
 type PostService interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)                                 // 用于创建新帖子
 	Update(ctx context.Context, post domain.Post) error                                          // 用于更新现有帖子
-	Publish(ctx context.Context, postId int64, post domain.Post) error                           // 用于发布帖子
-	Withdraw(ctx context.Context, postId int64, post domain.Post) error                          // 用于撤回帖子
+	Publish(ctx context.Context, post domain.Post) error                                         // 用于发布帖子
+	Withdraw(ctx context.Context, post domain.Post) error                                        // 用于撤回帖子
 	GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error)                // 获取作者的草稿
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                          // 获取特定ID的帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 获取特定ID的已发布帖子
@@ -32,22 +32,39 @@ func NewPostService(repo repository.PostRepository, l *zap.Logger) PostService {
 }
 
 func (p *postService) Create(ctx context.Context, post domain.Post) (int64, error) {
-	post.Status = domain.PostStatus(0)
+	post.Status = domain.Draft
+	// 执行创建操作后默认将帖子状态设置为草稿状态
 	return p.repo.Create(ctx, post)
 }
 
 func (p *postService) Update(ctx context.Context, post domain.Post) error {
+	post.Status = domain.Draft
+	// 执行更新操作后默认将帖子状态设置为草稿状态,需手动执行发布操作
+	if _, err := p.repo.Sync(ctx, post); err != nil {
+		p.l.Error("数据库同步失败", zap.Error(err))
+		return err
+	}
 	return p.repo.Update(ctx, post)
 }
 
-func (p *postService) Publish(ctx context.Context, postId int64, post domain.Post) error {
-	post.Status = domain.PostStatus(1)
-	return p.repo.UpdateStatus(ctx, postId, post)
+func (p *postService) Publish(ctx context.Context, post domain.Post) error {
+	post.Status = domain.Published
+	// 公开帖子时执行同步操作,添加帖子到线上库
+	if _, err := p.repo.Sync(ctx, post); err != nil {
+		p.l.Error("数据库同步失败", zap.Error(err))
+		return err
+	}
+	return p.repo.UpdateStatus(ctx, post)
 }
 
-func (p *postService) Withdraw(ctx context.Context, postId int64, post domain.Post) error {
-	post.Status = domain.PostStatus(2)
-	return p.repo.UpdateStatus(ctx, postId, post)
+func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
+	post.Status = domain.Withdrawn
+	// 撤回帖子时执行同步操作,从线上库(mongodb)中移除帖子
+	if _, err := p.repo.Sync(ctx, post); err != nil {
+		p.l.Error("数据库同步失败", zap.Error(err))
+		return err
+	}
+	return p.repo.UpdateStatus(ctx, post)
 }
 
 func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
@@ -66,6 +83,9 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (d
 }
 
 func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
 	return p.repo.ListPublishedPosts(ctx, pagination)
 }
 
