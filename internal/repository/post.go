@@ -7,17 +7,20 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"time"
 )
 
 type PostRepository interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)                                                // 创建一个新的帖子
 	Update(ctx context.Context, post domain.Post) error                                                         // 更新一个现有的帖子
-	UpdateStatus(ctx context.Context, postId int64, status domain.Post) error                                   // 更新帖子的状态
+	UpdateStatus(ctx context.Context, post domain.Post) error                                                   // 更新帖子的状态
 	GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) // 根据作者ID获取草稿帖子
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                                         // 根据ID获取一个帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                                // 根据ID获取一个已发布的帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)                // 获取已发布的帖子列表
 	Delete(ctx context.Context, postId int64) error                                                             // 删除一个帖子
+	Sync(ctx context.Context, post domain.Post) (int64, error)                                                  // 用于同步帖子记录
+
 }
 
 type postRepository struct {
@@ -46,8 +49,10 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	return p.dao.UpdateById(ctx, fromDomainPost(post))
 }
 
-func (p *postRepository) UpdateStatus(ctx context.Context, postId int64, post domain.Post) error {
-	return p.dao.UpdateStatus(ctx, postId, fromDomainPost(post))
+func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) error {
+	now := time.Now().UnixMilli()
+	post.UpdatedTime = now
+	return p.dao.UpdateStatus(ctx, fromDomainPost(post))
 }
 
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {
@@ -79,6 +84,15 @@ func (p *postRepository) Delete(ctx context.Context, postId int64) error {
 	panic("implement me")
 }
 
+func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, error) {
+	// 执行同步操作前确保为最新状态
+	err := p.dao.UpdateStatus(ctx, fromDomainPost(post))
+	if err != nil {
+		return -1, err
+	}
+	return p.dao.Sync(ctx, fromDomainPost(post))
+}
+
 // 将领域层对象转为dao层对象
 func fromDomainPost(p domain.Post) models.Post {
 	return models.Post{
@@ -88,7 +102,7 @@ func fromDomainPost(p domain.Post) models.Post {
 		CreateTime:   p.CreateTime,
 		UpdatedTime:  p.UpdatedTime,
 		Author:       p.Author.Id,
-		Status:       p.Status.String(),
+		Status:       p.Status,
 		Visibility:   p.Visibility,
 		Slug:         p.Slug,
 		CategoryID:   p.CategoryID,
@@ -99,23 +113,6 @@ func fromDomainPost(p domain.Post) models.Post {
 }
 
 // 将dao层对象转为领域层对象
-//
-//	func toDomainPost(p models.Post) domain.Post {
-//		return domain.Post{
-//			ID:           p.ID,
-//			Title:        p.Title,
-//			Content:      p.Content,
-//			CreateTime:   p.CreateTime,
-//			UpdatedTime:  p.UpdatedTime,
-//			Visibility:   p.Visibility,
-//			Slug:         p.Slug,
-//			CategoryID:   p.CategoryID,
-//			Tags:         p.Tags,
-//			CommentCount: p.CommentCount,
-//			ViewCount:    p.ViewCount,
-//		}
-//	}
-
 func toDomainPost(p []models.Post) []domain.Post {
 	domainPosts := make([]domain.Post, len(p)) // 创建与输入切片等长的domain.Post切片
 	for i, repoPost := range p {
@@ -125,6 +122,7 @@ func toDomainPost(p []models.Post) []domain.Post {
 			Content:      repoPost.Content,
 			CreateTime:   repoPost.CreateTime,
 			UpdatedTime:  repoPost.UpdatedTime,
+			Status:       repoPost.Status,
 			Visibility:   repoPost.Visibility,
 			Slug:         repoPost.Slug,
 			CategoryID:   repoPost.CategoryID,
