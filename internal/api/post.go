@@ -29,7 +29,7 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.PUT("/withdraw", WrapBody(ph.Withdraw))  // 更新帖子状态为撤回
 	postGroup.GET("/list", WrapBody(ph.List))          // 可以添加分页和排序参数
 	postGroup.GET("/list_pub", WrapBody(ph.ListPub))   // 同上
-	postGroup.GET("/detail/:postId", ph.Detail)        // 使用参数获取特定帖子
+	postGroup.GET("/detail/:postId", ph.Detail)        // 使用参数获取特定帖子详细数据
 	postGroup.GET("/detail_pub/:postId", ph.DetailPub) // 同上
 	postGroup.DELETE("/:postId", ph.DeletePost)        // 使用 DELETE 方法删除特定帖子
 	postGroup.GET("/hello", func(ctx *gin.Context) {
@@ -65,7 +65,9 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Update(ctx, domain.Post{
-		ID: req.PostId,
+		ID:      req.PostId,
+		Title:   req.Title,
+		Content: req.Content,
 		Author: domain.Author{
 			Id: uc.Uid,
 		},
@@ -84,7 +86,7 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 
 func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if err := ph.svc.Publish(ctx, req.PostId, domain.Post{
+	if err := ph.svc.Publish(ctx, domain.Post{
 		ID: req.PostId,
 		Author: domain.Author{
 			Id: uc.Uid,
@@ -105,7 +107,7 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 
 func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if err := ph.svc.Withdraw(ctx, req.PostId, domain.Post{
+	if err := ph.svc.Withdraw(ctx, domain.Post{
 		ID: req.PostId,
 		Author: domain.Author{
 			Id: uc.Uid,
