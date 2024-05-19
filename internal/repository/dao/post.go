@@ -21,8 +21,7 @@ type PostDAO interface {
 	Insert(ctx context.Context, pst Post) (int64, error)                               // 创建一个新的帖子记录
 	UpdateById(ctx context.Context, pst Post) error                                    // 根据ID更新一个帖子记录
 	Sync(ctx context.Context, post Post) (int64, error)                                // 用于同步帖子记录
-	SyncStatus(ctx context.Context, uid int64, id int64, status uint8) error           // 同步帖子的状态
-	UpdateStatus(ctx context.Context, postId int64, post Post) error                   // 更新帖子的状态
+	UpdateStatus(ctx context.Context, post Post) error                                 // 更新帖子的状态
 	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) // 根据作者ID获取帖子记录
 	GetById(ctx context.Context, id int64) (Post, error)                               // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                   // 根据ID获取一个已发布的帖子记录
@@ -43,6 +42,7 @@ func NewPostDAO(db *gorm.DB, l *zap.Logger, client *mongo.Client) PostDAO {
 	}
 }
 
+// Insert 创建一个新的帖子记录(mysql)
 func (p *postDAO) Insert(ctx context.Context, pst Post) (int64, error) {
 	now := time.Now().UnixMilli()
 	pst.CreateTime = now
@@ -54,12 +54,13 @@ func (p *postDAO) Insert(ctx context.Context, pst Post) (int64, error) {
 	return pst.ID, nil
 }
 
-func (p *postDAO) UpdateById(ctx context.Context, pst Post) error {
+// UpdateById 通过Id更新帖子
+func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
 	now := time.Now().UnixMilli()
-	res := p.db.WithContext(ctx).Model(&pst).Where("id = ? AND author_id = ?", pst.ID, pst.Author).Updates(map[string]any{
-		"title":      pst.Title,
-		"content":    pst.Content,
-		"status":     pst.Status,
+	res := p.db.WithContext(ctx).Model(&post).Where("id = ? AND author_id = ?", post.ID, post.Author).Updates(map[string]any{
+		"title":      post.Title,
+		"content":    post.Content,
+		"status":     post.Status,
 		"updated_at": now,
 	})
 	if res.Error != nil {
@@ -73,9 +74,10 @@ func (p *postDAO) UpdateById(ctx context.Context, pst Post) error {
 	return nil
 }
 
-func (p *postDAO) UpdateStatus(ctx context.Context, postId int64, post Post) error {
+// UpdateStatus 更新帖子状态
+func (p *postDAO) UpdateStatus(ctx context.Context, post Post) error {
 	now := time.Now().UnixMilli()
-	if err := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", postId).
+	if err := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", post.ID).
 		Updates(map[string]any{
 			"status":     post.Status,
 			"updated_at": now,
@@ -86,14 +88,35 @@ func (p *postDAO) UpdateStatus(ctx context.Context, postId int64, post Post) err
 	return nil
 }
 
-func (p *postDAO) Sync(ctx context.Context, Post Post) (int64, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (p *postDAO) SyncStatus(ctx context.Context, uid int64, id int64, status uint8) error {
-	//TODO implement me
-	panic("implement me")
+// Sync 同步线上库(mongodb)与制作库(mysql)
+func (p *postDAO) Sync(ctx context.Context, post Post) (int64, error) {
+	var mysqlPost Post
+	var mongoPost Post
+	now := time.Now().UnixMilli()
+	post.UpdatedTime = now
+	// 根据id查询帖子信息
+	if err := p.db.WithContext(ctx).Where("id = ?", post.ID).First(&mysqlPost).Error; err != nil {
+		return -1, err
+	}
+	// 只有在帖子为公开状态才会进行同步
+	if post.Status == domain.Published {
+		// 判断当前id的帖子是否已经被同步
+		if err := p.client.Database("linkme").Collection("posts").FindOne(ctx, bson.M{"id": post.ID}).Decode(&mongoPost); err == nil {
+			// 如果MongoDB中已存在相同ID的文章，则不执行同步
+			return -1, errors.New("文章已存在于MongoDB")
+		}
+		// 如果没同步则执行同步操作
+		if _, err := p.client.Database("linkme").Collection("posts").InsertOne(ctx, mysqlPost); err != nil {
+			return -1, err
+		}
+	} else {
+		// 进入到这里说明帖子状态非公开状态,或从公开状态变为非公开状态
+		// 我们的mongodb数据库只储存状态为公开状态的帖子
+		if _, err := p.client.Database("linkme").Collection("posts").DeleteOne(ctx, bson.M{"id": post.ID}); err != nil {
+			return -1, err
+		}
+	}
+	return mysqlPost.ID, nil
 }
 
 func (p *postDAO) GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) {
@@ -111,41 +134,22 @@ func (p *postDAO) GetPubById(ctx context.Context, id int64) (PublishedPost, erro
 	panic("implement me")
 }
 
-// mysql版
-//func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
-//	now := time.Now().UnixMilli()
-//	status := domain.PostStatus(1)
-//	// 添加查询上下文超时，以避免长时间运行的查询
-//	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-//	defer cancel()
-//	var posts []Post
-//	// 执行查询，并限制结果数量
-//	err := p.db.WithContext(ctx).
-//		Where("update_at < ? AND status = ?", now, status).
-//		Offset(pagination.Offset).Limit(pagination.Size).
-//		First(&posts).Error
-//	return posts, err
-//}
-
+// ListPub 查询公开帖子
 func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
-	now := time.Now().UnixMilli()
-	status := domain.PostStatus(1)
-	// 添加查询上下文超时，以避免长时间运行的查询
+	status := domain.Published
+	// 设置查询超时时间
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	// 选择数据库和集合
+	// 指定数据库与集合
 	collection := p.client.Database("linkme").Collection("posts")
-	// 定义查询条件
 	filter := bson.M{
-		"update_at": bson.M{"$lt": now},
-		"status":    status,
+		"status": status,
 	}
-	// 定义查询选项，包括偏移量和限制
+	// 设置分页查询参数
 	opts := options.FindOptions{
 		Skip:  pagination.Offset,
 		Limit: pagination.Size,
 	}
-	// 执行查询
 	var posts []Post
 	cursor, err := collection.Find(ctx, filter, &opts)
 	if err != nil {
@@ -153,14 +157,13 @@ func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]
 		return nil, err
 	}
 	defer cursor.Close(ctx)
-	// 解码查询结果
-	for cursor.Next(ctx) {
-		var post Post
-		if er := cursor.Decode(&post); er != nil {
-			p.l.Error("数据库解码失败", zap.Error(er))
-			return nil, er
-		}
-		posts = append(posts, post)
+	// 将获取到的查询结果解码到posts结构体中
+	if err = cursor.All(ctx, &posts); err != nil {
+		p.l.Error("解码查询结果失败", zap.Error(err))
+		return nil, err
+	}
+	if len(posts) == 0 {
+		p.l.Debug("查询没有返回任何结果")
 	}
 	return posts, nil
 }
