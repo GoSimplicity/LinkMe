@@ -5,4 +5,4 @@ redis:
 log:
   filepath: "logs/linkme.json"
 mongodb:
-  addr: "mongodb://root:root@localhost:27017/linkme/posts"
+  addr: "mongodb://localhost:27017"

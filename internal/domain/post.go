@@ -12,7 +12,7 @@ type Post struct {
 	CreateTime   int64
 	UpdatedTime  int64
 	Author       Author
-	Status       PostStatus
+	Status       string
 	Visibility   string
 	Slug         string
 	CategoryID   int64
@@ -32,24 +32,8 @@ type Pagination struct {
 type PostStatus uint8
 
 const (
-	Draft     PostStatus = iota // 草稿状态
-	Published                   // 已发布状态
-	Withdrawn                   // 撤回状态
-	Deleted                     // 已删除状态
+	Draft     = "Draft"     // 草稿状态
+	Published = "Published" // 发布状态
+	Withdrawn = "Withdrawn" // 撤回状态
+	Deleted   = "Deleted"   // 删除状态
 )
-
-// String 方法用于将PostStatus转换为字符串
-func (s PostStatus) String() string {
-	switch s {
-	case Draft:
-		return "Draft"
-	case Published:
-		return "Published"
-	case Withdrawn:
-		return "Withdrawn"
-	case Deleted:
-		return "Deleted"
-	default:
-		return "Unknown"
-	}
-}
