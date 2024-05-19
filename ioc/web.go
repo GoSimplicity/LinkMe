@@ -9,10 +9,6 @@ import (
 func InitWebServer(userHdl *api.UserHandler, postHdl *api.PostHandler, m []gin.HandlerFunc) *gin.Engine {
 	server := gin.Default()
 	server.Use(m...)
-	res := server.Group("aaa1")
-	res.GET("hello", func(context *gin.Context) {
-		context.String(200, "aaaaa")
-	})
 	userHdl.RegisterRoutes(server)
 	postHdl.RegisterRoutes(server)
 	return server
