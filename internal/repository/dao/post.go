@@ -119,19 +119,37 @@ func (p *postDAO) Sync(ctx context.Context, post Post) (int64, error) {
 	return mysqlPost.ID, nil
 }
 
-func (p *postDAO) GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
+// GetById 根据ID获取一个帖子记录
 func (p *postDAO) GetById(ctx context.Context, id int64) (Post, error) {
-	//TODO implement me
-	panic("implement me")
+	var post Post
+	err := p.db.WithContext(ctx).Where("id = ?", id).First(&post).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		p.l.Error("没有查到该记录", zap.Error(err))
+		return Post{}, err
+	}
+	return post, err
 }
 
+// GetPubById 根据ID获取一个已发布的帖子记录
 func (p *postDAO) GetPubById(ctx context.Context, id int64) (PublishedPost, error) {
-	//TODO implement me
-	panic("implement me")
+	var pubPost PublishedPost
+	status := domain.Published
+	err := p.db.WithContext(ctx).Where("id = ? AND status = ?", id, status).First(&pubPost).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		p.l.Error("没有查到该记录", zap.Error(err))
+		return PublishedPost{}, err
+	}
+	return pubPost, err
+}
+
+// GetByAuthor 根据作者ID获取帖子记录
+func (p *postDAO) GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) {
+	var posts []Post
+	err := p.db.WithContext(ctx).Where("author_id = ?", uid).Offset(offset).Limit(limit).Find(&posts).Error
+	if err != nil {
+		return nil, err
+	}
+	return posts, nil
 }
 
 // ListPub 查询公开帖子
