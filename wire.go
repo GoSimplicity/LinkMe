@@ -31,7 +31,7 @@ func InitWebServer() *gin.Engine {
 		repository.NewUserRepository,
 		repository.NewPostRepository,
 		cache.NewUserCache,
-		//cache.NewPostCache,
+		cache.NewPostCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 	)
