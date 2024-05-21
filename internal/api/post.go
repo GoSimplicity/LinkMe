@@ -131,9 +131,11 @@ func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
 }
 
 func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	du, err := ph.svc.ListPublishedPosts(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
+		Uid:  uc.Uid,
 	})
 	if err != nil {
 		ph.l.Error(PostListPubERROR, zap.Error(err))
