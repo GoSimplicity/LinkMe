@@ -2,6 +2,7 @@ package repository
 
 import (
 	"LinkMe/internal/domain"
+	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/repository/models"
 	"context"
@@ -26,12 +27,14 @@ type PostRepository interface {
 type postRepository struct {
 	dao dao.PostDAO
 	l   *zap.Logger
+	c   cache.PostCache
 }
 
-func NewPostRepository(dao dao.PostDAO, l *zap.Logger) PostRepository {
+func NewPostRepository(dao dao.PostDAO, l *zap.Logger, c cache.PostCache) PostRepository {
 	return &postRepository{
 		dao: dao,
 		l:   l,
+		c:   c,
 	}
 }
 
@@ -42,17 +45,42 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (int64, e
 		p.l.Error("文章插入发生错误", zap.Error(err))
 		return -1, err
 	}
+	// 删除缓存
+	if er := p.c.DelFirstPage(ctx, id); er != nil {
+		p.l.Warn("删除缓存失败", zap.Error(er))
+		return -1, er
+	}
 	return id, nil
 }
 
 func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
-	return p.dao.UpdateById(ctx, fromDomainPost(post))
+	// 删除缓存
+	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
+		p.l.Warn("删除缓存失败", zap.Error(err))
+		return err
+	}
+	// 更新数据库
+	if err := p.dao.UpdateById(ctx, fromDomainPost(post)); err != nil {
+		p.l.Error("更新帖子失败", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) error {
 	now := time.Now().UnixMilli()
 	post.UpdatedTime = now
-	return p.dao.UpdateStatus(ctx, fromDomainPost(post))
+	// 删除缓存
+	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
+		p.l.Warn("删除缓存失败", zap.Error(err))
+		return err
+	}
+	// 更新数据库
+	if err := p.dao.UpdateStatus(ctx, fromDomainPost(post)); err != nil {
+		p.l.Error("更新帖子状态失败", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {
@@ -71,12 +99,24 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	// 尝试从缓存中获取第一页的帖子摘要
+	posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
+	if err == nil && posts != nil {
+		// 如果缓存命中，直接返回缓存中的数据
+		return posts, nil
+	}
+	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.ListPub(ctx, pagination)
 	if err != nil {
 		p.l.Error("公开文章获取失败", zap.Error(err))
 		return nil, err
 	}
-	return toDomainPost(pub), err
+	posts = toDomainPost(pub)
+	// 由于缓存未命中，这里选择更新缓存
+	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
+		p.l.Warn("缓存设置失败", zap.Error(er))
+	}
+	return posts, nil
 }
 
 func (p *postRepository) Delete(ctx context.Context, postId int64) error {
@@ -90,7 +130,26 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 	if err != nil {
 		return -1, err
 	}
-	return p.dao.Sync(ctx, fromDomainPost(post))
+	// 获取帖子详情，以检查状态是否发生变化
+	mp, err := p.dao.GetById(ctx, post.ID)
+	if err != nil {
+		p.l.Error("获取post失败", zap.Error(err))
+		return -1, err
+	}
+	// 检查状态是否发生变化，如果发生变化，删除缓存
+	if mp.Status != post.Status {
+		// 删除缓存
+		if er := p.c.DelFirstPage(ctx, post.ID); er != nil {
+			p.l.Warn("删除缓存失败", zap.Error(er))
+		}
+	}
+	// 同步操作
+	id, err := p.dao.Sync(ctx, fromDomainPost(post))
+	if err != nil {
+		p.l.Error("同步post失败", zap.Error(err))
+		return -1, err
+	}
+	return id, nil
 }
 
 // 将领域层对象转为dao层对象
