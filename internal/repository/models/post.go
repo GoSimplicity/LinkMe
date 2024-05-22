@@ -7,6 +7,7 @@ type Post struct {
 	CreateTime   int64  `gorm:"column:created_at;type:bigint;not null"`
 	UpdatedTime  int64  `gorm:"column:updated_at;type:bigint;not null;index"`
 	DeletedTime  int64  `gorm:"column:deleted_at;type:bigint;index"`
+	Deleted      bool   `gorm:"column:deleted;default:false"`
 	Status       string `gorm:"size:20;default:'draft'"` // 文章状态，如草稿、发布等
 	Author       int64  `gorm:"column:author_id;index"`
 	Visibility   string `gorm:"size:20;default:'public'"`     // 文章可见性，如公开、私密等

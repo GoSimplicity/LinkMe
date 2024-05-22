@@ -19,7 +19,7 @@ type PostRepository interface {
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                                         // 根据ID获取一个帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                                // 根据ID获取一个已发布的帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)                // 获取已发布的帖子列表
-	Delete(ctx context.Context, postId int64) error                                                             // 删除一个帖子
+	Delete(ctx context.Context, post domain.Post) error                                                         // 删除一个帖子
 	Sync(ctx context.Context, post domain.Post) (int64, error)                                                  // 用于同步帖子记录
 
 }
@@ -89,8 +89,12 @@ func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, 
 }
 
 func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	post, err := p.dao.GetById(ctx, postId)
+	if err != nil {
+		p.l.Error("根据id获取帖子失败", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return toDomainPost(post), nil
 }
 
 func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
@@ -101,7 +105,7 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	// 尝试从缓存中获取第一页的帖子摘要
 	posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
-	if err == nil && posts != nil {
+	if err == nil && len(posts) != 0 {
 		// 如果缓存命中，直接返回缓存中的数据
 		return posts, nil
 	}
@@ -111,7 +115,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 		p.l.Error("公开文章获取失败", zap.Error(err))
 		return nil, err
 	}
-	posts = toDomainPost(pub)
+	posts = toDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择更新缓存
 	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
 		p.l.Warn("缓存设置失败", zap.Error(er))
@@ -119,8 +123,13 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	return posts, nil
 }
 
-func (p *postRepository) Delete(ctx context.Context, postId int64) error {
-	return p.dao.DeleteById(ctx, postId)
+func (p *postRepository) Delete(ctx context.Context, post domain.Post) error {
+	// 删除缓存
+	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
+		p.l.Warn("删除缓存失败", zap.Error(err))
+		return err
+	}
+	return p.dao.DeleteById(ctx, post)
 }
 
 func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, error) {
@@ -171,9 +180,9 @@ func fromDomainPost(p domain.Post) models.Post {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainPost(p []models.Post) []domain.Post {
-	domainPosts := make([]domain.Post, len(p)) // 创建与输入切片等长的domain.Post切片
-	for i, repoPost := range p {
+func toDomainSlicePost(post []models.Post) []domain.Post {
+	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
+	for i, repoPost := range post {
 		domainPosts[i] = domain.Post{
 			ID:           repoPost.ID,
 			Title:        repoPost.Title,
@@ -190,4 +199,22 @@ func toDomainPost(p []models.Post) []domain.Post {
 		}
 	}
 	return domainPosts
+}
+
+// 将dao层转化为领域层
+func toDomainPost(post models.Post) domain.Post {
+	return domain.Post{
+		ID:           post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		CreateTime:   post.CreateTime,
+		UpdatedTime:  post.UpdatedTime,
+		Status:       post.Status,
+		Visibility:   post.Visibility,
+		Slug:         post.Slug,
+		CategoryID:   post.CategoryID,
+		Tags:         post.Tags,
+		CommentCount: post.CommentCount,
+		ViewCount:    post.ViewCount,
+	}
 }
