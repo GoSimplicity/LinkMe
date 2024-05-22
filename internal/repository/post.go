@@ -103,11 +103,13 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	// 尝试从缓存中获取第一页的帖子摘要
-	posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
-	if err == nil && len(posts) != 0 {
-		// 如果缓存命中，直接返回缓存中的数据
-		return posts, nil
+	if pagination.Page == 1 {
+		// 尝试从缓存中获取第一页的帖子摘要
+		posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
+		if err == nil && len(posts) != 0 {
+			// 如果缓存命中，直接返回缓存中的数据
+			return posts, nil
+		}
 	}
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.ListPub(ctx, pagination)
@@ -115,7 +117,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 		p.l.Error("公开文章获取失败", zap.Error(err))
 		return nil, err
 	}
-	posts = toDomainSlicePost(pub)
+	posts := toDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择更新缓存
 	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
 		p.l.Warn("缓存设置失败", zap.Error(er))
