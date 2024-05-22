@@ -90,13 +90,19 @@ func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.
 }
 
 func (p *postService) Delete(ctx context.Context, postId int64) error {
+	pd, err := p.repo.GetPostById(ctx, postId)
+	// 避免帖子被重复删除
+	if err != nil || pd.Deleted != false {
+		p.l.Error("帖子删除失败", zap.Error(err))
+		return err
+	}
 	post := domain.Post{
 		ID:     postId,
 		Status: domain.Deleted,
 	}
-	if _, err := p.repo.Sync(ctx, post); err != nil {
-		p.l.Error("数据库同步失败", zap.Error(err))
-		return err
+	if _, er := p.repo.Sync(ctx, post); er != nil {
+		p.l.Error("数据库同步失败", zap.Error(er))
+		return er
 	}
-	return p.repo.Delete(ctx, postId)
+	return p.repo.Delete(ctx, post)
 }

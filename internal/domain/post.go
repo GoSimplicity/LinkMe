@@ -11,6 +11,8 @@ type Post struct {
 	Content      string
 	CreateTime   int64
 	UpdatedTime  int64
+	DeletedTime  int64
+	Deleted      bool
 	Author       Author
 	Status       string
 	Visibility   string
