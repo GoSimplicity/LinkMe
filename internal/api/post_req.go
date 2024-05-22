@@ -27,3 +27,7 @@ type UpdateReq struct {
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
 }
+
+type DeleteReq struct {
+	PostId int64 `uri:"postId"`
+}

@@ -120,8 +120,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 }
 
 func (p *postRepository) Delete(ctx context.Context, postId int64) error {
-	//TODO implement me
-	panic("implement me")
+	return p.dao.DeleteById(ctx, postId)
 }
 
 func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, error) {

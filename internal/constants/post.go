@@ -13,4 +13,6 @@ const (
 	PostWithdrawERROR       = "帖子撤销失败"
 	PostListPubSuccess      = "公开帖子查询成功"
 	PostListPubERROR        = "公开帖子查询失败"
+	PostDeleteSuccess       = "帖子删除成功"
+	PostDeleteERROR         = "帖子删除失败"
 )
