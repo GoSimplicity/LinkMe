@@ -90,6 +90,13 @@ func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.
 }
 
 func (p *postService) Delete(ctx context.Context, postId int64) error {
-	//TODO implement me
-	panic("implement me")
+	post := domain.Post{
+		ID:     postId,
+		Status: domain.Deleted,
+	}
+	if _, err := p.repo.Sync(ctx, post); err != nil {
+		p.l.Error("数据库同步失败", zap.Error(err))
+		return err
+	}
+	return p.repo.Delete(ctx, postId)
 }
