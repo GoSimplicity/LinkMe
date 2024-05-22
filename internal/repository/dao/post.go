@@ -26,6 +26,7 @@ type PostDAO interface {
 	GetById(ctx context.Context, id int64) (Post, error)                               // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                   // 根据ID获取一个已发布的帖子记录
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error)         // 获取已发布的帖子记录列表
+	DeleteById(ctx context.Context, id int64) error
 }
 
 type postDAO struct {
@@ -184,4 +185,9 @@ func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]
 		p.l.Debug("查询没有返回任何结果")
 	}
 	return posts, nil
+}
+
+func (p *postDAO) DeleteById(ctx context.Context, id int64) error {
+	err := p.db.WithContext(ctx).Delete(&Post{}, id).Error
+	return err
 }
