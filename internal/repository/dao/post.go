@@ -198,7 +198,7 @@ func (p *postDAO) DeleteById(ctx context.Context, post domain.Post) error {
 		}
 	}()
 
-	// 更新帖子的删除时间，这里假设您有一个表示删除状态的字段，例如 `IsDeleted`
+	// 更新帖子的删除时间
 	if err := tx.Model(Post{}).Where("id = ?", post.ID).Update("deleted_at", now).Update("status", domain.Deleted).Update("deleted", true).Error; err != nil {
 		tx.Rollback()
 		p.l.Error("更新帖子的删除时间出错", zap.Error(err))
