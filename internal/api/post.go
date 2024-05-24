@@ -23,15 +23,15 @@ func NewPostHandler(svc service.PostService, l *zap.Logger) *PostHandler {
 }
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup := server.Group("/posts")
-	postGroup.POST("/edit", WrapBody(ph.Edit))             // 编辑帖子
-	postGroup.PUT("/update", WrapBody(ph.Update))          // 更新帖子
-	postGroup.PUT("/publish", WrapBody(ph.Publish))        // 更新帖子状态为发布
-	postGroup.PUT("/withdraw", WrapBody(ph.Withdraw))      // 更新帖子状态为撤回
-	postGroup.GET("/list", WrapBody(ph.List))              // 可以添加分页和排序参数
-	postGroup.GET("/list_pub", WrapBody(ph.ListPub))       // 同上
-	postGroup.GET("/detail/:postId", ph.Detail)            // 使用参数获取特定帖子详细数据
-	postGroup.GET("/detail_pub/:postId", ph.DetailPub)     // 同上
-	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost)) // 使用 DELETE 方法删除特定帖子
+	postGroup.POST("/edit", WrapBody(ph.Edit))                   // 编辑帖子
+	postGroup.PUT("/update", WrapBody(ph.Update))                // 更新帖子
+	postGroup.PUT("/publish", WrapBody(ph.Publish))              // 更新帖子状态为发布
+	postGroup.PUT("/withdraw", WrapBody(ph.Withdraw))            // 更新帖子状态为撤回
+	postGroup.GET("/list", WrapBody(ph.List))                    // 可以添加分页和排序参数
+	postGroup.GET("/list_pub", WrapBody(ph.ListPub))             // 同上
+	postGroup.GET("/detail/:postId", WrapBody(ph.Detail))        // 使用参数获取特定帖子详细数据
+	postGroup.GET("/detail_pub/:postId", WrapBody(ph.DetailPub)) // 同上
+	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))       // 使用 DELETE 方法删除特定帖子
 	postGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(200, "hello")
 	})
@@ -49,10 +49,10 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 		},
 	})
 	if err != nil {
-		ph.l.Error(PostEditERROR, zap.Error(err))
+		ph.l.Error(PostEditError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -72,10 +72,10 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostUpdateERROR, zap.Error(err))
+		ph.l.Error(PostUpdateError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -92,10 +92,10 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostPublishERROR, zap.Error(err))
+		ph.l.Error(PostPublishError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -113,10 +113,10 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostWithdrawERROR, zap.Error(err))
+		ph.l.Error(PostWithdrawError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -138,10 +138,10 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		ph.l.Error(PostListPubERROR, zap.Error(err))
+		ph.l.Error(PostListPubError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -151,20 +151,58 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 	}, nil
 }
 
-func (ph *PostHandler) Detail(ctx *gin.Context) {
+func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 
+	posts, err := ph.svc.GetDraftsByAuthor(ctx, req.AuthorId)
+	if err != nil {
+		ph.l.Error(PostGetDetailERROR, zap.Error(err))
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetDetailERROR,
+		}, nil
+	}
+	var post domain.Post
+	for _, p := range posts {
+		if p.ID == req.PostId {
+			post = p
+			break
+		}
+	}
+	if post.ID == 0 {
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetPostERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetDetailSuccess,
+		Data: posts,
+	}, nil
 }
 
-func (ph *PostHandler) DetailPub(ctx *gin.Context) {
-
+func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error) {
+	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId)
+	if err != nil {
+		ph.l.Error(PostGetPubDetailERROR, zap.Error(err))
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetPubDetailERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetPubDetailSuccess,
+		Data: post,
+	}, nil
 }
 
 func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
 	if err := ph.svc.Delete(ctx, req.PostId); err != nil {
-		ph.l.Error(PostDeleteERROR, zap.Error(err))
+		ph.l.Error(PostDeleteError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
