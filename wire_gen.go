@@ -30,7 +30,7 @@ func InitWebServer() *gin.Engine {
 	userCache := cache.NewUserCache(cmdable)
 	logger := ioc.InitLogger()
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, logger)
 	handler := jwt.NewJWTHandler(cmdable)
 	userHandler := api.NewUserHandler(userService, handler, logger)
 	client := ioc.InitMongoDB()

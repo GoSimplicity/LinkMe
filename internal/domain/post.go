@@ -1,5 +1,7 @@
 package domain
 
+import "sync/atomic"
+
 const (
 	Draft     = "Draft"     // 草稿状态
 	Published = "Published" // 发布状态
@@ -28,6 +30,27 @@ type Post struct {
 	Tags         string
 	CommentCount int64
 	ViewCount    int64
+}
+
+type Interactive struct {
+	BizID        int64
+	ReadCount    int64
+	LikeCount    int64
+	CollectCount int64
+	Liked        bool
+	Collected    bool
+}
+
+func (i *Interactive) IncrementReadCount() {
+	atomic.AddInt64(&i.ReadCount, 1)
+}
+
+func (i *Interactive) IncrementLikeCount() {
+	atomic.AddInt64(&i.LikeCount, 1)
+}
+
+func (i *Interactive) IncrementCollectCount() {
+	atomic.AddInt64(&i.CollectCount, 1)
 }
 
 type Pagination struct {
