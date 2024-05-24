@@ -5,12 +5,13 @@ import (
 	"LinkMe/internal/repository"
 	"context"
 	"errors"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	ErrDuplicateEmail        = repository.ErrDuplicateEmail
-	ErrInvalidUserOrPassword = errors.New("用户或密码不对")
+	ErrInvalidUserOrPassword = errors.New("username or password is incorrect")
 )
 
 type UserService interface {
@@ -20,11 +21,13 @@ type UserService interface {
 
 type userService struct {
 	repo repository.UserRepository
+	l    *zap.Logger
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
+func NewUserService(repo repository.UserRepository, l *zap.Logger) UserService {
 	return &userService{
 		repo: repo,
+		l:    l,
 	}
 }
 
@@ -32,6 +35,7 @@ func NewUserService(repo repository.UserRepository) UserService {
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
+		us.l.Error("password conversion filed")
 		return err
 	}
 	u.Password = string(hash)
@@ -45,11 +49,13 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return domain.User{}, err
 	} else if err != nil {
+		us.l.Error("user not found", zap.Error(err))
 		return domain.User{}, err
 	}
 	// 将密文密码转为明文
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
+		us.l.Error("password conversion filed", zap.Error(err))
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	return u, nil
