@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	PostUpdateERROR = errors.New("ID 不对或者创作者不对")
+	ErrPostNotFound  = errors.New("post not found")
+	ErrInvalidParams = errors.New("invalid parameters")
+	ErrSyncFailed    = errors.New("sync failed")
 )
 
 type PostDAO interface {
@@ -43,21 +45,29 @@ func NewPostDAO(db *gorm.DB, l *zap.Logger, client *mongo.Client) PostDAO {
 	}
 }
 
+// 获取当前时间的时间戳
+func (p *postDAO) getCurrentTime() int64 {
+	return time.Now().UnixMilli()
+}
+
 // Insert 创建一个新的帖子记录(mysql)
-func (p *postDAO) Insert(ctx context.Context, pst Post) (int64, error) {
-	now := time.Now().UnixMilli()
-	pst.CreateTime = now
-	pst.UpdatedTime = now
-	if err := p.db.WithContext(ctx).Create(&pst).Error; err != nil {
-		p.l.Error("帖子插入数据库发生错误", zap.Error(err))
+func (p *postDAO) Insert(ctx context.Context, post Post) (int64, error) {
+	now := p.getCurrentTime()
+	post.CreateTime = now
+	post.UpdatedTime = now
+	if err := p.db.WithContext(ctx).Create(&post).Error; err != nil {
+		p.l.Error("failed to insert post", zap.Error(err))
 		return -1, err
 	}
-	return pst.ID, nil
+	return post.ID, nil
 }
 
 // UpdateById 通过Id更新帖子
 func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
-	now := time.Now().UnixMilli()
+	if post.ID == 0 || post.Author == 0 {
+		return ErrInvalidParams
+	}
+	now := p.getCurrentTime()
 	res := p.db.WithContext(ctx).Model(&post).Where("id = ? AND author_id = ?", post.ID, post.Author).Updates(map[string]any{
 		"title":      post.Title,
 		"content":    post.Content,
@@ -65,25 +75,24 @@ func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
 		"updated_at": now,
 	})
 	if res.Error != nil {
-		p.l.Error("帖子更新失败", zap.Error(res.Error))
+		p.l.Error("failed to update post", zap.Error(res.Error))
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		p.l.Error("帖子更新失败", zap.Error(PostUpdateERROR))
-		return PostUpdateERROR
+		return ErrPostNotFound
 	}
 	return nil
 }
 
 // UpdateStatus 更新帖子状态
 func (p *postDAO) UpdateStatus(ctx context.Context, post Post) error {
-	now := time.Now().UnixMilli()
+	now := p.getCurrentTime()
 	if err := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", post.ID).
 		Updates(map[string]any{
 			"status":     post.Status,
 			"updated_at": now,
 		}).Error; err != nil {
-		p.l.Error("帖子状态更新失败", zap.Error(err))
+		p.l.Error("failed to update post status", zap.Error(err))
 		return err
 	}
 	return nil
@@ -91,10 +100,9 @@ func (p *postDAO) UpdateStatus(ctx context.Context, post Post) error {
 
 // Sync 同步线上库(mongodb)与制作库(mysql)
 func (p *postDAO) Sync(ctx context.Context, post Post) (int64, error) {
-	var mysqlPost Post
-	var mongoPost Post
-	now := time.Now().UnixMilli()
+	now := p.getCurrentTime()
 	post.UpdatedTime = now
+	var mysqlPost Post
 	// 根据id查询帖子信息
 	if err := p.db.WithContext(ctx).Where("id = ?", post.ID).First(&mysqlPost).Error; err != nil {
 		return -1, err
@@ -102,9 +110,9 @@ func (p *postDAO) Sync(ctx context.Context, post Post) (int64, error) {
 	// 只有在帖子为公开状态才会进行同步
 	if post.Status == domain.Published {
 		// 判断当前id的帖子是否已经被同步
-		if err := p.client.Database("linkme").Collection("posts").FindOne(ctx, bson.M{"id": post.ID}).Decode(&mongoPost); err == nil {
+		if err := p.client.Database("linkme").Collection("posts").FindOne(ctx, bson.M{"id": post.ID}).Decode(&Post{}); err == nil {
 			// 如果MongoDB中已存在相同ID的文章，则不执行同步
-			return -1, errors.New("文章已存在于MongoDB")
+			return -1, ErrSyncFailed
 		}
 		// 如果没同步则执行同步操作
 		if _, err := p.client.Database("linkme").Collection("posts").InsertOne(ctx, mysqlPost); err != nil {
@@ -125,8 +133,8 @@ func (p *postDAO) GetById(ctx context.Context, id int64) (Post, error) {
 	var post Post
 	err := p.db.WithContext(ctx).Where("id = ? AND deleted = ?", id, false).First(&post).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		p.l.Error("没有查到该记录", zap.Error(err))
-		return Post{}, err
+		p.l.Debug("post not found", zap.Error(err))
+		return Post{}, ErrPostNotFound
 	}
 	return post, err
 }
@@ -137,8 +145,8 @@ func (p *postDAO) GetPubById(ctx context.Context, id int64) (Post, error) {
 	status := domain.Published
 	err := p.db.WithContext(ctx).Where("id = ? AND status = ?", id, status).First(&post).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		p.l.Error("没有查到该记录", zap.Error(err))
-		return Post{}, err
+		p.l.Debug("published post not found", zap.Error(err))
+		return Post{}, ErrPostNotFound
 	}
 	return post, err
 }
@@ -148,6 +156,7 @@ func (p *postDAO) GetByAuthor(ctx context.Context, uid int64) ([]Post, error) {
 	var posts []Post
 	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Find(&posts).Error
 	if err != nil {
+		p.l.Error("failed to get posts by author", zap.Error(err))
 		return nil, err
 	}
 	return posts, nil
@@ -172,24 +181,29 @@ func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]
 	var posts []Post
 	cursor, err := collection.Find(ctx, filter, &opts)
 	if err != nil {
-		p.l.Error("数据库查询失败", zap.Error(err))
+		p.l.Error("database query failed", zap.Error(err))
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func(cursor *mongo.Cursor, ctx context.Context) {
+		er := cursor.Close(ctx)
+		if er != nil {
+			p.l.Error("close failed", zap.Error(er))
+		}
+	}(cursor, ctx)
 	// 将获取到的查询结果解码到posts结构体中
 	if err = cursor.All(ctx, &posts); err != nil {
-		p.l.Error("解码查询结果失败", zap.Error(err))
+		p.l.Error("failed to decode query results", zap.Error(err))
 		return nil, err
 	}
 	if len(posts) == 0 {
-		p.l.Debug("查询没有返回任何结果")
+		p.l.Debug("query returned no results")
 	}
 	return posts, nil
 }
 
 // DeleteById 通过id删除帖子
 func (p *postDAO) DeleteById(ctx context.Context, post domain.Post) error {
-	now := time.Now().UnixMilli()
+	now := p.getCurrentTime()
 	// 使用事务来确保操作的原子性
 	tx := p.db.WithContext(ctx).Begin()
 	defer func() {
@@ -200,13 +214,13 @@ func (p *postDAO) DeleteById(ctx context.Context, post domain.Post) error {
 	// 更新帖子的删除时间
 	if err := tx.Model(Post{}).Where("id = ?", post.ID).Update("deleted_at", now).Update("status", domain.Deleted).Update("deleted", true).Error; err != nil {
 		tx.Rollback()
-		p.l.Error("更新帖子的删除时间出错", zap.Error(err))
+		p.l.Error("failed to update post deletion time", zap.Error(err))
 		return err
 	}
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		p.l.Error("提交事务出错", zap.Error(err))
+		p.l.Error("failed to commit transaction", zap.Error(err))
 		return err
 	}
 	return nil
