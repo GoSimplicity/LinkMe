@@ -11,16 +11,19 @@ import (
 )
 
 type PostHandler struct {
-	svc service.PostService
-	l   *zap.Logger
+	svc    service.PostService
+	intSvc service.InteractiveService
+	l      *zap.Logger
 }
 
-func NewPostHandler(svc service.PostService, l *zap.Logger) *PostHandler {
+func NewPostHandler(svc service.PostService, l *zap.Logger, intSvc service.InteractiveService) *PostHandler {
 	return &PostHandler{
-		svc: svc,
-		l:   l,
+		svc:    svc,
+		l:      l,
+		intSvc: intSvc,
 	}
 }
+
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup := server.Group("/posts")
 	postGroup.POST("/edit", WrapBody(ph.Edit))             // 编辑帖子
@@ -32,6 +35,8 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.GET("/detail/:postId", ph.Detail)            // 使用参数获取特定帖子详细数据
 	postGroup.GET("/detail_pub/:postId", ph.DetailPub)     // 同上
 	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost)) // 使用 DELETE 方法删除特定帖子
+	postGroup.POST("/like", WrapBody(ph.Like))             // 点赞
+	postGroup.POST("/collect", WrapBody(ph.Collect))       // 收藏
 	postGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(200, "hello")
 	})
@@ -172,4 +177,12 @@ func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, erro
 		Msg:  PostDeleteSuccess,
 		Data: req.PostId,
 	}, nil
+}
+
+func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
+	return Result{}, nil
+}
+
+func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error) {
+	return Result{}, nil
 }
