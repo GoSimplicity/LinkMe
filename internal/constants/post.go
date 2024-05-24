@@ -15,4 +15,9 @@ const (
 	PostDeleteSuccess       = "Post delete success"       // 帖子删除成功
 	PostDeleteError         = "Post delete failed"        // 帖子删除失败
 	PostServerError         = "Post server error"
+	PostGetDetailERROR      = "Post get detail failed" //获取帖子详情失败
+	PostGetPostERROR        = "Post get post failed"   //获取帖子失败
+	PostGetDetailSuccess    = "Post get detail success"
+	PostGetPubDetailERROR   = "Post get pub detail failed"
+	PostGetPubDetailSuccess = "Post get pub detail success"
 )
