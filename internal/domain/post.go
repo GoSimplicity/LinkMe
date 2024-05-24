@@ -1,5 +1,12 @@
 package domain
 
+const (
+	Draft     = "Draft"     // 草稿状态
+	Published = "Published" // 发布状态
+	Withdrawn = "Withdrawn" // 撤回状态
+	Deleted   = "Deleted"   // 删除状态
+)
+
 type Author struct {
 	Id   int64
 	Name string
@@ -31,15 +38,6 @@ type Pagination struct {
 	Offset *int64 // 数据偏移量
 	Total  *int64 // 总数据量
 }
-
-type PostStatus uint8
-
-const (
-	Draft     = "Draft"     // 草稿状态
-	Published = "Published" // 发布状态
-	Withdrawn = "Withdrawn" // 撤回状态
-	Deleted   = "Deleted"   // 删除状态
-)
 
 func (p Post) Abstract() string {
 	// 将Content转换为一个rune切片

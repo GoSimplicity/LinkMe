@@ -49,10 +49,10 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 		},
 	})
 	if err != nil {
-		ph.l.Error(PostEditERROR, zap.Error(err))
+		ph.l.Error(PostEditError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -72,10 +72,10 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostUpdateERROR, zap.Error(err))
+		ph.l.Error(PostUpdateError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -92,10 +92,10 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostPublishERROR, zap.Error(err))
+		ph.l.Error(PostPublishError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -113,10 +113,10 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostWithdrawERROR, zap.Error(err))
+		ph.l.Error(PostWithdrawError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -138,10 +138,10 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		ph.l.Error(PostListPubERROR, zap.Error(err))
+		ph.l.Error(PostListPubError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
@@ -161,10 +161,10 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context) {
 
 func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
 	if err := ph.svc.Delete(ctx, req.PostId); err != nil {
-		ph.l.Error(PostDeleteERROR, zap.Error(err))
+		ph.l.Error(PostDeleteError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
-			Msg:  PostServerERROR,
+			Msg:  PostServerError,
 		}, err
 	}
 	return Result{
