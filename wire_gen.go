@@ -38,7 +38,10 @@ func InitWebServer() *gin.Engine {
 	postCache := cache.NewPostCache(cmdable, logger)
 	postRepository := repository.NewPostRepository(postDAO, logger, postCache)
 	postService := service.NewPostService(postRepository, logger)
-	postHandler := api.NewPostHandler(postService, logger)
+	interactiveDAO := dao.NewInteractiveDAO(db)
+	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger)
+	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
+	postHandler := api.NewPostHandler(postService, logger, interactiveService)
 	v := ioc.InitMiddlewares(handler, logger)
 	engine := ioc.InitWebServer(userHandler, postHandler, v)
 	return engine
