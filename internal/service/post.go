@@ -68,18 +68,30 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 }
 
 func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	dp, err := p.repo.GetDraftsByAuthor(ctx, authorId)
+	if err != nil {
+		p.l.Error("根据uid获取帖子失败", zap.Error(err))
+		return nil, err
+	}
+	return dp, nil
 }
 
 func (p *postService) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	dp, err := p.repo.GetPostById(ctx, postId)
+	if err != nil {
+		p.l.Error("根据id获取帖子失败", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return dp, err
 }
 
 func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	dp, err := p.repo.GetPublishedPostById(ctx, postId)
+	if err != nil {
+		p.l.Error("根据id获取公开帖子失败", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return dp, nil
 }
 
 func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {

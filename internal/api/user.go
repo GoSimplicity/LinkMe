@@ -73,7 +73,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	if !passwordBool {
 		return Result{
 			Code: UserInvalidInput,
-			Msg:  "密码必须包含字母、数字、特殊字符",
+			Msg:  "密码必须包含字母、数字、特殊字符，并且不少于八位",
 		}, nil
 	}
 	err = uh.svc.SignUp(ctx.Request.Context(), domain.User{
