@@ -162,12 +162,6 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 		}, nil
 	}
 	var post domain.Post
-	for _, p := range posts {
-		if p.ID == req.PostId {
-			post = p
-			break
-		}
-	}
 	if post.ID == 0 {
 		return Result{
 			Code: PostInternalServerError,
