@@ -12,15 +12,15 @@ import (
 )
 
 type PostRepository interface {
-	Create(ctx context.Context, post domain.Post) (int64, error)                                                // 创建一个新的帖子
-	Update(ctx context.Context, post domain.Post) error                                                         // 更新一个现有的帖子
-	UpdateStatus(ctx context.Context, post domain.Post) error                                                   // 更新帖子的状态
-	GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) // 根据作者ID获取草稿帖子
-	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                                         // 根据ID获取一个帖子
-	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                                // 根据ID获取一个已发布的帖子
-	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)                // 获取已发布的帖子列表
-	Delete(ctx context.Context, post domain.Post) error                                                         // 删除一个帖子
-	Sync(ctx context.Context, post domain.Post) (int64, error)                                                  // 用于同步帖子记录
+	Create(ctx context.Context, post domain.Post) (int64, error)                                 // 创建一个新的帖子
+	Update(ctx context.Context, post domain.Post) error                                          // 更新一个现有的帖子
+	UpdateStatus(ctx context.Context, post domain.Post) error                                    // 更新帖子的状态
+	GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error)                // 根据作者ID获取草稿帖子
+	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                          // 根据ID获取一个帖子
+	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 根据ID获取一个已发布的帖子
+	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表
+	Delete(ctx context.Context, post domain.Post) error                                          // 删除一个帖子
+	Sync(ctx context.Context, post domain.Post) (int64, error)                                   // 用于同步帖子记录
 
 }
 
@@ -83,9 +83,13 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	return nil
 }
 
-func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
+	dp, err := p.dao.GetByAuthor(ctx, authorId)
+	if err != nil {
+		p.l.Error("通过uid获取帖子失败", zap.Error(err))
+		return nil, err
+	}
+	return toDomainSlicePost(dp), nil
 }
 
 func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
@@ -98,8 +102,11 @@ func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.
 }
 
 func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	dp, err := p.dao.GetPubById(ctx, postId)
+	if err != nil {
+		return domain.Post{}, err
+	}
+	return toDomainPost(dp), nil
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
