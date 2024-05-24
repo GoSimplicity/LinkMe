@@ -1,7 +1,7 @@
 package api
 
 import (
-	"LinkMe/internal/constants"
+	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/service"
 	svcmocks "LinkMe/internal/service/mocks"
@@ -29,7 +29,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 			wantCode: 200,
 			wantBody: ginp.Result{
 				Code: http.StatusOK,
-				Msg:  "注册成功",
+				Msg:  UserSignUpSuccess,
 			},
 			mock: func(ctrl *gomock.Controller) service.UserService {
 				userSvc := svcmocks.NewMockUserService(ctrl)
@@ -75,8 +75,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 			name:     "非法邮箱格式",
 			wantCode: http.StatusOK,
 			wantBody: ginp.Result{
-				Code: constants.UserInvalidInput,
-				Msg:  "账号注册失败,请检查邮箱格式",
+				Code: UserInvalidInput,
+				Msg:  UserEmailFormatError,
 			},
 			mock: func(ctrl *gomock.Controller) service.UserService {
 				userSvc := svcmocks.NewMockUserService(ctrl)
@@ -97,8 +97,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 			name:     "两次输入密码不对",
 			wantCode: http.StatusOK,
 			wantBody: ginp.Result{
-				Code: constants.UserInvalidInput,
-				Msg:  "输入的两次密码不同,请重新输入",
+				Code: UserInvalidInput,
+				Msg:  UserPasswordMismatchError,
 			},
 			mock: func(ctrl *gomock.Controller) service.UserService {
 				userSvc := svcmocks.NewMockUserService(ctrl)
@@ -119,8 +119,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 			name:     "密码必须包含字母、数字、特殊字符，并且不少于八位",
 			wantCode: http.StatusOK,
 			wantBody: ginp.Result{
-				Code: constants.UserInvalidInput,
-				Msg:  "密码必须包含字母、数字、特殊字符，并且不少于八位",
+				Code: UserInvalidInput,
+				Msg:  UserPasswordFormatError,
 			},
 			mock: func(ctrl *gomock.Controller) service.UserService {
 				userSvc := svcmocks.NewMockUserService(ctrl)
@@ -141,8 +141,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 			name:     "邮箱冲突",
 			wantCode: 200,
 			wantBody: ginp.Result{
-				Code: constants.UserDuplicateEmail,
-				Msg:  "邮箱冲突",
+				Code: UserDuplicateEmail,
+				Msg:  UserEmailConflictError,
 			},
 			mock: func(ctrl *gomock.Controller) service.UserService {
 				userSvc := svcmocks.NewMockUserService(ctrl)
