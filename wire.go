@@ -23,6 +23,7 @@ func InitWebServer() *gin.Engine {
 		ioc.InitRedis,
 		ioc.InitLogger,
 		ioc.InitMongoDB,
+		ioc.InitSaramaClient,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
