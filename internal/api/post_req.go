@@ -31,3 +31,13 @@ type UpdateReq struct {
 type DeleteReq struct {
 	PostId int64 `uri:"postId"`
 }
+
+type LikeReq struct {
+	PostId int64 `json:"postId,omitempty"`
+	Like   bool  `json:"like,omitempty"`
+}
+
+type CollectReq struct {
+	PostId    int64 `json:"postId,omitempty"`
+	CollectId bool  `json:"collectId,omitempty"`
+}
