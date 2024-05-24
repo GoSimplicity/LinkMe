@@ -57,13 +57,13 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	if !emailBool {
 		return Result{
 			Code: UserInvalidInput,
-			Msg:  "账号注册失败,请检查邮箱格式",
+			Msg:  UserEmailFormatError,
 		}, nil
 	}
 	if req.Password != req.ConfirmPassword {
 		return Result{
 			Code: UserInvalidInput,
-			Msg:  "输入的两次密码不同,请重新输入",
+			Msg:  UserPasswordMismatchError,
 		}, nil
 	}
 	passwordBool, err := uh.PassWord.MatchString(req.Password)
@@ -73,7 +73,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	if !passwordBool {
 		return Result{
 			Code: UserInvalidInput,
-			Msg:  "密码必须包含字母、数字、特殊字符，并且不少于八位",
+			Msg:  UserPasswordFormatError,
 		}, nil
 	}
 	err = uh.svc.SignUp(ctx.Request.Context(), domain.User{
@@ -83,18 +83,18 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	if err == nil {
 		return Result{
 			Code: RequestsOK,
-			Msg:  "注册成功",
+			Msg:  UserSignUpSuccess,
 		}, nil
 	} else if errors.Is(err, service.ErrDuplicateEmail) {
 		return Result{
 			Code: UserDuplicateEmail,
-			Msg:  "邮箱冲突",
+			Msg:  UserEmailConflictError,
 		}, nil
 	}
 	uh.l.Error("注册失败", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
-		Msg:  "系统异常",
+		Msg:  UserSignUpFailure,
 	}, err
 }
 
@@ -105,19 +105,18 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 		err = uh.ijwt.SetLoginToken(ctx, du.ID)
 		return Result{
 			Code: RequestsOK,
-			Msg:  "登陆成功",
+			Msg:  UserLoginSuccess,
 			Data: du,
 		}, nil
 	} else if errors.Is(err, service.ErrInvalidUserOrPassword) {
 		return Result{
 			Code: UserInvalidOrPassword,
-			Msg:  "用户名或密码不对",
+			Msg:  UserLoginFailure,
 		}, nil
 	}
 	uh.l.Error("登陆失败", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
-		Msg:  "系统错误",
 	}, err
 }
 
@@ -126,10 +125,10 @@ func (uh *UserHandler) Logout(ctx *gin.Context) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
 		uh.l.Error("登出失败", zap.Error(err))
-		ctx.JSON(ServerERROR, gin.H{"error": "系统异常"})
+		ctx.JSON(ServerERROR, gin.H{"error": UserLogoutFailure})
 		return
 	}
-	ctx.JSON(RequestsOK, gin.H{"message": "登出成功"})
+	ctx.JSON(RequestsOK, gin.H{"message": UserLogoutSuccess})
 }
 
 // RefreshToken 刷新令牌
@@ -162,6 +161,6 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(RequestsOK, gin.H{
-		"message": "令牌刷新成功",
+		"message": UserRefreshTokenSuccess,
 	})
 }
