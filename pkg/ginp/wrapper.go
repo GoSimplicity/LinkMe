@@ -13,7 +13,9 @@ func WrapBody[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gi
 		// 使用 ShouldBindJSON 替换 Bind，以便于更好地处理错误，避免直接 panic
 		if err := ctx.ShouldBindJSON(&req); err != nil {
 			// 当请求体解析失败时，返回适当的HTTP错误响应而非 panic
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "无效的请求负载"})
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, Result{
+				Msg: "无效的请求负载",
+			})
 			return
 		}
 
