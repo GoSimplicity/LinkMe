@@ -16,7 +16,7 @@ type PostRepository interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)
 	Update(ctx context.Context, post domain.Post) error
 	UpdateStatus(ctx context.Context, post domain.Post) error
-	GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error)
+	GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error)
 	GetPostById(ctx context.Context, postId int64) (domain.Post, error)
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
@@ -83,13 +83,13 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	return nil
 }
 
-func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
+func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error) {
 	dp, err := p.dao.GetByAuthor(ctx, authorId)
 	if err != nil {
 		p.l.Error("get post filed by uid", zap.Error(err))
-		return nil, err
+		return domain.Post{}, err
 	}
-	return toDomainSlicePost(dp), nil
+	return toDomainPost(dp), nil
 }
 
 func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {

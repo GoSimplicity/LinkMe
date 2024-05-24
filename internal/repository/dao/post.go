@@ -24,7 +24,7 @@ type PostDAO interface {
 	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
 	Sync(ctx context.Context, post Post) (int64, error)                        // 用于同步帖子记录
 	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
-	GetByAuthor(ctx context.Context, uid int64) ([]Post, error)                // 根据作者ID获取帖子记录
+	GetByAuthor(ctx context.Context, uid int64) (Post, error)                  // 根据作者ID获取帖子记录
 	GetById(ctx context.Context, id int64) (Post, error)                       // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, id int64) (Post, error)                    // 根据ID获取一个已发布的帖子记录
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
@@ -152,14 +152,14 @@ func (p *postDAO) GetPubById(ctx context.Context, id int64) (Post, error) {
 }
 
 // GetByAuthor 根据作者ID获取帖子记录
-func (p *postDAO) GetByAuthor(ctx context.Context, uid int64) ([]Post, error) {
-	var posts []Post
-	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Find(&posts).Error
+func (p *postDAO) GetByAuthor(ctx context.Context, uid int64) (Post, error) {
+	var post Post
+	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Find(&post).Error
 	if err != nil {
 		p.l.Error("failed to get posts by author", zap.Error(err))
-		return nil, err
+		return Post{}, err
 	}
-	return posts, nil
+	return post, nil
 }
 
 // ListPub 查询公开帖子

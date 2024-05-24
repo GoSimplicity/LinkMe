@@ -23,18 +23,21 @@ func InitWebServer() *gin.Engine {
 		ioc.InitRedis,
 		ioc.InitLogger,
 		ioc.InitMongoDB,
-		ioc.InitSaramaClient,
+		//ioc.InitSaramaClient,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
 		service.NewUserService,
 		service.NewPostService,
+		service.NewInteractiveService,
 		repository.NewUserRepository,
 		repository.NewPostRepository,
+		repository.NewInteractiveRepository,
 		cache.NewUserCache,
 		cache.NewPostCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
+		dao.NewInteractiveDAO,
 	)
 	return gin.Default()
 }
