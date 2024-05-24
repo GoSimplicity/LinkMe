@@ -1,18 +1,23 @@
 package constants
 
 const (
-	PostInternalServerError = 502001 // 系统错误
-	PostEditSuccess         = "帖子编辑成功"
-	PostEditERROR           = "帖子编辑失败"
-	PostUpdateSuccess       = "帖子更新成功"
-	PostUpdateERROR         = "帖子更新失败"
-	PostServerERROR         = "系统错误"
-	PostPublishSuccess      = "帖子发布成功"
-	PostPublishERROR        = "帖子发布失败"
-	PostWithdrawSuccess     = "帖子撤销成功"
-	PostWithdrawERROR       = "帖子撤销失败"
-	PostListPubSuccess      = "公开帖子查询成功"
-	PostListPubERROR        = "公开帖子查询失败"
-	PostDeleteSuccess       = "帖子删除成功"
-	PostDeleteERROR         = "帖子删除失败"
+	PostInternalServerError = 502001                      // 系统错误
+	PostEditSuccess         = "Post edit success"         // 帖子编辑成功
+	PostEditError           = "Post edit failed"          // 帖子编辑失败
+	PostUpdateSuccess       = "Post update success"       // 帖子更新成功
+	PostUpdateError         = "Post update failed"        // 帖子更新失败
+	PostPublishSuccess      = "Post publish success"      // 帖子发布成功
+	PostPublishError        = "Post publish failed"       // 帖子发布失败
+	PostWithdrawSuccess     = "Post withdraw success"     // 帖子撤销成功
+	PostWithdrawError       = "Post withdraw failed"      // 帖子撤销失败
+	PostListPubSuccess      = "Public post query success" // 公开帖子查询成功
+	PostListPubError        = "Public post query failed"  // 公开帖子查询失败
+	PostDeleteSuccess       = "Post delete success"       // 帖子删除成功
+	PostDeleteError         = "Post delete failed"        // 帖子删除失败
+	PostServerError         = "Post server error"
+	PostGetDetailERROR      = "Post get detail failed" //获取帖子详情失败
+	PostGetPostERROR        = "Post get post failed"   //获取帖子失败
+	PostGetDetailSuccess    = "Post get detail success"
+	PostGetPubDetailERROR   = "Post get pub detail failed"
+	PostGetPubDetailSuccess = "Post get pub detail success"
 )

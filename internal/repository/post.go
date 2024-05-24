@@ -12,15 +12,15 @@ import (
 )
 
 type PostRepository interface {
-	Create(ctx context.Context, post domain.Post) (int64, error)                                                // 创建一个新的帖子
-	Update(ctx context.Context, post domain.Post) error                                                         // 更新一个现有的帖子
-	UpdateStatus(ctx context.Context, post domain.Post) error                                                   // 更新帖子的状态
-	GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) // 根据作者ID获取草稿帖子
-	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                                         // 根据ID获取一个帖子
-	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                                // 根据ID获取一个已发布的帖子
-	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)                // 获取已发布的帖子列表
-	Delete(ctx context.Context, post domain.Post) error                                                         // 删除一个帖子
-	Sync(ctx context.Context, post domain.Post) (int64, error)                                                  // 用于同步帖子记录
+	Create(ctx context.Context, post domain.Post) (int64, error)                                 // 创建一个新的帖子
+	Update(ctx context.Context, post domain.Post) error                                          // 更新一个现有的帖子
+	UpdateStatus(ctx context.Context, post domain.Post) error                                    // 更新帖子的状态
+	GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error)                // 根据作者ID获取草稿帖子
+	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                          // 根据ID获取一个帖子
+	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 根据ID获取一个已发布的帖子
+	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表
+	Delete(ctx context.Context, post domain.Post) error                                          // 删除一个帖子
+	Sync(ctx context.Context, post domain.Post) (int64, error)                                   // 用于同步帖子记录
 
 }
 
@@ -42,12 +42,12 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (int64, e
 	post.Slug = uuid.New().String()
 	id, err := p.dao.Insert(ctx, fromDomainPost(post))
 	if err != nil {
-		p.l.Error("文章插入发生错误", zap.Error(err))
+		p.l.Error("post insert filed", zap.Error(err))
 		return -1, err
 	}
 	// 删除缓存
 	if er := p.c.DelFirstPage(ctx, id); er != nil {
-		p.l.Warn("删除缓存失败", zap.Error(er))
+		p.l.Warn("delete cache filed", zap.Error(er))
 		return -1, er
 	}
 	return id, nil
@@ -56,12 +56,12 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (int64, e
 func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	// 删除缓存
 	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("删除缓存失败", zap.Error(err))
+		p.l.Warn("delete cache filed", zap.Error(err))
 		return err
 	}
 	// 更新数据库
 	if err := p.dao.UpdateById(ctx, fromDomainPost(post)); err != nil {
-		p.l.Error("更新帖子失败", zap.Error(err))
+		p.l.Error("update post filed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -72,34 +72,42 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	post.UpdatedTime = now
 	// 删除缓存
 	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("删除缓存失败", zap.Error(err))
+		p.l.Warn("delete cache filed", zap.Error(err))
 		return err
 	}
 	// 更新数据库
 	if err := p.dao.UpdateStatus(ctx, fromDomainPost(post)); err != nil {
-		p.l.Error("更新帖子状态失败", zap.Error(err))
+		p.l.Error("update post status filed", zap.Error(err))
 		return err
 	}
 	return nil
 }
 
-func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64, pagination domain.Pagination) ([]domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) ([]domain.Post, error) {
+	dp, err := p.dao.GetByAuthor(ctx, authorId)
+	if err != nil {
+		p.l.Error("get post filed by uid", zap.Error(err))
+		return nil, err
+	}
+	return toDomainSlicePost(dp), nil
 }
 
 func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
 	post, err := p.dao.GetById(ctx, postId)
 	if err != nil {
-		p.l.Error("根据id获取帖子失败", zap.Error(err))
+		p.l.Error("get post filed by id", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return toDomainPost(post), nil
 }
 
 func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	//TODO implement me
-	panic("implement me")
+	dp, err := p.dao.GetPubById(ctx, postId)
+	if err != nil {
+		p.l.Error("get pub post filed by id", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return toDomainPost(dp), nil
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
@@ -114,13 +122,13 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.ListPub(ctx, pagination)
 	if err != nil {
-		p.l.Error("公开文章获取失败", zap.Error(err))
+		p.l.Error("get pub post filed", zap.Error(err))
 		return nil, err
 	}
 	posts := toDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择更新缓存
 	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
-		p.l.Warn("缓存设置失败", zap.Error(er))
+		p.l.Warn("set cache filed", zap.Error(er))
 	}
 	return posts, nil
 }
@@ -128,7 +136,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 func (p *postRepository) Delete(ctx context.Context, post domain.Post) error {
 	// 删除缓存
 	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("删除缓存失败", zap.Error(err))
+		p.l.Warn("delete cache filed", zap.Error(err))
 		return err
 	}
 	return p.dao.DeleteById(ctx, post)
@@ -143,20 +151,20 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 	// 获取帖子详情，以检查状态是否发生变化
 	mp, err := p.dao.GetById(ctx, post.ID)
 	if err != nil {
-		p.l.Error("获取post失败", zap.Error(err))
+		p.l.Error("get post filed", zap.Error(err))
 		return -1, err
 	}
 	// 检查状态是否发生变化，如果发生变化，删除缓存
 	if mp.Status != post.Status {
 		// 删除缓存
 		if er := p.c.DelFirstPage(ctx, post.ID); er != nil {
-			p.l.Warn("删除缓存失败", zap.Error(er))
+			p.l.Warn("delete cache filed", zap.Error(er))
 		}
 	}
 	// 同步操作
 	id, err := p.dao.Sync(ctx, fromDomainPost(post))
 	if err != nil {
-		p.l.Error("同步post失败", zap.Error(err))
+		p.l.Error("post sync filed", zap.Error(err))
 		return -1, err
 	}
 	return id, nil
