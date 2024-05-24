@@ -11,8 +11,8 @@ import (
 
 var (
 	ErrCodeDuplicateEmailNumber uint16 = 1062
-	ErrDuplicateEmail                  = errors.New("邮箱冲突")
-	ErrUserNotFound                    = errors.New("用户未找到")
+	ErrDuplicateEmail                  = errors.New("duplicate email")
+	ErrUserNotFound                    = errors.New("user not found")
 )
 
 type UserDAO interface {
@@ -31,19 +31,24 @@ func NewUserDAO(db *gorm.DB) UserDAO {
 	}
 }
 
+// 获取当前时间的时间戳
+func (ud *userDAO) currentTime() int64 {
+	return time.Now().UnixMilli()
+}
+
 // CreateUser 创建用户
 func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
-	var m *mysql.MySQLError
-	u.CreateTime = time.Now().UnixMilli()
-	u.UpdatedTime = time.Now().UnixMilli()
+	u.CreateTime = ud.currentTime()
+	u.UpdatedTime = u.CreateTime
 	err := ud.db.WithContext(ctx).Create(&u).Error
-	if errors.As(err, &m) {
-		if m.Number == ErrCodeDuplicateEmailNumber {
+	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == ErrCodeDuplicateEmailNumber {
 			return ErrDuplicateEmail
 		}
 		return err
 	}
-	return err
+	return nil
 }
 
 // FindByID 根据ID查询用户数据
