@@ -18,14 +18,14 @@ var (
 )
 
 type PostDAO interface {
-	Insert(ctx context.Context, post Post) (int64, error)                              // 创建一个新的帖子记录
-	UpdateById(ctx context.Context, post Post) error                                   // 根据ID更新一个帖子记录
-	Sync(ctx context.Context, post Post) (int64, error)                                // 用于同步帖子记录
-	UpdateStatus(ctx context.Context, post Post) error                                 // 更新帖子的状态
-	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) // 根据作者ID获取帖子记录
-	GetById(ctx context.Context, id int64) (Post, error)                               // 根据ID获取一个帖子记录
-	GetPubById(ctx context.Context, id int64) (PublishedPost, error)                   // 根据ID获取一个已发布的帖子记录
-	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error)         // 获取已发布的帖子记录列表
+	Insert(ctx context.Context, post Post) (int64, error)                      // 创建一个新的帖子记录
+	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
+	Sync(ctx context.Context, post Post) (int64, error)                        // 用于同步帖子记录
+	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
+	GetByAuthor(ctx context.Context, uid int64) ([]Post, error)                // 根据作者ID获取帖子记录
+	GetById(ctx context.Context, id int64) (Post, error)                       // 根据ID获取一个帖子记录
+	GetPubById(ctx context.Context, id int64) (Post, error)                    // 根据ID获取一个已发布的帖子记录
+	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
 	DeleteById(ctx context.Context, post domain.Post) error
 }
 
@@ -132,21 +132,21 @@ func (p *postDAO) GetById(ctx context.Context, id int64) (Post, error) {
 }
 
 // GetPubById 根据ID获取一个已发布的帖子记录
-func (p *postDAO) GetPubById(ctx context.Context, id int64) (PublishedPost, error) {
-	var pubPost PublishedPost
+func (p *postDAO) GetPubById(ctx context.Context, id int64) (Post, error) {
+	var post Post
 	status := domain.Published
-	err := p.db.WithContext(ctx).Where("id = ? AND status = ?", id, status).First(&pubPost).Error
+	err := p.db.WithContext(ctx).Where("id = ? AND status = ?", id, status).First(&post).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		p.l.Error("没有查到该记录", zap.Error(err))
-		return PublishedPost{}, err
+		return Post{}, err
 	}
-	return pubPost, err
+	return post, err
 }
 
 // GetByAuthor 根据作者ID获取帖子记录
-func (p *postDAO) GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]Post, error) {
+func (p *postDAO) GetByAuthor(ctx context.Context, uid int64) ([]Post, error) {
 	var posts []Post
-	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Offset(offset).Limit(limit).Find(&posts).Error
+	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Find(&posts).Error
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,6 @@ func (p *postDAO) DeleteById(ctx context.Context, post domain.Post) error {
 			tx.Rollback()
 		}
 	}()
-
 	// 更新帖子的删除时间
 	if err := tx.Model(Post{}).Where("id = ?", post.ID).Update("deleted_at", now).Update("status", domain.Deleted).Update("deleted", true).Error; err != nil {
 		tx.Rollback()
