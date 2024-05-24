@@ -7,11 +7,11 @@ type EditReq struct {
 }
 
 type PublishReq struct {
-	PostId int64 `json:"postId,omitempty"`
+	PostId int64 `uri:"postId"`
 }
 
 type WithDrawReq struct {
-	PostId int64 `json:"postId,omitempty"`
+	PostId int64 `uri:"postId"`
 }
 
 type ListReq struct {
