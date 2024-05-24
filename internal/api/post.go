@@ -156,12 +156,44 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 	}, nil
 }
 
-func (ph *PostHandler) Detail(ctx *gin.Context) {
+func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 
+	posts, err := ph.svc.GetDraftsByAuthor(ctx, req.AuthorId)
+	if err != nil {
+		ph.l.Error(PostGetDetailERROR, zap.Error(err))
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetDetailERROR,
+		}, nil
+	}
+	var post domain.Post
+	if post.ID == 0 {
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetPostERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetDetailSuccess,
+		Data: posts,
+	}, nil
 }
 
-func (ph *PostHandler) DetailPub(ctx *gin.Context) {
-
+func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error) {
+	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId)
+	if err != nil {
+		ph.l.Error(PostGetPubDetailERROR, zap.Error(err))
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostGetPubDetailERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetPubDetailSuccess,
+		Data: post,
+	}, nil
 }
 
 func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
