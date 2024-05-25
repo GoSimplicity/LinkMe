@@ -16,8 +16,8 @@ type PostRepository interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)
 	Update(ctx context.Context, post domain.Post) error
 	UpdateStatus(ctx context.Context, post domain.Post) error
-	GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error)
-	GetPostById(ctx context.Context, postId int64) (domain.Post, error)
+	GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error)
+	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, post domain.Post) error
@@ -83,8 +83,8 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	return nil
 }
 
-func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error) {
-	dp, err := p.dao.GetByAuthor(ctx, authorId)
+func (p *postRepository) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
+	dp, err := p.dao.GetByAuthor(ctx, postId, uid)
 	if err != nil {
 		p.l.Error("get post filed by uid", zap.Error(err))
 		return domain.Post{}, err
@@ -92,8 +92,8 @@ func (p *postRepository) GetDraftsByAuthor(ctx context.Context, authorId int64) 
 	return toDomainPost(dp), nil
 }
 
-func (p *postRepository) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	post, err := p.dao.GetById(ctx, postId)
+func (p *postRepository) GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
+	post, err := p.dao.GetById(ctx, postId, uid)
 	if err != nil {
 		p.l.Error("get post filed by id", zap.Error(err))
 		return domain.Post{}, err
@@ -149,7 +149,7 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 		return -1, err
 	}
 	// 获取帖子详情，以检查状态是否发生变化
-	mp, err := p.dao.GetById(ctx, post.ID)
+	mp, err := p.dao.GetById(ctx, post.ID, post.Author.Id)
 	if err != nil {
 		p.l.Error("get post filed", zap.Error(err))
 		return -1, err
