@@ -20,6 +20,7 @@ type PostRepository interface {
 	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, post domain.Post) error
 	Sync(ctx context.Context, post domain.Post) (int64, error)
 }
@@ -110,10 +111,33 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 	return toDomainPost(dp), nil
 }
 
-func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	if pagination.Page == 1 {
 		// 尝试从缓存中获取第一页的帖子摘要
 		posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
+		if err == nil && len(posts) != 0 {
+			// 如果缓存命中，直接返回缓存中的数据
+			return posts, nil
+		}
+	}
+	// 如果缓存未命中，从数据库中获取数据
+	pub, err := p.dao.List(ctx, pagination)
+	if err != nil {
+		p.l.Error("get pub post filed", zap.Error(err))
+		return nil, err
+	}
+	posts := toDomainSlicePost(pub)
+	// 由于缓存未命中，这里选择更新缓存
+	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
+		p.l.Warn("set cache filed", zap.Error(er))
+	}
+	return posts, nil
+}
+
+func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	if pagination.Page == 1 {
+		// 尝试从缓存中获取第一页的帖子摘要
+		posts, err := p.c.GetPubFirstPage(ctx, pagination.Uid)
 		if err == nil && len(posts) != 0 {
 			// 如果缓存命中，直接返回缓存中的数据
 			return posts, nil
@@ -127,7 +151,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	}
 	posts := toDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择更新缓存
-	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
+	if er := p.c.SetPubFirstPage(ctx, pagination.Uid, posts); er != nil {
 		p.l.Warn("set cache filed", zap.Error(er))
 	}
 	return posts, nil
