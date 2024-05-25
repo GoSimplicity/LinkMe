@@ -11,7 +11,9 @@ const (
 	PostWithdrawSuccess     = "Post withdraw success"     // 帖子撤销成功
 	PostWithdrawError       = "Post withdraw failed"      // 帖子撤销失败
 	PostListPubSuccess      = "Public post query success" // 公开帖子查询成功
+	PostListSuccess         = "post query success"        // 公开帖子查询成功
 	PostListPubError        = "Public post query failed"  // 公开帖子查询失败
+	PostListError           = "post query failed"         // 公开帖子查询失败
 	PostDeleteSuccess       = "Post delete success"       // 帖子删除成功
 	PostDeleteError         = "Post delete failed"        // 帖子删除失败
 	PostServerError         = "Post server error"
