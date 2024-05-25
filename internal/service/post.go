@@ -16,6 +16,7 @@ type PostService interface {
 	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)               // 获取特定ID的帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 获取特定ID的已发布帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表，支持分页
+	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)          // 获取个人帖子列表，支持分页
 	Delete(ctx context.Context, postId int64, uid int64) error                                   // 删除帖子
 }
 
@@ -92,6 +93,13 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (d
 		return domain.Post{}, err
 	}
 	return dp, nil
+}
+
+func (p *postService) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return p.repo.ListPosts(ctx, pagination)
 }
 
 func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {

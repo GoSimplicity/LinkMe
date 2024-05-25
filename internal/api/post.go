@@ -132,7 +132,24 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 }
 
 func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
-	return Result{}, nil
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	du, err := ph.svc.ListPosts(ctx, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+		Uid:  uc.Uid,
+	})
+	if err != nil {
+		ph.l.Error(PostListError, zap.Error(err))
+		return Result{
+			Code: PostInternalServerError,
+			Msg:  PostServerError,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostListSuccess,
+		Data: du,
+	}, nil
 }
 
 func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error) {
