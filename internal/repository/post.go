@@ -43,22 +43,20 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (int64, e
 	post.Slug = uuid.New().String()
 	id, err := p.dao.Insert(ctx, fromDomainPost(post))
 	if err != nil {
-		p.l.Error("post insert filed", zap.Error(err))
+		p.l.Error("post insert failed", zap.Error(err))
 		return -1, err
 	}
 	// 删除缓存
 	if er := p.c.DelFirstPage(ctx, id); er != nil {
-		p.l.Warn("delete cache filed", zap.Error(er))
-		return -1, er
+		p.l.Warn("delete cache failed", zap.Error(er))
 	}
 	return id, nil
 }
 
 func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	// 删除缓存
-	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("delete cache filed", zap.Error(err))
-		return err
+	if er := p.c.DelFirstPage(ctx, post.ID); er != nil {
+		p.l.Warn("delete cache failed", zap.Error(er))
 	}
 	// 更新数据库
 	if err := p.dao.UpdateById(ctx, fromDomainPost(post)); err != nil {
@@ -72,9 +70,8 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	now := time.Now().UnixMilli()
 	post.UpdatedTime = now
 	// 删除缓存
-	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("delete cache filed", zap.Error(err))
-		return err
+	if er := p.c.DelFirstPage(ctx, post.ID); er != nil {
+		p.l.Warn("delete cache failed", zap.Error(er))
 	}
 	// 更新数据库
 	if err := p.dao.UpdateStatus(ctx, fromDomainPost(post)); err != nil {
@@ -112,9 +109,10 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64)
 }
 
 func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	var posts []domain.Post
+	var err error
 	if pagination.Page == 1 {
-		// 尝试从缓存中获取第一页的帖子摘要
-		posts, err := p.c.GetFirstPage(ctx, pagination.Uid)
+		posts, err = p.c.GetFirstPage(ctx, pagination.Uid)
 		if err == nil && len(posts) != 0 {
 			// 如果缓存命中，直接返回缓存中的数据
 			return posts, nil
@@ -123,21 +121,27 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.List(ctx, pagination)
 	if err != nil {
-		p.l.Error("get pub post filed", zap.Error(err))
+		p.l.Error("get pub post failed", zap.Error(err))
 		return nil, err
 	}
-	posts := toDomainSlicePost(pub)
-	// 由于缓存未命中，这里选择更新缓存
-	if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
-		p.l.Warn("set cache filed", zap.Error(er))
-	}
+	posts = toDomainSlicePost(pub)
+	// 如果缓存未命中，这里选择异步更新缓存
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
+			p.l.Warn("set cache failed", zap.Error(er))
+		}
+	}()
 	return posts, nil
 }
 
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	var posts []domain.Post
+	var err error
 	if pagination.Page == 1 {
 		// 尝试从缓存中获取第一页的帖子摘要
-		posts, err := p.c.GetPubFirstPage(ctx, pagination.Uid)
+		posts, err = p.c.GetPubFirstPage(ctx, pagination.Uid)
 		if err == nil && len(posts) != 0 {
 			// 如果缓存命中，直接返回缓存中的数据
 			return posts, nil
@@ -146,14 +150,18 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.ListPub(ctx, pagination)
 	if err != nil {
-		p.l.Error("get pub post filed", zap.Error(err))
+		p.l.Error("get pub post failed", zap.Error(err))
 		return nil, err
 	}
-	posts := toDomainSlicePost(pub)
-	// 由于缓存未命中，这里选择更新缓存
-	if er := p.c.SetPubFirstPage(ctx, pagination.Uid, posts); er != nil {
-		p.l.Warn("set cache filed", zap.Error(er))
-	}
+	posts = toDomainSlicePost(pub)
+	// 由于缓存未命中，这里选择异步更新缓存
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		if er := p.c.SetPubFirstPage(ctx, pagination.Uid, posts); er != nil {
+			p.l.Warn("set cache failed", zap.Error(er))
+		}
+	}()
 	return posts, nil
 }
 
