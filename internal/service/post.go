@@ -119,6 +119,9 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 	post := domain.Post{
 		ID:     postId,
 		Status: domain.Deleted,
+		Author: domain.Author{
+			Id: uid,
+		},
 	}
 	if _, er := p.repo.Sync(ctx, post); er != nil {
 		p.l.Error("db sync filed", zap.Error(er))
