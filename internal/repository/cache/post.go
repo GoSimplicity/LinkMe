@@ -103,12 +103,23 @@ func (p *postCache) SetPubFirstPage(ctx context.Context, id int64, post []domain
 
 // DelFirstPage 删除第一页帖子摘要
 func (p *postCache) DelFirstPage(ctx context.Context, id int64) error {
-	key := fmt.Sprintf("post:first:%d", id)
-	return p.cmd.Del(ctx, key).Err()
+	key1 := fmt.Sprintf("post:first:%d", id)
+	key2 := fmt.Sprintf("post:pub:first:%d", id)
+	err := p.cmd.Del(ctx, key1).Err()
+	if err != nil {
+		p.l.Error("delete cache filed", zap.Error(err))
+		return err
+	}
+	er := p.cmd.Del(ctx, key2).Err()
+	if er != nil {
+		p.l.Error("delete cache filed", zap.Error(er))
+		return er
+	}
+	return nil
 }
 
-// DelPunFirstPage 删除第一页帖子摘要
-func (p *postCache) DelPunFirstPage(ctx context.Context, id int64) error {
+// DelPubFirstPage DelPunFirstPage 删除第一页帖子摘要
+func (p *postCache) DelPubFirstPage(ctx context.Context, id int64) error {
 	key := fmt.Sprintf("post:pub:first:%d", id)
 	return p.cmd.Del(ctx, key).Err()
 }
