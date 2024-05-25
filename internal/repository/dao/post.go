@@ -176,34 +176,14 @@ func (p *postDAO) GetByAuthor(ctx context.Context, postId int64, uid int64) (Pos
 	return post, nil
 }
 
-// List 查询个人帖子列表
+// List 查询作者帖子列表
 func (p *postDAO) List(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
-	// 设置查询超时时间
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	// 指定数据库与集合
-	collection := p.client.Database("linkme").Collection("posts")
-	filter := bson.M{
-		"author": pagination.Uid,
-	}
-	// 设置分页查询参数
-	opts := options.FindOptions{
-		Skip:  pagination.Offset,
-		Limit: pagination.Size,
-	}
 	var posts []Post
-	cursor, err := collection.Find(ctx, filter, &opts)
-	if err != nil {
-		p.l.Error("database query failed", zap.Error(err))
+	intSize := int(*pagination.Size)
+	intOffset := int(*pagination.Offset)
+	if err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", pagination.Uid, false).Limit(intSize).Offset(intOffset).Find(&posts).Error; err != nil {
+		p.l.Error("find post list filed", zap.Error(err))
 		return nil, err
-	}
-	// 将获取到的查询结果解码到posts结构体中
-	if err = cursor.All(ctx, &posts); err != nil {
-		p.l.Error("failed to decode query results", zap.Error(err))
-		return nil, err
-	}
-	if len(posts) == 0 {
-		p.l.Debug("query returned no results")
 	}
 	return posts, nil
 }
