@@ -28,10 +28,7 @@ type UpdateReq struct {
 	Content string `json:"content,omitempty"`
 }
 type DetailReq struct {
-	PostId   int64  `json:"postId,omitempty"`
-	Content  string `json:"content,omitempty"`
-	Author   string `json:"author,omitempty"`
-	AuthorId int64  `json:"authorId,omitempty"`
+	PostId int64 `uri:"postId"`
 }
 
 type DeleteReq struct {

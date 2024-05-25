@@ -24,8 +24,8 @@ type PostDAO interface {
 	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
 	Sync(ctx context.Context, post Post) (int64, error)                        // 用于同步帖子记录
 	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
-	GetByAuthor(ctx context.Context, uid int64) (Post, error)                  // 根据作者ID获取帖子记录
-	GetById(ctx context.Context, id int64) (Post, error)                       // 根据ID获取一个帖子记录
+	GetByAuthor(ctx context.Context, postId int64, uid int64) (Post, error)    // 根据作者ID获取帖子记录
+	GetById(ctx context.Context, id int64, uid int64) (Post, error)            // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, id int64) (Post, error)                    // 根据ID获取一个已发布的帖子记录
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
 	DeleteById(ctx context.Context, post domain.Post) error
@@ -129,9 +129,9 @@ func (p *postDAO) Sync(ctx context.Context, post Post) (int64, error) {
 }
 
 // GetById 根据ID获取一个帖子记录
-func (p *postDAO) GetById(ctx context.Context, id int64) (Post, error) {
+func (p *postDAO) GetById(ctx context.Context, id int64, uid int64) (Post, error) {
 	var post Post
-	err := p.db.WithContext(ctx).Where("id = ? AND deleted = ?", id, false).First(&post).Error
+	err := p.db.WithContext(ctx).Where("author_id = ? AND id = ? AND deleted = ?", uid, id, false).First(&post).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		p.l.Debug("post not found", zap.Error(err))
 		return Post{}, ErrPostNotFound
@@ -143,18 +143,29 @@ func (p *postDAO) GetById(ctx context.Context, id int64) (Post, error) {
 func (p *postDAO) GetPubById(ctx context.Context, id int64) (Post, error) {
 	var post Post
 	status := domain.Published
-	err := p.db.WithContext(ctx).Where("id = ? AND status = ?", id, status).First(&post).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		p.l.Debug("published post not found", zap.Error(err))
-		return Post{}, ErrPostNotFound
+
+	// 设置查询过滤器，只查找状态为已发布的帖子
+	filter := bson.M{
+		"id":     id,
+		"status": status,
 	}
-	return post, err
+	// 在MongoDB的posts集合中查找记录
+	err := p.client.Database("linkme").Collection("posts").FindOne(ctx, filter).Decode(&post)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			p.l.Debug("published post not found", zap.Error(err))
+			return Post{}, ErrPostNotFound
+		}
+		p.l.Error("failed to get published post", zap.Error(err))
+		return Post{}, err
+	}
+	return post, nil
 }
 
 // GetByAuthor 根据作者ID获取帖子记录
-func (p *postDAO) GetByAuthor(ctx context.Context, uid int64) (Post, error) {
+func (p *postDAO) GetByAuthor(ctx context.Context, postId int64, uid int64) (Post, error) {
 	var post Post
-	err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", uid, false).Find(&post).Error
+	err := p.db.WithContext(ctx).Where("id = ? AND author_id = ? AND deleted = ?", postId, uid, false).Find(&post).Error
 	if err != nil {
 		p.l.Error("failed to get posts by author", zap.Error(err))
 		return Post{}, err
