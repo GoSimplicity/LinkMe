@@ -12,11 +12,11 @@ type PostService interface {
 	Update(ctx context.Context, post domain.Post) error                                          // 用于更新现有帖子
 	Publish(ctx context.Context, post domain.Post) error                                         // 用于发布帖子
 	Withdraw(ctx context.Context, post domain.Post) error                                        // 用于撤回帖子
-	GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error)                  // 获取作者的草稿
-	GetPostById(ctx context.Context, postId int64) (domain.Post, error)                          // 获取特定ID的帖子
+	GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error)         // 获取作者的草稿
+	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)               // 获取特定ID的帖子
 	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 获取特定ID的已发布帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表，支持分页
-	Delete(ctx context.Context, postId int64) error                                              // 删除帖子
+	Delete(ctx context.Context, postId int64, uid int64) error                                   // 删除帖子
 }
 
 type postService struct {
@@ -67,8 +67,8 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	return p.repo.UpdateStatus(ctx, post)
 }
 
-func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) (domain.Post, error) {
-	dp, err := p.repo.GetDraftsByAuthor(ctx, authorId)
+func (p *postService) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
+	dp, err := p.repo.GetDraftsByAuthor(ctx, postId, uid)
 	if err != nil {
 		p.l.Error("get post filed", zap.Error(err))
 		return domain.Post{}, err
@@ -76,8 +76,8 @@ func (p *postService) GetDraftsByAuthor(ctx context.Context, authorId int64) (do
 	return dp, nil
 }
 
-func (p *postService) GetPostById(ctx context.Context, postId int64) (domain.Post, error) {
-	dp, err := p.repo.GetPostById(ctx, postId)
+func (p *postService) GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
+	dp, err := p.repo.GetPostById(ctx, postId, uid)
 	if err != nil {
 		p.l.Error("get post filed", zap.Error(err))
 		return domain.Post{}, err
@@ -101,8 +101,8 @@ func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.
 	return p.repo.ListPublishedPosts(ctx, pagination)
 }
 
-func (p *postService) Delete(ctx context.Context, postId int64) error {
-	pd, err := p.repo.GetPostById(ctx, postId)
+func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error {
+	pd, err := p.repo.GetPostById(ctx, postId, uid)
 	// 避免帖子被重复删除
 	if err != nil || pd.Deleted != false {
 		p.l.Error("delete post filed", zap.Error(err))
