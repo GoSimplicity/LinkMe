@@ -157,7 +157,8 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 }
 
 func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
-	posts, err := ph.svc.GetDraftsByAuthor(ctx, req.AuthorId)
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	post, err := ph.svc.GetDraftsByAuthor(ctx, req.PostId, uc.Uid)
 	if err != nil {
 		ph.l.Error(PostGetDetailERROR, zap.Error(err))
 		return Result{
@@ -165,10 +166,17 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 			Msg:  PostGetDetailERROR,
 		}, nil
 	}
+	if post.Content == "" && post.Title == "" {
+		ph.l.Error("get post filed by author")
+		return Result{
+			Code: RequestsOK,
+			Msg:  PostGetDetailERROR,
+		}, nil
+	}
 	return Result{
 		Code: RequestsOK,
 		Msg:  PostGetDetailSuccess,
-		Data: posts,
+		Data: post,
 	}, nil
 }
 
@@ -189,7 +197,8 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error
 }
 
 func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
-	if err := ph.svc.Delete(ctx, req.PostId); err != nil {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	if err := ph.svc.Delete(ctx, req.PostId, uc.Uid); err != nil {
 		ph.l.Error(PostDeleteError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
