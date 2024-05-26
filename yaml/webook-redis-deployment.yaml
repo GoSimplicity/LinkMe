@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webook-record-redis
+  name: linkme-record-redis
   labels:
-    app: webook-record-redis
+    app: linkme-record-redis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webook-record-redis
+      app: linkme-record-redis
   template:
     metadata:
       labels:
-        app: webook-record-redis
+        app: linkme-record-redis
     spec:
       securityContext:
         runAsUser: 0
         runAsGroup: 0
       containers:
-        - name: webook-record-redis
+        - name: linkme-record-redis
           image: bitnami/redis:latest
           imagePullPolicy: Always
           command:

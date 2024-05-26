@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webook-record-prometheus
+  name: linkme-record-prometheus
   labels:
-    app: webook-record-prometheus
+    app: linkme-record-prometheus
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webook-record-prometheus
+      app: linkme-record-prometheus
   template:
     metadata:
-      name: webook-record-prometheus
+      name: linkme-record-prometheus
       labels:
-        app: webook-record-prometheus
+        app: linkme-record-prometheus
     spec:
       containers:
-        - name: webook-record-prometheus
+        - name: linkme-record-prometheus
           image: bitnami/prometheus:latest
           imagePullPolicy: IfNotPresent
           securityContext:
@@ -32,8 +32,8 @@ spec:
       volumes:
         - name: prometheus-data
           persistentVolumeClaim:
-            claimName: webook-prometheus-pvc
+            claimName: linkme-prometheus-pvc
         - name: prometheus-yml
           hostPath:
-            path: /opt/goProject/webook/webook/yaml/prometheus.yml
+            path: /opt/goProject/linkme/linkme/yaml/prometheus.yml
       restartPolicy: Always
