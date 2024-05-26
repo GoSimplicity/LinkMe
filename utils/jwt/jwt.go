@@ -3,12 +3,13 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"strings"
-	"time"
 )
 
 var (
@@ -134,5 +135,24 @@ func (h *handler) ClearToken(ctx *gin.Context) error {
 	ctx.Header("X-Refresh-Token", "")
 	ctx.Header("X-JWT-Token", "")
 	uc := ctx.MustGet("user").(UserClaims)
-	return h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", uc.Ssid), "", h.rcExpiration).Err()
+	// 获取 refresh token
+	//refreshTokenString := h.ExtractToken(ctx)
+	refreshTokenString := ctx.GetHeader("X-Refresh-Token")
+	if refreshTokenString == "" {
+		return errors.New("missing refresh token")
+	}
+	// 解析 refresh token
+	refreshClaims := &RefreshClaims{}
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return Key2, nil
+	})
+	if err != nil || !refreshToken.Valid {
+		return errors.New("invalid refresh token")
+	}
+	// 设置redis中的会话ID键的过期时间为refresh token的剩余过期时间
+	remainingTime := refreshClaims.ExpiresAt.Time.Sub(time.Now())
+	if er := h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", uc.Ssid), "", remainingTime).Err(); er != nil {
+		return er
+	}
+	return nil
 }
