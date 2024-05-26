@@ -39,7 +39,7 @@ type DeleteReq struct {
 
 type LikeReq struct {
 	PostId int64 `json:"postId,omitempty"`
-	Like   bool  `json:"like,omitempty"`
+	Liked  bool  `json:"liked,omitempty"`
 }
 
 type CollectReq struct {
