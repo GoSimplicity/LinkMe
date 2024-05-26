@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-record-prometheus
+  labels:
+    app: webook-record-prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-record-prometheus
+  template:
+    metadata:
+      name: webook-record-prometheus
+      labels:
+        app: webook-record-prometheus
+    spec:
+      containers:
+        - name: webook-record-prometheus
+          image: bitnami/prometheus:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - mountPath: /bitnami/prometheus/data
+              name: prometheus-data
+            - mountPath: /etc/prometheus/prometheus.yml
+              name: prometheus-yml
+      volumes:
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: webook-prometheus-pvc
+        - name: prometheus-yml
+          hostPath:
+            path: /opt/goProject/webook/webook/yaml/prometheus.yml
+      restartPolicy: Always

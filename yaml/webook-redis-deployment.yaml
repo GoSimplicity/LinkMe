@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-record-redis
+  labels:
+    app: webook-record-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-record-redis
+  template:
+    metadata:
+      labels:
+        app: webook-record-redis
+    spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+        - name: webook-record-redis
+          image: bitnami/redis:latest
+          imagePullPolicy: Always
+          command:
+            - "redis-server"
+            - "--bind"
+            - "0.0.0.0"
+            - "--protected-mode"
+            - "no"
+            - "--port"
+            - "6379"
+      restartPolicy: Always
