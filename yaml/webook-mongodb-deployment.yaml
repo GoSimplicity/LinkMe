@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: webook-record-mongo
-  name: webook-record-mongo
+    app: linkme-record-mongo
+  name: linkme-record-mongo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webook-record-mongo
+      app: linkme-record-mongo
   template:
     metadata:
       labels:
-        app: webook-record-mongo
+        app: linkme-record-mongo
     spec:
       containers:
         - image: mongo:latest
@@ -34,4 +34,4 @@ spec:
       volumes:
         - name: mongo-data
           persistentVolumeClaim:
-            claimName: webook-mongo-pvc
+            claimName: linkme-mongo-pvc

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: webook-record-redis
+  name: linkme-record-redis
 spec:
   selector:
-    app: webook-record-redis
+    app: linkme-record-redis
   ports:
     - protocol: TCP
       port: 6379
