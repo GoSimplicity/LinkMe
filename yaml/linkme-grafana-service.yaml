@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkme-record-grafana
+spec:
+  selector:
+    app: linkme-record-grafana
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+      nodePort: 30888
+      name: "3000"
+  type: NodePort
