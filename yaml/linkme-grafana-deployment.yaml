@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: linkme-record-grafana
+  name: linkme-record-grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linkme-record-grafana
+  template:
+    metadata:
+      labels:
+        app: linkme-record-grafana
+    spec:
+      containers:
+        - image: grafana/grafana:latest
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          name: grafana
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: IfNotPresent
