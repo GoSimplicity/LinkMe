@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: webook-prometheus-pv
+  name: linkme-prometheus-pv
 spec:
   storageClassName: record
   capacity:
