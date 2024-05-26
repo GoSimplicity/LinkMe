@@ -9,7 +9,7 @@ services:
       - "9094:9094"
     environment:
       - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CREATE_TOPICS=webook_binlog:3:1
+      - KAFKA_CREATE_TOPICS=linkme_binlog:3:1
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
       - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://:9093,EXTERNAL://0.0.0.0:9094
