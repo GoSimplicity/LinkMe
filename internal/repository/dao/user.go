@@ -19,6 +19,7 @@ type UserDAO interface {
 	CreateUser(ctx context.Context, u User) error
 	FindByID(ctx context.Context, id int64) (User, error)
 	FindByEmail(ctx context.Context, email string) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
 }
 
 type userDAO struct {
@@ -68,6 +69,19 @@ func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
 func (ud *userDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var user User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, err
+	}
+	return user, nil
+}
+
+// FindByPhone 根据phone查询用户信息
+func (ud *userDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
+	var user User
+	err := ud.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return User{}, ErrUserNotFound
