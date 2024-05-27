@@ -264,6 +264,7 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 				return Result{}, err
 			}
 		}
+	}
 	return Result{
 		Code: RequestsOK,
 		Msg:  PostCollectSuccess,
