@@ -64,8 +64,8 @@ func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, 
 
 // FindByPhone 通过电话查询用户
 func (ur *userRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
-	//TODO implement me
-	panic("implement me")
+	u, err := ur.dao.FindByEmail(ctx, phone)
+	return toDomainUser(u), err
 }
 
 // FindByEmail 通过Email查询用户
