@@ -15,6 +15,7 @@ type PostHandler struct {
 	svc    service.PostService
 	intSvc service.InteractiveService
 	l      *zap.Logger
+	biz    string
 }
 
 func NewPostHandler(svc service.PostService, l *zap.Logger, intSvc service.InteractiveService) *PostHandler {
@@ -22,6 +23,7 @@ func NewPostHandler(svc service.PostService, l *zap.Logger, intSvc service.Inter
 		svc:    svc,
 		l:      l,
 		intSvc: intSvc,
+		biz:    "post",
 	}
 }
 
@@ -231,9 +233,40 @@ func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, erro
 }
 
 func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
-	return Result{}, nil
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	if req.Liked {
+		if err := ph.intSvc.Like(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
+			ph.l.Error(PostLikedError, zap.Error(err))
+			return Result{}, err
+		}
+	} else {
+		if err := ph.intSvc.CancelLike(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
+			ph.l.Error(PostCanceLikedError, zap.Error(err))
+			return Result{}, err
+		}
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostLikedSuccess,
+		Data: req.PostId,
+	}, nil
 }
 
 func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error) {
-	return Result{}, nil
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	if req.Collect {
+		if err := ph.intSvc.Collect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
+			ph.l.Error(PostCollectError, zap.Error(err))
+			return Result{}, err
+		} else {
+			if err := ph.intSvc.CancelCollect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
+				ph.l.Error(PostCanceCollectError, zap.Error(err))
+				return Result{}, err
+			}
+		}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostCollectSuccess,
+		Data: req.PostId,
+	}, nil
 }
