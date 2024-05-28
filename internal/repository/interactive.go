@@ -1,6 +1,7 @@
 package repository
 
 import (
+	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/repository/models"
@@ -42,13 +43,19 @@ func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz 
 }
 
 func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, id int64, uid int64) error {
-	//TODO implement me
-	panic("implement me")
+	return c.dao.InsertLikeInfo(ctx, models.UserLikeBiz{
+		BizName: biz,
+		BizID:   id,
+		Uid:     uid,
+	})
 }
 
 func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, id int64, uid int64) error {
-	//TODO implement me
-	panic("implement me")
+	return c.dao.DeleteLikeInfo(ctx, models.UserLikeBiz{
+		BizName: biz,
+		BizID:   id,
+		Uid:     uid,
+	})
 }
 
 func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, biz string, id int64, cid int64, uid int64) error {
@@ -69,21 +76,56 @@ func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, bi
 }
 
 func (c *CachedInteractiveRepository) Get(ctx context.Context, biz string, id int64) (domain.Interactive, error) {
-	//TODO implement me
-	panic("implement me")
+	ic, err := c.dao.Get(ctx, biz, id)
+	if err != nil {
+		c.l.Error(PostGetInteractiveERROR, zap.Error(err))
+		return domain.Interactive{}, err
+	}
+	return toDomain(ic), nil
 }
 
 func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	_, err := c.dao.GetLikeInfo(ctx, biz, id, uid)
+	switch err {
+	case nil:
+		// 如果没有错误，说明找到了点赞记录，返回true
+		return true, nil
+	case dao.ErrRecordNotFound:
+		// 如果错误是ErrRecordNotFound，说明没有找到点赞记录
+		c.l.Error(PostGetLikedERROR, zap.Error(err))
+		return false, nil
+	default:
+		// 如果是其他错误，返回false和错误信息
+		return false, err
+	}
 }
 
 func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	_, err := c.dao.GetCollectInfo(ctx, biz, id, uid)
+	switch err {
+	case nil:
+		// 如果没有错误，说明找到了收藏记录，返回true
+		return true, nil
+	case dao.ErrRecordNotFound:
+		// 如果错误是ErrRecordNotFound，说明没有找到收藏记录
+		c.l.Error(PostGetCollectERROR, zap.Error(err))
+		return false, nil
+	default:
+		// 如果是其他错误，返回false和错误信息
+		return false, err
+	}
 }
 
 func (c *CachedInteractiveRepository) GetById(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func toDomain(ic models.Interactive) domain.Interactive {
+	return domain.Interactive{
+		BizID:        ic.BizID,
+		ReadCount:    ic.ReadCount,
+		LikeCount:    ic.LikeCount,
+		CollectCount: ic.CollectCount,
+	}
 }
