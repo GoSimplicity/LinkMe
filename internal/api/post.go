@@ -6,7 +6,6 @@ import (
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
 	ijwt "LinkMe/utils/jwt"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -254,15 +253,15 @@ func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
 
 func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if req.Collect {
+	if req.Collectd {
 		if err := ph.intSvc.Collect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
 			ph.l.Error(PostCollectError, zap.Error(err))
 			return Result{}, err
-		} else {
-			if err := ph.intSvc.CancelCollect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
-				ph.l.Error(PostCanceCollectError, zap.Error(err))
-				return Result{}, err
-			}
+		}
+	} else {
+		if err := ph.intSvc.CancelCollect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
+			ph.l.Error(PostCanceCollectError, zap.Error(err))
+			return Result{}, err
 		}
 	}
 	return Result{
