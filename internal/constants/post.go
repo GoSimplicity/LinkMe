@@ -16,6 +16,7 @@ const (
 	PostListError           = "post query failed"         // 公开帖子查询失败
 	PostDeleteSuccess       = "Post delete success"       // 帖子删除成功
 	PostDeleteError         = "Post delete failed"        // 帖子删除失败
+	PostGetInteractiveERROR = "get interactive filed"     // 互动信息获取失败
 	PostLikedSuccess        = "liked success"
 	PostCollectSuccess      = "collect success"
 	PostCollectError        = "collect filed"
@@ -24,8 +25,10 @@ const (
 	PostCanceLikedSuccess   = "cance liked success"
 	PostCanceLikedError     = "cance liked filed"
 	PostServerError         = "Post server error"
-	PostGetDetailERROR      = "Post get detail failed" //获取帖子详情失败
-	PostGetPostERROR        = "Post get post failed"   //获取帖子失败
+	PostGetDetailERROR      = "Post get detail failed"   //获取帖子详情失败
+	PostGetLikedERROR       = "Post get liked failed"    //获取帖子点赞失败
+	PostGetCollectERROR     = "Post get collectd failed" //获取帖子收藏失败
+	PostGetPostERROR        = "Post get post failed"     //获取帖子失败
 	PostGetDetailSuccess    = "Post get detail success"
 	PostGetPubDetailERROR   = "Post get pub detail failed"
 	PostGetPubDetailSuccess = "Post get pub detail success"
