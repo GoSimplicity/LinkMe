@@ -38,7 +38,7 @@ func InitWebServer() *gin.Engine {
 	postCache := cache.NewPostCache(cmdable, logger)
 	postRepository := repository.NewPostRepository(postDAO, logger, postCache)
 	postService := service.NewPostService(postRepository, logger)
-	interactiveDAO := dao.NewInteractiveDAO(db)
+	interactiveDAO := dao.NewInteractiveDAO(db, logger)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger)
 	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
 	postHandler := api.NewPostHandler(postService, logger, interactiveService)
