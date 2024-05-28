@@ -29,7 +29,6 @@ type Post struct {
 	CategoryID   int64
 	Tags         string
 	CommentCount int64
-	ViewCount    int64
 }
 
 type Interactive struct {

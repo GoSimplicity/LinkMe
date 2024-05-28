@@ -36,6 +36,11 @@ func (i *interactiveService) IncrReadCnt(ctx context.Context, biz string, id int
 }
 
 func (i *interactiveService) Like(ctx context.Context, biz string, id int64, uid int64) error {
+	liked, _ := i.repo.Liked(ctx, biz, id, uid)
+	// 如果已经点赞，则取消点赞
+	if liked {
+		return i.repo.DecrLike(ctx, biz, id, uid)
+	}
 	return i.repo.IncrLike(ctx, biz, id, uid)
 }
 
@@ -44,6 +49,10 @@ func (i *interactiveService) CancelLike(ctx context.Context, biz string, id int6
 }
 
 func (i *interactiveService) Collect(ctx context.Context, biz string, id, cid, uid int64) error {
+	collected, _ := i.repo.Collected(ctx, biz, id, uid)
+	if collected {
+		return i.repo.DecrCollectionItem(ctx, biz, id, cid, uid)
+	}
 	return i.repo.IncrCollectionItem(ctx, biz, id, cid, uid)
 }
 
