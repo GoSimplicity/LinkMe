@@ -6,9 +6,10 @@ import (
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/repository/models"
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"time"
 )
 
 // PostRepository 帖子仓库接口
@@ -212,12 +213,10 @@ func fromDomainPost(p domain.Post) models.Post {
 		UpdatedTime:  p.UpdatedTime,
 		Author:       p.Author.Id,
 		Status:       p.Status,
-		Visibility:   p.Visibility,
 		Slug:         p.Slug,
 		CategoryID:   p.CategoryID,
 		Tags:         p.Tags,
 		CommentCount: p.CommentCount,
-		ViewCount:    p.ViewCount,
 	}
 }
 
@@ -232,12 +231,10 @@ func toDomainSlicePost(post []models.Post) []domain.Post {
 			CreateTime:   repoPost.CreateTime,
 			UpdatedTime:  repoPost.UpdatedTime,
 			Status:       repoPost.Status,
-			Visibility:   repoPost.Visibility,
 			Slug:         repoPost.Slug,
 			CategoryID:   repoPost.CategoryID,
 			Tags:         repoPost.Tags,
 			CommentCount: repoPost.CommentCount,
-			ViewCount:    repoPost.ViewCount,
 		}
 	}
 	return domainPosts
@@ -252,11 +249,9 @@ func toDomainPost(post models.Post) domain.Post {
 		CreateTime:   post.CreateTime,
 		UpdatedTime:  post.UpdatedTime,
 		Status:       post.Status,
-		Visibility:   post.Visibility,
 		Slug:         post.Slug,
 		CategoryID:   post.CategoryID,
 		Tags:         post.Tags,
 		CommentCount: post.CommentCount,
-		ViewCount:    post.ViewCount,
 	}
 }

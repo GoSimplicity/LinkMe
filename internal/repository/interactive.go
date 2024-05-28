@@ -6,13 +6,14 @@ import (
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/repository/models"
 	"context"
+	"errors"
 
 	"go.uber.org/zap"
 )
 
 type InteractiveRepository interface {
 	IncrReadCnt(ctx context.Context, biz string, id int64) error
-	// biz 和 bizId 长度必须一致
+	// BatchIncrReadCnt biz 和 bizId 长度必须一致
 	BatchIncrReadCnt(ctx context.Context, biz []string, id []int64) error                     // 批量更新阅读计数(与kafka配合使用)
 	IncrLike(ctx context.Context, biz string, id int64, uid int64) error                      // 增加阅读计数
 	DecrLike(ctx context.Context, biz string, id int64, uid int64) error                      // 减少阅读计数
@@ -86,11 +87,11 @@ func (c *CachedInteractiveRepository) Get(ctx context.Context, biz string, id in
 
 func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
 	_, err := c.dao.GetLikeInfo(ctx, biz, id, uid)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// 如果没有错误，说明找到了点赞记录，返回true
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case errors.Is(err, dao.ErrRecordNotFound):
 		// 如果错误是ErrRecordNotFound，说明没有找到点赞记录
 		c.l.Error(PostGetLikedERROR, zap.Error(err))
 		return false, nil
@@ -102,11 +103,11 @@ func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, id 
 
 func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
 	_, err := c.dao.GetCollectInfo(ctx, biz, id, uid)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// 如果没有错误，说明找到了收藏记录，返回true
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case errors.Is(err, dao.ErrRecordNotFound):
 		// 如果错误是ErrRecordNotFound，说明没有找到收藏记录
 		c.l.Error(PostGetCollectERROR, zap.Error(err))
 		return false, nil
