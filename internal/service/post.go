@@ -22,13 +22,15 @@ type PostService interface {
 
 type postService struct {
 	repo repository.PostRepository
+	svc  InteractiveService
 	l    *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService) PostService {
 	return &postService{
 		repo: repo,
 		l:    l,
+		svc:  svc,
 	}
 }
 
@@ -92,6 +94,11 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (d
 		p.l.Error("get pub post filed", zap.Error(err))
 		return domain.Post{}, err
 	}
+	// 增加阅读计数
+	if er := p.svc.IncrReadCnt(ctx, "post", postId); er != nil {
+		p.l.Error("incr read cnt filed", zap.Error(er))
+	}
+
 	return dp, nil
 }
 
