@@ -65,7 +65,7 @@ func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int6
 	return i.db.WithContext(ctx).Clauses(clause.OnConflict{
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"read_count": gorm.Expr("read_count + 1"),
-			"update_at":  now,
+			"updated_at":  now,
 		}),
 	}).Create(&interactive).Error
 }
