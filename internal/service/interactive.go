@@ -10,7 +10,6 @@ import (
 
 // InteractiveService 互动服务接口
 type InteractiveService interface {
-	IncrReadCnt(ctx context.Context, biz string, id int64) error                                 // 增加阅读计数
 	Like(ctx context.Context, biz string, id int64, uid int64) error                             // 点赞
 	CancelLike(ctx context.Context, biz string, id int64, uid int64) error                       // 取消点赞
 	Collect(ctx context.Context, biz string, id, cid, uid int64) error                           //收藏
@@ -29,10 +28,6 @@ func NewInteractiveService(repo repository.InteractiveRepository, l *zap.Logger)
 		repo: repo,
 		l:    l,
 	}
-}
-
-func (i *interactiveService) IncrReadCnt(ctx context.Context, biz string, id int64) error {
-	return i.repo.IncrReadCnt(ctx, biz, id)
 }
 
 func (i *interactiveService) Like(ctx context.Context, biz string, id int64, uid int64) error {
