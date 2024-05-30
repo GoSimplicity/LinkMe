@@ -200,7 +200,8 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 }
 
 func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error) {
-	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId)
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId, uc.Uid)
 	if err != nil {
 		ph.l.Error(PostGetPubDetailERROR, zap.Error(err))
 		return Result{
