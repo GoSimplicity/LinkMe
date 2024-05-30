@@ -4,18 +4,18 @@ package main
 
 import (
 	"LinkMe/internal/api"
+	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/service"
 	"LinkMe/ioc"
 	ijwt "LinkMe/utils/jwt"
-	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	_ "github.com/google/wire"
 )
 
-func InitWebServer() *gin.Engine {
+func InitWebServer() *Cmd {
 	wire.Build(
 		ioc.InitDB,
 		ioc.InitWebServer,
@@ -23,7 +23,9 @@ func InitWebServer() *gin.Engine {
 		ioc.InitRedis,
 		ioc.InitLogger,
 		ioc.InitMongoDB,
-		//ioc.InitSaramaClient,
+		ioc.InitSaramaClient,
+		ioc.InitConsumers,
+		ioc.InitSyncProducer,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
@@ -38,6 +40,9 @@ func InitWebServer() *gin.Engine {
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
+		post.NewSaramaSyncProducer,
+		post.NewInteractiveReadEventConsumer,
+		wire.Struct(new(Cmd), "*"),
 	)
-	return gin.Default()
+	return new(Cmd)
 }

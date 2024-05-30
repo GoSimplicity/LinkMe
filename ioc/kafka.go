@@ -1,6 +1,8 @@
 package ioc
 
 import (
+	"LinkMe/internal/domain/events"
+	"LinkMe/internal/domain/events/post"
 	"github.com/IBM/sarama"
 	"github.com/spf13/viper"
 )
@@ -24,4 +26,21 @@ func InitSaramaClient() sarama.Client {
 		panic(err)
 	}
 	return client
+}
+
+// InitSyncProducer 使用已有的Sarama客户端初始化同步生产者
+func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
+	// 根据现有的客户端实例创建同步生产者
+	// 确保每个消息在被确认已经成功写入至少一个副本之前，生产者会阻塞等待响应
+	p, err := sarama.NewSyncProducerFromClient(c)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// InitConsumers 初始化并返回一个事件消费者切片，当前仅包含InteractiveReadEventConsumer
+func InitConsumers(pc *post.InteractiveReadEventConsumer) []events.Consumer {
+	// 返回一个包含单个消费者的切片
+	return []events.Consumer{pc}
 }
