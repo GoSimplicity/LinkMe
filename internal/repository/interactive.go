@@ -12,9 +12,8 @@ import (
 )
 
 type InteractiveRepository interface {
-	IncrReadCnt(ctx context.Context, biz string, id int64) error
 	// BatchIncrReadCnt biz 和 bizId 长度必须一致
-	BatchIncrReadCnt(ctx context.Context, biz []string, id []int64) error                     // 批量更新阅读计数(与kafka配合使用)
+	BatchIncrReadCnt(ctx context.Context, biz []string, ids []int64) error                    // 批量更新阅读计数(与kafka配合使用)
 	IncrLike(ctx context.Context, biz string, id int64, uid int64) error                      // 增加阅读计数
 	DecrLike(ctx context.Context, biz string, id int64, uid int64) error                      // 减少阅读计数
 	IncrCollectionItem(ctx context.Context, biz string, id int64, cid int64, uid int64) error // 收藏
@@ -34,13 +33,11 @@ func NewInteractiveRepository(dao dao.InteractiveDAO, l *zap.Logger) Interactive
 	return &CachedInteractiveRepository{dao: dao, l: l}
 }
 
-func (c *CachedInteractiveRepository) IncrReadCnt(ctx context.Context, biz string, id int64) error {
-	return c.dao.IncrReadCnt(ctx, biz, id)
-}
-
-func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz []string, id []int64) error {
-	//TODO implement me
-	panic("implement me")
+func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz []string, ids []int64) error {
+	if err := c.dao.BatchIncrReadCnt(ctx, biz, ids); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, id int64, uid int64) error {
