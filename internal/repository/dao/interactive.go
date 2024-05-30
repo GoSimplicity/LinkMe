@@ -65,14 +65,23 @@ func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int6
 	return i.db.WithContext(ctx).Clauses(clause.OnConflict{
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"read_count": gorm.Expr("read_count + 1"),
-			"updated_at":  now,
+			"updated_at": now,
 		}),
 	}).Create(&interactive).Error
 }
 
 func (i *interactiveDAO) BatchIncrReadCnt(ctx context.Context, biz []string, bizIds []int64) error {
-	//TODO implement me
-	panic("implement me")
+	// 利用一个事务只提交一次的特性，优化性能
+	return i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txInc := NewInteractiveDAO(tx, i.l)
+		for j := 0; j < len(biz); j++ {
+			if err := txInc.IncrReadCnt(ctx, biz[j], bizIds[j]); err != nil {
+				i.l.Error("add read count filed", zap.Error(err))
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // InsertLikeInfo 插入用户点赞信息和相关互动信息

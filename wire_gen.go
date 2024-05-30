@@ -8,13 +8,13 @@ package main
 
 import (
 	"LinkMe/internal/api"
+	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
 	"LinkMe/internal/service"
 	"LinkMe/ioc"
 	"LinkMe/utils/jwt"
-	"github.com/gin-gonic/gin"
 )
 
 import (
@@ -23,7 +23,7 @@ import (
 
 // Injectors from wire.go:
 
-func InitWebServer() *gin.Engine {
+func InitWebServer() *Cmd {
 	db := ioc.InitDB()
 	userDAO := dao.NewUserDAO(db)
 	cmdable := ioc.InitRedis()
@@ -40,9 +40,18 @@ func InitWebServer() *gin.Engine {
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger)
 	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
-	postService := service.NewPostService(postRepository, logger, interactiveService)
+	saramaClient := ioc.InitSaramaClient()
+	syncProducer := ioc.InitSyncProducer(saramaClient)
+	producer := post.NewSaramaSyncProducer(syncProducer)
+	postService := service.NewPostService(postRepository, logger, interactiveService, producer)
 	postHandler := api.NewPostHandler(postService, logger, interactiveService)
 	v := ioc.InitMiddlewares(handler, logger)
 	engine := ioc.InitWebServer(userHandler, postHandler, v)
-	return engine
+	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, saramaClient, logger)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer)
+	cmd := &Cmd{
+		server:   engine,
+		consumer: v2,
+	}
+	return cmd
 }
