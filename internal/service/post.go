@@ -2,6 +2,7 @@ package service
 
 import (
 	"LinkMe/internal/domain"
+	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/repository"
 	"context"
 	"go.uber.org/zap"
@@ -14,23 +15,25 @@ type PostService interface {
 	Withdraw(ctx context.Context, post domain.Post) error                                        // 用于撤回帖子
 	GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error)         // 获取作者的草稿
 	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)               // 获取特定ID的帖子
-	GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error)                 // 获取特定ID的已发布帖子
+	GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error)            // 获取特定ID的已发布帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表，支持分页
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)          // 获取个人帖子列表，支持分页
 	Delete(ctx context.Context, postId int64, uid int64) error                                   // 删除帖子
 }
 
 type postService struct {
-	repo repository.PostRepository
-	svc  InteractiveService
-	l    *zap.Logger
+	repo     repository.PostRepository
+	svc      InteractiveService
+	producer post.Producer
+	l        *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService, p post.Producer) PostService {
 	return &postService{
-		repo: repo,
-		l:    l,
-		svc:  svc,
+		repo:     repo,
+		l:        l,
+		svc:      svc,
+		producer: p,
 	}
 }
 
@@ -73,7 +76,7 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 func (p *postService) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetDraftsByAuthor(ctx, postId, uid)
 	if err != nil {
-		p.l.Error("get post filed", zap.Error(err))
+		p.l.Error("get drafts by author filed", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return dp, nil
@@ -88,17 +91,19 @@ func (p *postService) GetPostById(ctx context.Context, postId int64, uid int64) 
 	return dp, err
 }
 
-func (p *postService) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
+func (p *postService) GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetPublishedPostById(ctx, postId)
-	if err != nil {
-		p.l.Error("get pub post filed", zap.Error(err))
-		return domain.Post{}, err
-	}
-	// 增加阅读计数
-	if er := p.svc.IncrReadCnt(ctx, "post", postId); er != nil {
-		p.l.Error("incr read cnt filed", zap.Error(er))
-	}
-
+	go func() {
+		if err == nil {
+			er := p.producer.ProduceReadEvent(post.ReadEvent{
+				PostId: postId,
+				Uid:    uid,
+			})
+			if er != nil {
+				p.l.Error("produce read event filed", zap.Error(er))
+			}
+		}
+	}()
 	return dp, nil
 }
 
@@ -123,16 +128,16 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 		p.l.Error("delete post filed", zap.Error(err))
 		return err
 	}
-	post := domain.Post{
+	res := domain.Post{
 		ID:     postId,
 		Status: domain.Deleted,
 		Author: domain.Author{
 			Id: uid,
 		},
 	}
-	if _, er := p.repo.Sync(ctx, post); er != nil {
+	if _, er := p.repo.Sync(ctx, res); er != nil {
 		p.l.Error("db sync filed", zap.Error(er))
 		return er
 	}
-	return p.repo.Delete(ctx, post)
+	return p.repo.Delete(ctx, res)
 }
