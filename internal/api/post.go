@@ -6,6 +6,7 @@ import (
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
 	ijwt "LinkMe/utils/jwt"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -40,8 +41,10 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.POST("/like", WrapBody(ph.Like))                    // 点赞
 	postGroup.POST("/collect", WrapBody(ph.Collect))              // 收藏
 	postGroup.GET("/hello", func(ctx *gin.Context) {
+		fmt.Println("hello route reached")
 		ctx.String(200, "hello")
 	})
+	postGroup.POST("/getall", WrapBody(ph.GetByIds))
 }
 
 func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
@@ -269,4 +272,17 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 		Msg:  PostCollectSuccess,
 		Data: req.PostId,
 	}, nil
+}
+
+func (ph *PostHandler) GetByIds(ctx *gin.Context, req InteractReq) (Result, error) {
+	result, err := ph.intSvc.GetByIds(ctx, req.BizName, req.BizId)
+	if err != nil {
+		ph.l.Error(PostGetIdsERROR, zap.Error(err))
+		return Result{Code: RequestsERROR,
+			Msg: "GetByIds error", Data: nil}, nil
+	}
+
+	return Result{Code: RequestsOK,
+		Msg:  PostGetIdsSuccess,
+		Data: result}, nil
 }

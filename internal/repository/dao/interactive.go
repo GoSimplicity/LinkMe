@@ -65,7 +65,7 @@ func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int6
 	return i.db.WithContext(ctx).Clauses(clause.OnConflict{
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"read_count": gorm.Expr("read_count + 1"),
-			"updated_at":  now,
+			"updated_at": now,
 		}),
 	}).Create(&interactive).Error
 }
@@ -230,6 +230,6 @@ func (i *interactiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) 
 	var inc []Interactive
 	err := i.db.WithContext(ctx).
 		Where("biz_name = ? AND biz_id IN ?", biz, ids).
-		First(&inc).Error
+		Find(&inc).Error
 	return inc, err
 }

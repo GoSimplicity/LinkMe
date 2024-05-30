@@ -32,4 +32,6 @@ const (
 	PostGetDetailSuccess    = "Post get detail success"
 	PostGetPubDetailERROR   = "Post get pub detail failed"
 	PostGetPubDetailSuccess = "Post get pub detail success"
+	PostGetIdsERROR         = "GetByIds failed"
+	PostGetIdsSuccess       = "post get ids success"
 )

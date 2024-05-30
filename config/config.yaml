@@ -7,7 +7,7 @@
 #mongodb:
 #  addr: "mongodb://45.136.14.21:27017"
 db:
-  dsn: "root:root@tcp(localhost:3306)/linkme"
+  dsn: "root:3260.hxs@tcp(localhost:3306)/linkme"
 redis:
   addr: "localhost:6379"
 log:

@@ -27,6 +27,7 @@ func InitMiddlewares(ih ijwt.Handler, l *zap.Logger) []gin.HandlerFunc {
 		}),
 		func(ctx *gin.Context) {
 			println("this is my middleware")
+			//ctx.Next()
 		},
 		middleware.NewJWTMiddleware(ih).CheckLogin(),
 		middleware.NewLogMiddleware(l).Log(),
