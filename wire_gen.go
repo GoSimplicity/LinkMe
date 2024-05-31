@@ -50,10 +50,10 @@ func InitWebServer() *Cmd {
 	v := ioc.InitMiddlewares(handler, logger)
 	engine := ioc.InitWebServer(userHandler, postHandler, v)
 	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, saramaClient, logger)
-	v2 := ioc.InitConsumers(interactiveReadEventConsumer)
+	consumer := ioc.InitConsumers(interactiveReadEventConsumer)
 	cmd := &Cmd{
 		server:   engine,
-		consumer: v2,
+		consumer: consumer,
 	}
 	return cmd
 }
