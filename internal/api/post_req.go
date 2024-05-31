@@ -47,3 +47,8 @@ type CollectReq struct {
 	CollectId int64 `json:"collectId,omitempty"`
 	Collectd  bool  `json:"collectd,omitempty"`
 }
+
+type InteractReq struct {
+	BizId   []int64 `json:"bizId,omitempty"`
+	BizName string  `json:"bizName,omitempty"`
+}
