@@ -39,8 +39,8 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 	return p
 }
 
-// InitConsumers 初始化并返回一个事件消费者切片，当前仅包含InteractiveReadEventConsumer
-func InitConsumers(pc *post.InteractiveReadEventConsumer) []events.Consumer {
-	// 返回一个包含单个消费者的切片
-	return []events.Consumer{pc}
+// InitConsumers 初始化并返回一个事件消费者，当前仅包含InteractiveReadEventConsumer
+func InitConsumers(pc *post.InteractiveReadEventConsumer) events.Consumer {
+	// 返回单个消费者
+	return pc
 }
