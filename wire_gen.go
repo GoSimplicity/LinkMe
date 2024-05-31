@@ -25,7 +25,8 @@ import (
 
 func InitWebServer() *Cmd {
 	db := ioc.InitDB()
-	userDAO := dao.NewUserDAO(db)
+	node := ioc.InitializeSnowflakeNode()
+	userDAO := dao.NewUserDAO(db, node)
 	cmdable := ioc.InitRedis()
 	userCache := cache.NewUserCache(cmdable)
 	logger := ioc.InitLogger()
