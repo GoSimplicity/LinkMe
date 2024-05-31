@@ -65,6 +65,15 @@ func (i *interactiveService) Get(ctx context.Context, biz string, id int64, uid 
 }
 
 func (i *interactiveService) GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error) {
-	//TODO implement me
-	panic("implement me")
+	dis, err := i.repo.GetById(ctx, biz, ids)
+	if err != nil {
+		i.l.Error("get interactions failed", zap.Error(err))
+		return make(map[int64]domain.Interactive), err
+	}
+	result_dis := make(map[int64]domain.Interactive)
+
+	for _, interactive := range dis {
+		result_dis[interactive.BizID] = interactive
+	}
+	return result_dis, err
 }
