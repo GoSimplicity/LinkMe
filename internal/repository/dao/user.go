@@ -4,6 +4,7 @@ import (
 	. "LinkMe/internal/repository/models"
 	"context"
 	"errors"
+	sf "github.com/bwmarrin/snowflake"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"time"
@@ -23,12 +24,14 @@ type UserDAO interface {
 }
 
 type userDAO struct {
-	db *gorm.DB
+	db   *gorm.DB
+	node *sf.Node
 }
 
-func NewUserDAO(db *gorm.DB) UserDAO {
+func NewUserDAO(db *gorm.DB, node *sf.Node) UserDAO {
 	return &userDAO{
-		db: db,
+		db:   db,
+		node: node,
 	}
 }
 
@@ -41,6 +44,8 @@ func (ud *userDAO) currentTime() int64 {
 func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 	u.CreateTime = ud.currentTime()
 	u.UpdatedTime = u.CreateTime
+	// 使用雪花算法生成id
+	u.ID = ud.node.Generate().Int64()
 	err := ud.db.WithContext(ctx).Create(&u).Error
 	if err != nil {
 		var mysqlErr *mysql.MySQLError
