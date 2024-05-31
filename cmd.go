@@ -7,5 +7,5 @@ import (
 
 type Cmd struct {
 	server   *gin.Engine
-	consumer []events.Consumer
+	consumer events.Consumer
 }

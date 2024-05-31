@@ -17,36 +17,24 @@ type InteractiveReadEventConsumer struct {
 
 func NewInteractiveReadEventConsumer(repo repository.InteractiveRepository,
 	client sarama.Client, l *zap.Logger) *InteractiveReadEventConsumer {
-	return &InteractiveReadEventConsumer{repo: repo, client: client, l: l}
+	return &InteractiveReadEventConsumer{
+		repo:   repo,
+		client: client,
+		l:      l,
+	}
 }
 
-//	func (i *InteractiveReadEventConsumer) Start() error {
-//		cg, err := sarama.NewConsumerGroupFromClient("interactive", i.client)
-//		if err != nil {
-//			return err
-//		}
-//		go func() {
-//			er := cg.Consume(context.Background(),
-//				[]string{TopicReadEvent},
-//				samarap.NewBatchHandler[ReadEvent](i.l, i.BatchConsume))
-//			if er != nil {
-//				i.l.Error("退出消费", zap.Error(er))
-//			}
-//		}()
-//		return err
-//	}
 func (i *InteractiveReadEventConsumer) Start() error {
 	cg, err := sarama.NewConsumerGroupFromClient("interactive", i.client)
 	if err != nil {
 		return err
 	}
 	go func() {
-		attempts := 0
-		maxRetries := 3
+		attempts := 0   // 当前重试次数
+		maxRetries := 3 // 最大重试次数
 		for attempts < maxRetries {
-			er := cg.Consume(context.Background(),
-				[]string{TopicReadEvent},
-				samarap.NewBatchHandler[ReadEvent](i.l, i.BatchConsume))
+			// 启动消费者组并开始消费指定主题read_post的消息
+			er := cg.Consume(context.Background(), []string{TopicReadEvent}, samarap.NewBatchHandler[ReadEvent](i.l, i.BatchConsume))
 			if er != nil {
 				i.l.Error("消费错误", zap.Error(er), zap.Int("重试次数", attempts+1))
 				attempts++
@@ -62,8 +50,8 @@ func (i *InteractiveReadEventConsumer) Start() error {
 	return nil
 }
 
-func (i *InteractiveReadEventConsumer) BatchConsume(msgs []*sarama.ConsumerMessage,
-	events []ReadEvent) error {
+// BatchConsume 处理函数，处理批次消息
+func (i *InteractiveReadEventConsumer) BatchConsume(msgs []*sarama.ConsumerMessage, events []ReadEvent) error {
 	bizs := make([]string, 0, len(events))
 	bizIds := make([]int64, 0, len(events))
 	for _, evt := range events {
