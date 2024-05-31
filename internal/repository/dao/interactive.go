@@ -239,6 +239,6 @@ func (i *interactiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) 
 	var inc []Interactive
 	err := i.db.WithContext(ctx).
 		Where("biz_name = ? AND biz_id IN ?", biz, ids).
-		First(&inc).Error
+		Find(&inc).Error
 	return inc, err
 }
