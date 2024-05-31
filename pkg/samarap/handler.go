@@ -36,7 +36,7 @@ func (b *BatchHandler[T]) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 	for {
 		batch := make([]*sarama.ConsumerMessage, 0, batchSize)                   // 创建一个消息批次
 		ts := make([]T, 0, batchSize)                                            // 创建一个泛型类型 T 的切片，用于存储反序列化的消息
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30) // 创建一个带有超时的上下文
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10) // 创建一个带有超时的上下文
 		var done = false
 		for i := 0; i < batchSize && !done; i++ { // 循环直到批次大小达到或者上下文超时
 			select {
