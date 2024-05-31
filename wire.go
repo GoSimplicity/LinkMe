@@ -38,6 +38,7 @@ func InitWebServer() *Cmd {
 		repository.NewInteractiveRepository,
 		cache.NewUserCache,
 		cache.NewPostCache,
+		cache.NewInteractiveCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
