@@ -42,6 +42,7 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(200, "hello")
 	})
+	postGroup.POST("/getall", WrapBody(ph.GetByIds))
 }
 
 func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
@@ -270,4 +271,17 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 		Msg:  PostCollectSuccess,
 		Data: req.PostId,
 	}, nil
+}
+
+func (ph *PostHandler) GetByIds(ctx *gin.Context, req InteractReq) (Result, error) {
+	result, err := ph.intSvc.GetByIds(ctx, req.BizName, req.BizId)
+	if err != nil {
+		ph.l.Error(PostGetIdsERROR, zap.Error(err))
+		return Result{Code: RequestsERROR,
+			Msg: "GetByIds error", Data: nil}, nil
+	}
+
+	return Result{Code: RequestsOK,
+		Msg:  PostGetIdsSuccess,
+		Data: result}, nil
 }
