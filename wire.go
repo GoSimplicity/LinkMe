@@ -26,6 +26,7 @@ func InitWebServer() *Cmd {
 		ioc.InitSaramaClient,
 		ioc.InitConsumers,
 		ioc.InitSyncProducer,
+		ioc.InitializeSnowflakeNode,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,

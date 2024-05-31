@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/IBM/sarama v1.43.2
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/dlclark/regexp2 v1.11.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
@@ -11,7 +12,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
 	github.com/redis/go-redis/v9 v9.5.1
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
