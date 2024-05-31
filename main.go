@@ -1,21 +1,20 @@
 package main
 
-import (
-	"LinkMe/config"
-)
+import "LinkMe/config"
 
 func main() {
+	Init()
+}
+
+func Init() {
 	config.InitViper()
 	cmd := InitWebServer()
-
-	for _, c := range cmd.consumer {
-		err := c.Start()
-		if err != nil {
-			panic(err)
-		}
-	}
 	server := cmd.server
-	if err := server.Run(":9999"); err != nil {
+	err := cmd.consumer.Start()
+	if err != nil {
 		panic(err)
+	}
+	if er := server.Run(":9999"); er != nil {
+		panic(er)
 	}
 }
