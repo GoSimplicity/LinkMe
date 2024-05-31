@@ -115,8 +115,17 @@ func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string,
 }
 
 func (c *CachedInteractiveRepository) GetById(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error) {
-	//TODO implement me
-	panic("implement me")
+	ics, err := c.dao.GetByIds(ctx, biz, ids)
+	if err != nil {
+		c.l.Error("get interactions failed", zap.Error(err))
+		return make([]domain.Interactive, 0), err
+	}
+	result := make([]domain.Interactive, len(ics))
+	for i, ic := range ics {
+		result[i] = toDomain(ic)
+	}
+
+	return result, nil
 }
 
 func toDomain(ic models.Interactive) domain.Interactive {
