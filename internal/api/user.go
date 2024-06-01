@@ -38,6 +38,8 @@ func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger) *Use
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup := server.Group("/users")
+	// 使用插件中的泛型函数
+	//userGroup.POST("/signup", WrapBody[SignUpReq](uh.SignUp))
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/logout", uh.Logout)
