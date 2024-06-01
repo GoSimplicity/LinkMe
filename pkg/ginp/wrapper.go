@@ -33,7 +33,7 @@ func WrapBody[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gi
 	}
 }
 
-// WrapParam 是一个中间件，用于包裹业务逻辑函数，自动绑定路径参数、处理响应并集中管理错误处理。
+// WrapParam 是一个中间件，用于包裹业务逻辑函数，自动绑定路径参数、处理响应并集中管理错误处理
 func WrapParam[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
