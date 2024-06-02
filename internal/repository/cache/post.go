@@ -21,6 +21,7 @@ type PostCache interface {
 	SetDetail(ctx context.Context, post domain.Post) error                   // 设置一个帖子详情缓存
 	GetPubDetail(ctx context.Context, id int64) (domain.Post, error)         // 根据ID获取一个已发布的帖子详情缓存
 	SetPubDetail(ctx context.Context, post domain.Post) error                // 设置一个已发布的帖子详情缓存
+	DelPubFirstPage(ctx context.Context, id int64) error
 }
 
 type postCache struct {
