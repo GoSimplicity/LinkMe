@@ -68,7 +68,7 @@ func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, 
 		BizID:   id,
 		Uid:     uid,
 	}); err != nil {
-		c.l.Error("incr like filed", zap.Error(err))
+		c.l.Error("incr like failed", zap.Error(err))
 		return err
 	}
 	return c.cache.PostReadCountRecord(ctx, biz, id)
@@ -80,7 +80,7 @@ func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, 
 		BizID:   id,
 		Uid:     uid,
 	}); err != nil {
-		c.l.Error("decr like filed", zap.Error(err))
+		c.l.Error("decr like failed", zap.Error(err))
 		return err
 	}
 	return c.cache.DecrLikeCountRecord(ctx, biz, id)
@@ -93,7 +93,7 @@ func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, bi
 		CollectionId: cid,
 		Uid:          uid,
 	}); err != nil {
-		c.l.Error("incr collection item filed", zap.Error(err))
+		c.l.Error("incr collection item failed", zap.Error(err))
 		return err
 	}
 	return c.cache.PostCollectCountRecord(ctx, biz, id)
@@ -105,7 +105,7 @@ func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, bi
 		CollectionId: cid,
 		Uid:          uid,
 	}); err != nil {
-		c.l.Error("decr collection item filed", zap.Error(err))
+		c.l.Error("decr collection item failed", zap.Error(err))
 		return err
 	}
 	return c.cache.DecrCollectCountRecord(ctx, biz, id)
@@ -122,7 +122,7 @@ func (c *CachedInteractiveRepository) Get(ctx context.Context, biz string, id in
 		return domain.Interactive{}, err
 	}
 	if er := c.cache.Set(ctx, biz, id, toDomain(ic)); er != nil {
-		c.l.Error("set interactive cache filed", zap.Error(er))
+		c.l.Error("set interactive cache failed", zap.Error(er))
 	}
 	return toDomain(ic), nil
 }
