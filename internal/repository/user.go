@@ -56,7 +56,7 @@ func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, 
 	du = toDomainUser(u)
 	go func() {
 		if setErr := ur.cache.Set(ctx, du); setErr != nil {
-			ur.l.Error("set cache filed", zap.Error(setErr))
+			ur.l.Error("set cache failed", zap.Error(setErr))
 		}
 	}()
 	return du, nil
