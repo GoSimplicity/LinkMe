@@ -6,6 +6,7 @@ require (
 	github.com/IBM/sarama v1.43.2
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/dlclark/regexp2 v1.11.0
+	github.com/ecodeclub/ekit v0.0.9
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-sql-driver/mysql v1.7.0
@@ -16,6 +17,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/swag v1.16.3
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.933
 	go.mongodb.org/mongo-driver v1.15.0
 	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
@@ -45,6 +47,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.933 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
@@ -96,7 +99,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
