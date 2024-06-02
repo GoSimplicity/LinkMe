@@ -194,6 +194,11 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 			p.l.Warn("delete cache filed", zap.Error(er))
 		}
 	}
+	if mp.Status == domain.Published {
+		if er := p.c.DelPubFirstPage(ctx, post.ID); er != nil {
+			p.l.Warn("delete cache filed", zap.Error(er))
+		}
+	}
 	// 同步操作
 	id, err := p.dao.Sync(ctx, fromDomainPost(post))
 	if err != nil {
