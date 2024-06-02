@@ -47,7 +47,7 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Draft
 	// 执行更新操作后默认将帖子状态设置为草稿状态,需手动执行发布操作
 	if _, err := p.repo.Sync(ctx, post); err != nil {
-		p.l.Error("db sync filed", zap.Error(err))
+		p.l.Error("db sync failed", zap.Error(err))
 		return err
 	}
 	return p.repo.Update(ctx, post)
@@ -57,7 +57,7 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Published
 	// 公开帖子时执行同步操作,添加帖子到线上库
 	if _, err := p.repo.Sync(ctx, post); err != nil {
-		p.l.Error("db sync filed", zap.Error(err))
+		p.l.Error("db sync failed", zap.Error(err))
 		return err
 	}
 	return p.repo.UpdateStatus(ctx, post)
@@ -67,7 +67,7 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Withdrawn
 	// 撤回帖子时执行同步操作,从线上库(mongodb)中移除帖子
 	if _, err := p.repo.Sync(ctx, post); err != nil {
-		p.l.Error("db sync filed", zap.Error(err))
+		p.l.Error("db sync failed", zap.Error(err))
 		return err
 	}
 	return p.repo.UpdateStatus(ctx, post)
@@ -76,7 +76,7 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 func (p *postService) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetDraftsByAuthor(ctx, postId, uid)
 	if err != nil {
-		p.l.Error("get drafts by author filed", zap.Error(err))
+		p.l.Error("get drafts by author failed", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return dp, nil
@@ -85,7 +85,7 @@ func (p *postService) GetDraftsByAuthor(ctx context.Context, postId int64, uid i
 func (p *postService) GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetPostById(ctx, postId, uid)
 	if err != nil {
-		p.l.Error("get post filed", zap.Error(err))
+		p.l.Error("get post failed", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return dp, err
@@ -100,7 +100,7 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId, uid int6
 				Uid:    uid,
 			})
 			if er != nil {
-				p.l.Error("produce read event filed", zap.Error(er))
+				p.l.Error("produce read event failed", zap.Error(er))
 			}
 		}
 	}()
@@ -125,7 +125,7 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 	pd, err := p.repo.GetPostById(ctx, postId, uid)
 	// 避免帖子被重复删除
 	if err != nil || pd.Deleted != false {
-		p.l.Error("delete post filed", zap.Error(err))
+		p.l.Error("delete post failed", zap.Error(err))
 		return err
 	}
 	res := domain.Post{
@@ -136,7 +136,7 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 		},
 	}
 	if _, er := p.repo.Sync(ctx, res); er != nil {
-		p.l.Error("db sync filed", zap.Error(er))
+		p.l.Error("db sync failed", zap.Error(er))
 		return er
 	}
 	return p.repo.Delete(ctx, res)
