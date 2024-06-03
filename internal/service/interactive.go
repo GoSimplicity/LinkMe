@@ -58,7 +58,7 @@ func (i *interactiveService) CancelCollect(ctx context.Context, biz string, id, 
 func (i *interactiveService) Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error) {
 	di, err := i.repo.Get(ctx, biz, id)
 	if err != nil {
-		i.l.Error("get interactive filed", zap.Error(err))
+		i.l.Error("get interactive failed", zap.Error(err))
 		return domain.Interactive{}, err
 	}
 	return di, err
