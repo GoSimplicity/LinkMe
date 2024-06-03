@@ -35,7 +35,7 @@ func NewUserService(repo repository.UserRepository, l *zap.Logger) UserService {
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
-		us.l.Error("password conversion filed")
+		us.l.Error("password conversion failed")
 		return err
 	}
 	u.Password = string(hash)
@@ -55,7 +55,7 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 	// 将密文密码转为明文
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
-		us.l.Error("password conversion filed", zap.Error(err))
+		us.l.Error("password conversion failed", zap.Error(err))
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	return u, nil
