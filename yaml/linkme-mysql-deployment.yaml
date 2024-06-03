@@ -36,8 +36,4 @@ spec:
       volumes:
         - name: mysql-storage
           persistentVolumeClaim:
-<<<<<<< HEAD
-            claimName: link-mysql-pvc
-=======
             claimName: linkme-mysql-pvc
->>>>>>> demo
