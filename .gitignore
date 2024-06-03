@@ -33,3 +33,5 @@ package-lock.json
 .pip-cache/
 .env
 .DS_Store
+.tmp/
+LinkMe
