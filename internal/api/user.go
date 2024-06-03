@@ -93,7 +93,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 			Msg:  UserEmailConflictError,
 		}, nil
 	}
-	uh.l.Error("signup filed", zap.Error(err))
+	uh.l.Error("signup failed", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
 		Msg:  UserSignUpFailure,
@@ -116,7 +116,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 			Msg:  UserLoginFailure,
 		}, nil
 	}
-	uh.l.Error("login filed", zap.Error(err))
+	uh.l.Error("login failed", zap.Error(err))
 	return Result{
 		Code: UserInternalServerError,
 	}, err
@@ -126,7 +126,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 func (uh *UserHandler) Logout(ctx *gin.Context) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		uh.l.Error("logout filed", zap.Error(err))
+		uh.l.Error("logout failed", zap.Error(err))
 		ctx.JSON(ServerERROR, gin.H{"error": UserLogoutFailure})
 		return
 	}

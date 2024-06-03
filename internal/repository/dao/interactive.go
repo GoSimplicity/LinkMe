@@ -76,7 +76,7 @@ func (i *interactiveDAO) BatchIncrReadCnt(ctx context.Context, biz []string, biz
 		txInc := NewInteractiveDAO(tx, i.l)
 		for j := 0; j < len(biz); j++ {
 			if err := txInc.IncrReadCnt(ctx, biz[j], bizIds[j]); err != nil {
-				i.l.Error("add read count filed", zap.Error(err))
+				i.l.Error("add read count failed", zap.Error(err))
 				return err
 			}
 		}
@@ -93,7 +93,7 @@ func (i *interactiveDAO) InsertLikeInfo(ctx context.Context, lb UserLikeBiz) err
 		err := tx.Where("uid = ? AND biz_id = ? AND biz_name = ?", lb.Uid, lb.BizID, lb.BizName).First(&existingLike).Error
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				i.l.Error("query record filed", zap.Error(err))
+				i.l.Error("query record failed", zap.Error(err))
 				return err
 			}
 			// 创建新的点赞记录
@@ -101,7 +101,7 @@ func (i *interactiveDAO) InsertLikeInfo(ctx context.Context, lb UserLikeBiz) err
 			lb.UpdateTime = now
 			lb.Status = StatusLiked
 			if er := tx.Create(&lb).Error; er != nil {
-				i.l.Error("create user like record filed ")
+				i.l.Error("create user like record failed ")
 				return er
 			}
 		} else {
@@ -109,7 +109,7 @@ func (i *interactiveDAO) InsertLikeInfo(ctx context.Context, lb UserLikeBiz) err
 			existingLike.Status = StatusLiked
 			existingLike.UpdateTime = now
 			if er := tx.Save(&existingLike).Error; er != nil {
-				i.l.Error("update user like record filed")
+				i.l.Error("update user like record failed")
 				return er
 			}
 		}
@@ -139,7 +139,7 @@ func (i *interactiveDAO) DeleteLikeInfo(ctx context.Context, lb UserLikeBiz) err
 			"status":     StatusUnliked,
 		}).Error
 		if err != nil {
-			i.l.Error("delete user like filed")
+			i.l.Error("delete user like failed")
 			return err
 		}
 		return tx.WithContext(ctx).Model(&Interactive{}).Where("biz_name = ? AND biz_id = ?", lb.BizName, lb.BizID).Updates(map[string]interface{}{
@@ -206,7 +206,7 @@ func (i *interactiveDAO) DeleteCollectionBiz(ctx context.Context, cb UserCollect
 			"status":     StatusUnCollection,
 		}).Error
 		if err != nil {
-			i.l.Error("delete user collection filed")
+			i.l.Error("delete user collection failed")
 			return err
 		}
 		// 更新互动信息

@@ -186,7 +186,7 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 		}, nil
 	}
 	if post.Content == "" && post.Title == "" {
-		ph.l.Error("get post filed by author")
+		ph.l.Error("get post failed by author")
 		return Result{
 			Code: RequestsOK,
 			Msg:  PostGetDetailERROR,
