@@ -182,7 +182,7 @@ func (p *postDAO) List(ctx context.Context, pagination domain.Pagination) ([]Pos
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
 	if err := p.db.WithContext(ctx).Where("author_id = ? AND deleted = ?", pagination.Uid, false).Limit(intSize).Offset(intOffset).Find(&posts).Error; err != nil {
-		p.l.Error("find post list filed", zap.Error(err))
+		p.l.Error("find post list failed", zap.Error(err))
 		return nil, err
 	}
 	return posts, nil
