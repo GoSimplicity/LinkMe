@@ -41,9 +41,9 @@ type sendCodeService struct {
 
 type statsEntry struct {
 	timestamp       time.Time
-	requests        int
-	errorRequests   int
-	responseTimeSum time.Duration
+	requests        int           // 请求数量
+	errorRequests   int           // 错误请求数量
+	responseTimeSum time.Duration // 相应时间总和
 }
 
 // NewSendCodeService 创建并返回一个新的 sendCodeService 实例
@@ -70,21 +70,19 @@ func (s *sendCodeService) StartAsyncCycle() {
 
 // AsyncSend 异步发送短信
 func (s *sendCodeService) AsyncSend() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5) // 增加了超时时间
 	defer cancel()
 	as, err := s.repo.PreemptWaitingSMS(ctx)
 	if err != nil {
 		s.handleAsyncSendError(err)
 		return
 	}
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 	err = s.Send(ctx, as.TplId, as.Args, as.Numbers...)
 	if err != nil {
 		s.l.Error("Failed to send asynchronous short messages", zap.Error(err))
 	}
 	res := err == nil
-	if er := s.repo.ReportScheduleResult(ctx, as.Id, res); err != nil {
+	if er := s.repo.ReportScheduleResult(ctx, as.Id, res); er != nil {
 		s.l.Error("Asynchronous sending of SMS messages succeeded, but marking the database failed", zap.Error(er))
 	}
 }
@@ -112,21 +110,20 @@ func (s *sendCodeService) Send(ctx context.Context, tplId string, args []string,
 	response, err := s.client.SendSms(request)
 	if err != nil {
 		s.l.Error("Failed to send SMS", zap.Error(err))
+		s.recordStats(false, time.Since(start))
 		return err
 	}
+	success := true
 	for _, statusPtr := range response.Response.SendStatusSet {
-		if statusPtr == nil {
-			continue
-		}
-		status := *statusPtr
-		if status.Code == nil || *status.Code != "Ok" {
+		if statusPtr == nil || statusPtr.Code == nil || *statusPtr.Code != "Ok" {
 			s.l.Error("Failed to send SMS", zap.Error(err))
-			return err
+			success = false
+			break
 		}
 	}
 	responseTime := time.Since(start)
-	s.recordStats(true, responseTime)
-	if s.needAsync() {
+	s.recordStats(success, responseTime)
+	if success && s.needAsync() {
 		return s.repo.Add(ctx, domain.AsyncSms{
 			TplId:    tplId,
 			Args:     args,
@@ -141,11 +138,11 @@ func (s *sendCodeService) Send(ctx context.Context, tplId string, args []string,
 func (s *sendCodeService) recordStats(success bool, responseTime time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now().Unix()
-	currentIdx := int(now) % statsWindowSize
+	now := time.Now()
+	currentIdx := int(now.Unix()) % statsWindowSize
 	if currentIdx != s.currentSecond {
 		s.stats[currentIdx] = statsEntry{
-			timestamp:       time.Now(),
+			timestamp:       now,
 			requests:        0,
 			errorRequests:   0,
 			responseTimeSum: 0,
