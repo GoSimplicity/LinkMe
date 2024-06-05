@@ -8,19 +8,19 @@ import (
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/pkg/samarap"
-	"LinkMe/utils" // 引入工具包
+	"LinkMe/utils"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )
 
 type SMSConsumer struct {
-	repo   repository.SendVCodeRepository
+	repo   repository.SmsRepository
 	client sarama.Client
 	l      *zap.Logger
 	rdb    cache.SMSCache
 }
 
-func NewSMSConsumer(repo repository.SendVCodeRepository, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
+func NewSMSConsumer(repo repository.SmsRepository, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
 	return &SMSConsumer{repo: repo, client: client, l: l, rdb: rdb}
 }
 
