@@ -29,13 +29,13 @@ func getVCodeKey(smsID, mobile string) string {
 	return fmt.Sprintf(VCodeKey, smsID, mobile)
 }
 
-func (s *smsCache) GetVCode(ctx context.Context, smsID, mobile string) string {
+func (s smsCache) GetVCode(ctx context.Context, smsID, mobile string) string {
 	key := getVCodeKey(smsID, mobile)
 	vCode, _ := s.client.Get(ctx, key).Result()
 	return vCode
 }
 
-func (s *smsCache) StoreVCode(ctx context.Context, smsID, mobile string, vCode string) {
+func (s smsCache) StoreVCode(ctx context.Context, smsID, mobile string, vCode string) {
 	key := getVCodeKey(smsID, mobile)
 	s.client.Set(ctx, key, vCode, time.Minute*10)
 }
