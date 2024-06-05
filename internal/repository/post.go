@@ -125,7 +125,7 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 		p.l.Error("get pub post failed", zap.Error(err))
 		return nil, err
 	}
-	posts = toDomainSlicePost(pub)
+	posts = fromDomainSlicePost(pub)
 	// 如果缓存未命中，这里选择异步更新缓存
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -154,7 +154,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 		p.l.Error("get pub post failed", zap.Error(err))
 		return nil, err
 	}
-	posts = toDomainSlicePost(pub)
+	posts = fromDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择异步更新缓存
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -226,7 +226,7 @@ func fromDomainPost(p domain.Post) models.Post {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainSlicePost(post []models.Post) []domain.Post {
+func fromDomainSlicePost(post []models.Post) []domain.Post {
 	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
 	for i, repoPost := range post {
 		domainPosts[i] = domain.Post{
