@@ -29,7 +29,7 @@ func NewSmsDAO(db *gorm.DB, l *zap.Logger) SmsDAO {
 func (s *smsDao) Insert(ctx context.Context, log VCodeSmsLog) error {
 	log.UpdatedTime = time.Now().Unix() //初始化插入时的时间戳
 	log.CreateTime = time.Now().Unix()  //初始化插入时的时间戳
-	return s.db.Create(&log).Error
+	return s.db.WithContext(ctx).Create(&log).Error
 }
 
 func (s *smsDao) FindFailedLogs(ctx context.Context) ([]VCodeSmsLog, error) {
