@@ -77,6 +77,24 @@ func (h *historyCache) SetCache(ctx context.Context, history domain.History) err
 			h.l.Error("释放锁失败", zap.Error(er))
 		}
 	}()
+	// 获取缓存中的历史记录
+	values, err := h.client.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		h.l.Error("获取缓存失败", zap.Error(err))
+		return err
+	}
+	// 检查postId是否已经存在
+	for _, v := range values {
+		var existingHistory domain.History
+		if er := json.Unmarshal([]byte(v), &existingHistory); er != nil {
+			h.l.Error("反序列化历史记录失败", zap.Error(er))
+			continue
+		}
+		if existingHistory.PostID == history.PostID {
+			h.l.Info("历史记录已存在", zap.Int64("postId", history.PostID))
+			return nil
+		}
+	}
 	// 将帖子推送到 Redis 列表中
 	if er := h.client.RPush(ctx, key, value).Err(); er != nil {
 		h.l.Error("设置缓存失败", zap.Error(er))

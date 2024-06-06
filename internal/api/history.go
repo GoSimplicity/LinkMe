@@ -26,7 +26,7 @@ func NewHistoryHandler(svc service.HistoryService, l *zap.Logger) *HistoryHandle
 func (h *HistoryHandler) RegisterRoutes(server *gin.Engine) {
 	historyGroup := server.Group("/history")
 	historyGroup.GET("/list", WrapBody(h.GetHistory))
-	historyGroup.DELETE("/delete/:id", WrapParam(h.DeleteOneHistory))
+	historyGroup.DELETE("/delete", WrapBody(h.DeleteOneHistory))
 	historyGroup.DELETE("/delete/all", WrapBody(h.DeleteAllHistory))
 }
 
@@ -53,7 +53,7 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context, req ListHistoryReq) (Resul
 
 func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req DeleteHistoryReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if err := h.svc.DeleteOneHistory(ctx, req.ID, uc.Uid); err != nil {
+	if err := h.svc.DeleteOneHistory(ctx, req.PostId, uc.Uid); err != nil {
 		h.l.Error("delete history failed", zap.Error(err))
 		return Result{
 			Code: 500,
@@ -66,14 +66,16 @@ func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req DeleteHistoryReq
 	}, nil
 }
 
-func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req DeleteHistoryReq) (Result, error) {
+func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req DeleteHistoryAllReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {
-		h.l.Error("delete history failed", zap.Error(err))
-		return Result{
-			Code: 500,
-			Msg:  HistoryDeleteError,
-		}, err
+	if req.IsDeleteAll == true {
+		if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {
+			h.l.Error("delete history failed", zap.Error(err))
+			return Result{
+				Code: 500,
+				Msg:  HistoryDeleteError,
+			}, err
+		}
 	}
 	return Result{
 		Code: RequestsOK,

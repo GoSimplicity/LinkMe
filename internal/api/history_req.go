@@ -6,5 +6,9 @@ type ListHistoryReq struct {
 }
 
 type DeleteHistoryReq struct {
-	ID int64 `uri:"historyId"`
+	PostId int64 `json:"postId,omitempty"`
+}
+
+type DeleteHistoryAllReq struct {
+	IsDeleteAll bool `json:"isDeleteAll,omitempty"`
 }
