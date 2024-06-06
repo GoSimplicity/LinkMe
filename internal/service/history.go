@@ -10,8 +10,8 @@ import (
 
 type HistoryService interface {
 	GetHistory(ctx context.Context, pagination domain.Pagination) ([]domain.History, error)
-	SetHistory(ctx context.Context, post domain.Post, actionType string) error
-	DeleteHistory(ctx context.Context, id int64, uid int64) error
+	DeleteOneHistory(ctx context.Context, postId int64, uid int64) error
+	DeleteAllHistory(ctx context.Context, uid int64) error
 }
 
 type historyService struct {
@@ -38,12 +38,12 @@ func (h *historyService) GetHistory(ctx context.Context, pagination domain.Pagin
 
 	return history, nil
 }
-
-func (h *historyService) SetHistory(ctx context.Context, post domain.Post, actionType string) error {
-	return h.repo.SetHistory(ctx, post, actionType)
+func (h *historyService) DeleteOneHistory(ctx context.Context, postId int64, uid int64) error {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (h *historyService) DeleteHistory(ctx context.Context, id int64, uid int64) error {
+func (h *historyService) DeleteAllHistory(ctx context.Context, uid int64) error {
 	//TODO implement me
 	panic("implement me")
 }
