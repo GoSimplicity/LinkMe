@@ -22,18 +22,20 @@ type PostService interface {
 }
 
 type postService struct {
-	repo     repository.PostRepository
-	svc      InteractiveService
-	producer post.Producer
-	l        *zap.Logger
+	repo        repository.PostRepository
+	historyRepo repository.HistoryRepository
+	svc         InteractiveService
+	producer    post.Producer
+	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService, p post.Producer) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService, p post.Producer, historyRepo repository.HistoryRepository) PostService {
 	return &postService{
-		repo:     repo,
-		l:        l,
-		svc:      svc,
-		producer: p,
+		repo:        repo,
+		l:           l,
+		svc:         svc,
+		producer:    p,
+		historyRepo: historyRepo,
 	}
 }
 
@@ -93,16 +95,20 @@ func (p *postService) GetPostById(ctx context.Context, postId int64, uid int64) 
 
 func (p *postService) GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetPublishedPostById(ctx, postId)
+	if err != nil {
+		return domain.Post{}, err // 直接返回错误
+	}
+	// 存入历史记录
+	if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
+		p.l.Error("set history failed", zap.Error(er))
+	}
+	// 异步处理读取事件
 	go func() {
-		if err == nil {
-			er := p.producer.ProduceReadEvent(post.ReadEvent{
-				PostId: postId,
-				Uid:    uid,
-			})
-			if er != nil {
-				p.l.Error("produce read event failed", zap.Error(er))
-			}
+		// 生成读取事件
+		if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
+			p.l.Error("produce read event failed", zap.Error(er))
 		}
+
 	}()
 	return dp, nil
 }
