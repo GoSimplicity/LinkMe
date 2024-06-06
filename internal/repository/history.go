@@ -77,7 +77,7 @@ func toDomainHistory(post domain.Post) domain.History {
 	return domain.History{
 		Content:  createContentSummary(post.Content),
 		Deleted:  post.Deleted,
-		AuthorID: post.UserID,
+		AuthorID: post.Author.Id,
 		Tags:     post.Tags,
 		PostID:   post.ID,
 		Title:    post.Title,

@@ -258,5 +258,6 @@ func toDomainPost(post models.Post) domain.Post {
 		CategoryID:   post.CategoryID,
 		Tags:         post.Tags,
 		CommentCount: post.CommentCount,
+		Author:       domain.Author{Id: post.Author},
 	}
 }
