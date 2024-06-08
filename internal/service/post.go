@@ -1,11 +1,14 @@
 package service
 
 import (
+	"LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/repository"
 	"context"
+	"github.com/go-co-op/gocron"
 	"go.uber.org/zap"
+	"time"
 )
 
 type PostService interface {
@@ -24,16 +27,18 @@ type PostService interface {
 type postService struct {
 	repo        repository.PostRepository
 	historyRepo repository.HistoryRepository
-	svc         InteractiveService
+	intSvc      InteractiveService
+	checkSvc    CheckService
 	producer    post.Producer
 	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, svc InteractiveService, p post.Producer, historyRepo repository.HistoryRepository) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, scheduler *gocron.Scheduler) PostService {
 	return &postService{
 		repo:        repo,
 		l:           l,
-		svc:         svc,
+		intSvc:      intSvc,
+		checkSvc:    checkSvc,
 		producer:    p,
 		historyRepo: historyRepo,
 	}
@@ -55,14 +60,59 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	return p.repo.Update(ctx, post)
 }
 
+// Publish 发布帖子，并提交审核
 func (p *postService) Publish(ctx context.Context, post domain.Post) error {
-	post.Status = domain.Published
-	// 公开帖子时执行同步操作,添加帖子到线上库
-	if _, err := p.repo.Sync(ctx, post); err != nil {
-		p.l.Error("db sync failed", zap.Error(err))
+	dp, err := p.repo.GetPostById(ctx, post.ID, post.Author.Id)
+	if err != nil {
+		p.l.Error("获取帖子失败", zap.Error(err))
 		return err
 	}
-	return p.repo.UpdateStatus(ctx, post)
+	checkId, err := p.checkSvc.SubmitCheck(ctx, domain.Check{
+		PostID:  dp.ID,
+		Content: dp.Content,
+		Title:   dp.Title,
+		UserID:  dp.Author.Id,
+	})
+	if err != nil {
+		p.l.Error("提交审核失败", zap.Error(err))
+		return err
+	}
+	// 在后台处理审核流程
+	go p.handleCheck(ctx, post, checkId)
+	return nil
+}
+
+// handleCheck 处理审核流程
+func (p *postService) handleCheck(ctx context.Context, post domain.Post, checkId int64) {
+	for {
+		select {
+		case <-ctx.Done():
+			p.l.Info("审核流程终止", zap.Int64("postID", post.ID))
+			return
+		default:
+			detail, err := p.checkSvc.CheckDetail(ctx, checkId)
+			if err != nil {
+				p.l.Error("获取审核详情失败", zap.Error(err), zap.Int64("checkID", checkId))
+				time.Sleep(time.Second * 5) // 避免频繁重试
+				continue
+			}
+			if detail.Status == constants.PostApproved {
+				post.Status = domain.Published
+				if _, er := p.repo.Sync(ctx, post); er != nil {
+					p.l.Error("数据库同步失败", zap.Error(er), zap.Int64("postID", post.ID))
+				} else {
+					err := p.repo.UpdateStatus(ctx, post)
+					if err != nil {
+						p.l.Error("更新帖子状态失败", zap.Error(err), zap.Int64("postID", post.ID))
+						return
+					}
+					p.l.Info("帖子已发布", zap.Int64("postID", post.ID))
+				}
+				return
+			}
+			time.Sleep(time.Second * 5) // 每隔5秒检查一次审核状态
+		}
+	}
 }
 
 func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {

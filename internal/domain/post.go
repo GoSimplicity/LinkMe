@@ -15,7 +15,6 @@ type Author struct {
 }
 type Post struct {
 	ID           int64
-	UserID       int64
 	Title        string
 	Content      string
 	CreateTime   int64
