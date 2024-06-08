@@ -15,5 +15,6 @@ func InitTables(db *gorm.DB) error {
 		&UserCollectionBiz{},
 		&UserLikeBiz{},
 		&VCodeSmsLog{},
+		&Check{},
 	)
 }

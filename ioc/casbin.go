@@ -7,13 +7,13 @@ import (
 	"log"
 )
 
-// InitCasbin initializes a Casbin enforcer with the given Gorm DB connection and configuration file path.
-func InitCasbin(db *gorm.DB, configPath string) *casbin.Enforcer {
+// InitCasbin 初始化casbin
+func InitCasbin(db *gorm.DB) *casbin.Enforcer {
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {
 		log.Fatalf("Failed to create adapter: %v", err)
 	}
-	enforcer, err := casbin.NewEnforcer(configPath, adapter)
+	enforcer, err := casbin.NewEnforcer("config/model.conf", adapter)
 	if err != nil {
 		log.Fatalf("Failed to create enforcer: %v", err)
 	}
