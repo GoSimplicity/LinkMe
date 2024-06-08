@@ -105,7 +105,7 @@ func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) 
 
 func (dao *checkDAO) FindByID(ctx context.Context, checkID int64) (domain.Check, error) {
 	var check Check
-	result := dao.db.WithContext(ctx).First(&check, checkID)
+	result := dao.db.WithContext(ctx).Where("id = ?", checkID).First(&check)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return domain.Check{}, nil

@@ -31,6 +31,6 @@ func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) 
 		},
 		middleware.NewJWTMiddleware(ih).CheckLogin(),
 		middleware.NewLogMiddleware(l).Log(),
-		middleware.NewCasbinMiddleware(enforcer, l).CheckCasbin(),
+		//middleware.NewCasbinMiddleware(enforcer, l).CheckCasbin(),
 	}
 }
