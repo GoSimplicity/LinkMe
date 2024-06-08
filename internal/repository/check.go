@@ -27,7 +27,18 @@ func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
 }
 
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
-	return r.dao.Create(ctx, check)
+	// 先查找是否存在该审核信息
+	dc, err := r.dao.FindByID(ctx, check.PostID)
+	if dc.PostID != 0 && err == nil {
+		return 0, nil
+	}
+	// 创建新的审核信息
+	id, err := r.dao.Create(ctx, check)
+	if err != nil {
+		r.l.Error("创建审核信息失败", zap.Error(err), zap.Error(err))
+		return 0, err
+	}
+	return id, nil
 }
 
 func (r *checkRepository) UpdateStatus(ctx context.Context, check domain.Check) error {
