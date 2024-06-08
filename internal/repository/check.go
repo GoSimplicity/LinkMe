@@ -2,8 +2,8 @@ package repository
 
 import (
 	"LinkMe/internal/domain"
+	"LinkMe/internal/repository/dao"
 	"context"
-	"database/sql"
 	"go.uber.org/zap"
 )
 
@@ -14,30 +14,30 @@ type CheckRepository interface {
 	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
 }
 
-type CheckRepositoryImpl struct {
-	db *sql.DB
-	l  *zap.Logger
+type checkRepository struct {
+	dao dao.CheckDAO
+	l   *zap.Logger
 }
 
-func NewCheckRepository(db *sql.DB, l *zap.Logger) CheckRepository {
-	return &CheckRepositoryImpl{
-		db: db,
-		l:  l,
+func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
+	return &checkRepository{
+		dao: dao,
+		l:   l,
 	}
 }
 
-func (r *CheckRepositoryImpl) Create(ctx context.Context, check domain.Check) (int64, error) {
-	panic("")
+func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
+	return r.dao.Create(ctx, check)
 }
 
-func (r *CheckRepositoryImpl) UpdateStatus(ctx context.Context, check domain.Check) error {
-	panic("")
+func (r *checkRepository) UpdateStatus(ctx context.Context, check domain.Check) error {
+	return r.dao.UpdateStatus(ctx, check)
 }
 
-func (r *CheckRepositoryImpl) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
-	panic("")
+func (r *checkRepository) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
+	return r.dao.FindAll(ctx, pagination)
 }
 
-func (r *CheckRepositoryImpl) FindByID(ctx context.Context, checkID int64) (domain.Check, error) {
-	panic("")
+func (r *checkRepository) FindByID(ctx context.Context, checkID int64) (domain.Check, error) {
+	return r.dao.FindByID(ctx, checkID)
 }
