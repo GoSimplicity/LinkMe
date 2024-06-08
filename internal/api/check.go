@@ -1,8 +1,11 @@
 package api
 
 import (
+	. "LinkMe/internal/constants"
+	"LinkMe/internal/domain"
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
+	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -31,26 +34,88 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 func (ch *CheckHandler) SubmitCheck(ctx *gin.Context, req SubmitCheckReq) (Result, error) {
-	// TODO: 实现提交审核逻辑
-	return Result{}, nil
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	check, err := ch.svc.SubmitCheck(ctx, domain.Check{
+		PostID:  req.PostID,
+		Content: req.Content,
+		Title:   req.Title,
+		UserID:  uc.Uid,
+	})
+	if err != nil {
+		ch.l.Error("failed to submit check", zap.Error(err))
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to submit check",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "success to submit check",
+		Data: check,
+	}, nil
 }
 
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
-	// TODO: 实现审核通过逻辑
-	return Result{}, nil
+	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark)
+	if err != nil {
+		ch.l.Error("failed to approve check", zap.Error(err))
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to approve check",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "success to approve check",
+	}, nil
 }
 
 func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req RejectCheckReq) (Result, error) {
-	// TODO: 实现审核拒绝逻辑
-	return Result{}, nil
+	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark)
+	if err != nil {
+		ch.l.Error("failed to reject check", zap.Error(err))
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to reject check",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "success to reject check",
+	}, nil
 }
 
 func (ch *CheckHandler) ListChecks(ctx *gin.Context, req ListCheckReq) (Result, error) {
-	// TODO: 实现获取审核列表逻辑
-	return Result{}, nil
+	checks, err := ch.svc.ListChecks(ctx, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
+	if err != nil {
+		ch.l.Error("failed to list checks", zap.Error(err))
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to list checks",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "success to list checks",
+		Data: checks,
+	}, nil
 }
 
 func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req CheckDetailReq) (Result, error) {
-	// TODO: 实现获取审核详情逻辑
-	return Result{}, nil
+	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
+	if err != nil {
+		ch.l.Error("failed to get check detail", zap.Error(err))
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to get check detail",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "success to get check detail",
+		Data: check,
+	}, nil
 }
