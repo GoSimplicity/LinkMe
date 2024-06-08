@@ -71,6 +71,9 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 }
 
 func (s *checkService) ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
 	checks, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
 		s.l.Error("Failed to list checks", zap.Error(err))
