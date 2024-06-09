@@ -12,6 +12,7 @@ type SmsDAO interface {
 	Insert(ctx context.Context, log VCodeSmsLog) error
 	FindFailedLogs(ctx context.Context) ([]VCodeSmsLog, error) //查找当前时刻以前，发送失败的logs，后续需要重新发送
 	Update(ctx context.Context, log VCodeSmsLog) error
+	InsertUserOperationLog(ctx context.Context, log UserOperationLog) error
 }
 
 type smsDao struct {
@@ -47,4 +48,9 @@ func (s *smsDao) FindFailedLogs(ctx context.Context) ([]VCodeSmsLog, error) {
 func (s *smsDao) Update(ctx context.Context, log VCodeSmsLog) error {
 	log.UpdatedTime = time.Now().Unix() //更新时初始化时间戳
 	return s.db.WithContext(ctx).Save(&log).Error
+}
+
+// InsertUserOperationLog 新增加的插入用户操作日志
+func (s *smsDao) InsertUserOperationLog(ctx context.Context, log UserOperationLog) error {
+	return s.db.WithContext(ctx).Create(&log).Error
 }
