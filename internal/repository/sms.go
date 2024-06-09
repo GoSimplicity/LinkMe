@@ -16,6 +16,7 @@ import (
 type SmsRepository interface {
 	CheckCode(ctx context.Context, mobile, smsID, vCode string) error
 	SendCode(ctx context.Context, mobile, smsID string) error
+	AddUserOperationLog(ctx context.Context, phone, action string) error
 }
 
 // smsRepository 实现了 SendVCodeRepository 接口
@@ -45,21 +46,38 @@ func (s *smsRepository) CheckCode(ctx context.Context, mobile, smsID, vCode stri
 
 // SendCode 记录发送的验证码
 func (s *smsRepository) SendCode(ctx context.Context, mobile, smsID string) error {
-	vCode := fmt.Sprintf("%06d", utils.GenRandomCode(100000)) //生成验证码
-
-	err := s.cache.StoreVCode(ctx, smsID, mobile, vCode)
-	if err != nil {
-		return fmt.Errorf("存储验证码失败:%w", err)
-	}
-	//发送验证码
-	message := fmt.Sprintf("你的验证码是: %s", vCode)
-	_, err = s.cache.GetVCode(ctx, message, smsID)
+	_, err := s.cache.SetNX(ctx, fmt.Sprintf("sms_lock_:%s", mobile), "1", time.Second*60)
 	status := int64(1)
+	SmsId, _ := strconv.ParseInt(smsID, 10, 64)
+	vCode := utils.GenRandomCode(6)
 	if err != nil {
 		status = int64(0)
-		return fmt.Errorf("发送验证码失败:%w", err)
+		FailLog := models.VCodeSmsLog{
+			SmsId:       SmsId,
+			Status:      status,
+			Mobile:      mobile,
+			VCode:       vCode,
+			CreateTime:  time.Now().Unix(),
+			UpdatedTime: time.Now().Unix(),
+		}
+		err = s.dao.Insert(ctx, FailLog)
+		return fmt.Errorf("设置键值对失败")
 	}
-	SmsId, _ := strconv.ParseInt(smsID, 10, 64)
+
+	err = s.cache.StoreVCode(ctx, smsID, mobile, vCode)
+	if err != nil {
+		status = int64(0)
+		FailLog := models.VCodeSmsLog{
+			SmsId:       SmsId,
+			Status:      status,
+			Mobile:      mobile,
+			VCode:       vCode,
+			CreateTime:  time.Now().Unix(),
+			UpdatedTime: time.Now().Unix(),
+		}
+		err = s.dao.Insert(ctx, FailLog)
+		return fmt.Errorf("存储验证码失败:%w", err)
+	}
 	log := models.VCodeSmsLog{
 		SmsId:       SmsId,
 		Status:      status,
@@ -71,6 +89,19 @@ func (s *smsRepository) SendCode(ctx context.Context, mobile, smsID string) erro
 	err = s.dao.Insert(ctx, log)
 	if err != nil {
 		return fmt.Errorf("记录发送日志失败:%w", err)
+	}
+	return nil
+}
+
+func (s *smsRepository) AddUserOperationLog(ctx context.Context, phone, action string) error {
+	log := models.UserOperationLog{
+		Phone:      phone,
+		Action:     action,
+		CreateTime: time.Now().Unix(),
+	}
+	err := s.dao.InsertUserOperationLog(ctx, log)
+	if err != nil {
+		return fmt.Errorf("记录用户操作日志失败:%w", err)
 	}
 	return nil
 }
