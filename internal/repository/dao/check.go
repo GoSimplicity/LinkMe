@@ -11,10 +11,11 @@ import (
 )
 
 type CheckDAO interface {
-	Create(ctx context.Context, check domain.Check) (int64, error)                     // 创建审核记录
-	UpdateStatus(ctx context.Context, check domain.Check) error                        // 更新审核状态
-	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
-	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
+	Create(ctx context.Context, check domain.Check) (int64, error)                         // 创建审核记录
+	UpdateStatus(ctx context.Context, check domain.Check) error                            // 更新审核状态
+	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
+	FindByID(ctx context.Context, checkId int64) (domain.Check, error)
+	FindByPostId(ctx context.Context, postId int64) (domain.Check, error) // 获取审核详情
 }
 
 type checkDAO struct {
@@ -78,7 +79,7 @@ func (dao *checkDAO) UpdateStatus(ctx context.Context, check domain.Check) error
 	return nil
 }
 
-func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
+func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) {
 	var checks []Check
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
@@ -88,24 +89,46 @@ func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) 
 		return nil, result.Error
 	}
 	// 将 models.Check 转换为 domain.Check
-	var domainChecks []domain.Check
+	var domainChecks []domain.CheckList
 	for _, check := range checks {
-		domainChecks = append(domainChecks, domain.Check{
-			ID:      check.ID,
-			PostID:  check.PostID,
-			Content: check.Content,
-			Title:   check.Title,
-			UserID:  check.Author,
-			Status:  check.Status,
-			Remark:  check.Remark,
+		domainChecks = append(domainChecks, domain.CheckList{
+			ID:        check.ID,
+			PostID:    check.PostID,
+			Title:     check.Title,
+			UserID:    check.Author,
+			Status:    check.Status,
+			Remark:    check.Remark,
+			UpdatedAt: check.UpdatedAt,
+			CreatedAt: check.CreatedAt,
 		})
 	}
 	return domainChecks, nil
 }
 
-func (dao *checkDAO) FindByID(ctx context.Context, checkID int64) (domain.Check, error) {
+func (dao *checkDAO) FindByID(ctx context.Context, checkId int64) (domain.Check, error) {
 	var check Check
-	result := dao.db.WithContext(ctx).Where("id = ?", checkID).First(&check)
+	result := dao.db.WithContext(ctx).Where("id = ?", checkId).First(&check)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.Check{}, nil
+		}
+		dao.l.Error("failed to find check by ID", zap.Error(result.Error))
+		return domain.Check{}, result.Error
+	}
+	return domain.Check{
+		ID:      check.ID,
+		PostID:  check.PostID,
+		Content: check.Content,
+		Title:   check.Title,
+		UserID:  check.Author,
+		Status:  check.Status,
+		Remark:  check.Remark,
+	}, nil
+}
+
+func (dao *checkDAO) FindByPostId(ctx context.Context, postId int64) (domain.Check, error) {
+	var check Check
+	result := dao.db.WithContext(ctx).Where("post_id = ?", postId).First(&check)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return domain.Check{}, nil
