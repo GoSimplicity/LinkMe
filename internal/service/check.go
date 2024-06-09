@@ -9,11 +9,11 @@ import (
 )
 
 type CheckService interface {
-	SubmitCheck(ctx context.Context, check domain.Check) (int64, error)                   // 提交审核
-	ApproveCheck(ctx context.Context, checkID int64, remark string) error                 // 审核通过
-	RejectCheck(ctx context.Context, checkID int64, remark string) error                  // 审核拒绝
-	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
-	CheckDetail(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
+	SubmitCheck(ctx context.Context, check domain.Check) (int64, error)                       // 提交审核
+	ApproveCheck(ctx context.Context, checkID int64, remark string) error                     // 审核通过
+	RejectCheck(ctx context.Context, checkID int64, remark string) error                      // 审核拒绝
+	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
+	CheckDetail(ctx context.Context, checkID int64) (domain.Check, error)                     // 获取审核详情
 }
 
 type checkService struct {
@@ -70,7 +70,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	return nil
 }
 
-func (s *checkService) ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
+func (s *checkService) ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) {
 	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
