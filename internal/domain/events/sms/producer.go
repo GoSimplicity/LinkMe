@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/IBM/sarama"
+	"go.uber.org/zap"
 )
 
 const TopicSMS = "sms_events"
@@ -14,13 +15,17 @@ type Producer interface {
 
 // SMSCodeEvent 代表单个短信验证码事件
 type SMSCodeEvent struct {
-	Phone string
-	Code  string
+	Phone          string
+	Code           string
+	TemplateId     string
+	Args           []string
+	PhoneNumberSet []string
 }
 
 // SaramaSyncProducer 实现Producer接口的结构体
 type SaramaSyncProducer struct {
 	producer sarama.SyncProducer
+	logger   *zap.Logger
 }
 
 // NewSaramaSyncProducer 创建一个新的SaramaSyncProducer实例
@@ -33,12 +38,18 @@ func (s *SaramaSyncProducer) ProduceSMSCode(ctx context.Context, evt SMSCodeEven
 	// 序列化事件
 	data, err := json.Marshal(evt)
 	if err != nil {
+		s.logger.Error("序列化事件失败", zap.Error(err))
 		return err
 	}
 	// 发送消息到Kafka
-	_, _, err = s.producer.SendMessage(&sarama.ProducerMessage{
+	partition, offset, err := s.producer.SendMessage(&sarama.ProducerMessage{
 		Topic: TopicSMS,
 		Value: sarama.StringEncoder(data),
 	})
-	return err
+	if err != nil {
+		s.logger.Error("发送信息到Kafka失败", zap.Error(err))
+		return err
+	}
+	s.logger.Info("成功发送消息到Kafka", zap.String("topic", TopicSMS), zap.Int32("partition", partition), zap.Int64("offset", offset))
+	return nil
 }
