@@ -7,9 +7,7 @@ import (
 	"LinkMe/internal/repository"
 	"context"
 	"errors"
-	"github.com/go-co-op/gocron"
 	"go.uber.org/zap"
-	"time"
 )
 
 type PostService interface {
@@ -34,7 +32,7 @@ type postService struct {
 	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, scheduler *gocron.Scheduler) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository) PostService {
 	return &postService{
 		repo:        repo,
 		l:           l,
@@ -68,7 +66,6 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		p.l.Error("获取帖子失败", zap.Error(err))
 		return err
 	}
-
 	// 检查帖子状态是否允许重新提交审核
 	if dp.Status == constants.PostUnApproved {
 		dp.Status = constants.PostUnderReview
@@ -78,7 +75,6 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 			return err
 		}
 	}
-
 	// 提交审核
 	checkId, err := p.checkSvc.SubmitCheck(ctx, domain.Check{
 		PostID:  dp.ID,
@@ -90,58 +86,12 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		p.l.Error("提交审核失败", zap.Error(err))
 		return err
 	}
-
 	// 确保 checkId 有效
 	if checkId == 0 {
 		p.l.Error("提交审核失败，checkId 无效", zap.Int64("postID", post.ID))
 		return errors.New("提交审核失败，checkId 无效")
 	}
-
-	// 在后台处理审核流程
-	go p.handleCheck(ctx, post, checkId)
 	return nil
-}
-
-// handleCheck 处理审核流程
-func (p *postService) handleCheck(ctx context.Context, post domain.Post, checkId int64) {
-	ticker := time.NewTicker(5 * time.Second) // 每隔5秒检查一次审核状态
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			p.l.Info("审核流程终止", zap.Int64("postID", post.ID))
-			return
-		case <-ticker.C:
-			detail, err := p.checkSvc.CheckDetail(ctx, checkId)
-			if err != nil {
-				p.l.Error("获取审核详情失败", zap.Error(err), zap.Int64("checkID", checkId))
-				continue
-			}
-			if detail.Status == constants.PostApproved {
-				post.Status = domain.Published
-				if _, er := p.repo.Sync(ctx, post); er != nil {
-					p.l.Error("数据库同步失败", zap.Error(er), zap.Int64("postID", post.ID))
-				} else {
-					updateErr := p.repo.UpdateStatus(ctx, post)
-					if updateErr != nil {
-						p.l.Error("更新帖子状态失败", zap.Error(updateErr), zap.Int64("postID", post.ID))
-						return
-					}
-					p.l.Info("帖子已发布", zap.Int64("postID", post.ID))
-				}
-				return
-			} else if detail.Status == constants.PostUnApproved {
-				post.Status = domain.Withdrawn
-				updateErr := p.repo.UpdateStatus(ctx, post)
-				if updateErr != nil {
-					p.l.Error("更新帖子状态失败", zap.Error(updateErr), zap.Int64("postID", post.ID))
-				} else {
-					p.l.Info("帖子审核未通过", zap.Int64("postID", post.ID))
-				}
-				return
-			}
-		}
-	}
 }
 
 func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
