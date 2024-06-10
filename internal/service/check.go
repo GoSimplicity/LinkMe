@@ -17,14 +17,18 @@ type CheckService interface {
 }
 
 type checkService struct {
-	repo repository.CheckRepository
-	l    *zap.Logger
+	repo        repository.CheckRepository
+	postRepo    repository.PostRepository
+	historyRepo repository.HistoryRepository
+	l           *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, l *zap.Logger) CheckService {
+func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, l *zap.Logger) CheckService {
 	return &checkService{
-		repo: repo,
-		l:    l,
+		repo:        repo,
+		postRepo:    postRepo,
+		historyRepo: historyRepo,
+		l:           l,
 	}
 }
 
@@ -52,6 +56,33 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		return err
 	}
 	s.l.Info("Approved check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
+	// 获取审核详情
+	check, err := s.repo.FindByID(ctx, checkID)
+	if err != nil {
+		s.l.Error("Failed to get check detail", zap.Error(err))
+		return err
+	}
+	// 获取相关的帖子
+	post, err := s.postRepo.GetPostById(ctx, check.PostID, check.UserID)
+	if err != nil {
+		s.l.Error("Failed to get post", zap.Error(err))
+		return err
+	}
+	// 更新帖子状态为已发布
+	post.Status = domain.Published
+	if _, er := s.postRepo.Sync(ctx, post); er != nil {
+		s.l.Error("Failed to sync post", zap.Error(er))
+		return er
+	}
+	if er := s.postRepo.UpdateStatus(ctx, post); er != nil {
+		s.l.Error("Failed to update post status", zap.Error(er))
+		return er
+	}
+	// 存入历史记录
+	if er := s.historyRepo.SetHistory(ctx, post); er != nil {
+		s.l.Error("set history failed", zap.Error(er))
+	}
+	s.l.Info("Post has been published", zap.Int64("PostID", post.ID))
 	return nil
 }
 
