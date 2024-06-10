@@ -31,6 +31,7 @@ LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供
 ```
 .
 ├── config           # 项目配置文件目录
+├── init             # 初始化文件目录
 ├── docs             # API文档目录
 ├── go.mod           # Go模块定义文件
 ├── go.sum           # Go模块依赖校验和
@@ -73,9 +74,18 @@ go mod tidy
 你可以选择手动创建数据库，或者使用提供的 Kubernetes YAML 文件自动创建。
 #### 手动创建
 ```bash
-mysql -uroot -proot -e "create database linkme;"
+# 进入项目目录中的init目录下
+cd init
+# windows用户执行下面文件
+windows_init.bat
+# linux用户及mac用户执行下面文件
+chmod +x linux_init.sh && ./linux_init.sh
 ```
-#### 使用 Kubernetes YAML 文件
+#### 使用 docker-compose 启动中间件(推荐)
+```bash
+cd yaml/ && docker-compose up -d
+```
+#### 使用 Kubernetes YAML 文件 启动中间件
 ```bash
 kubectl apply -f yaml/  # 需要有k8s环境
 ```
