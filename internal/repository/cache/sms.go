@@ -9,8 +9,8 @@ import (
 )
 
 type SMSCache interface {
-	GetVCode(ctx context.Context, smsID, mobile string) (string, error)
-	StoreVCode(ctx context.Context, smsID, mobile string, vCode string) error
+	GetVCode(ctx context.Context, smsID, number string) (string, error)
+	StoreVCode(ctx context.Context, smsID, number string, vCode string) error
 	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error)
 }
 
@@ -26,12 +26,12 @@ func NewSMSCache(client redis.Cmdable) SMSCache {
 
 const VCodeKey = "sms:%s:%s"
 
-func getVCodeKey(smsID, mobile string) string {
-	return fmt.Sprintf(VCodeKey, smsID, mobile)
+func getVCodeKey(smsID, number string) string {
+	return fmt.Sprintf(VCodeKey, smsID, number)
 }
 
-func (s *smsCache) GetVCode(ctx context.Context, smsID, mobile string) (string, error) {
-	key := getVCodeKey(smsID, mobile)
+func (s *smsCache) GetVCode(ctx context.Context, smsID, number string) (string, error) {
+	key := getVCodeKey(smsID, number)
 	vCode, err := s.client.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -42,8 +42,8 @@ func (s *smsCache) GetVCode(ctx context.Context, smsID, mobile string) (string, 
 	return vCode, nil
 }
 
-func (s *smsCache) StoreVCode(ctx context.Context, smsID, mobile string, vCode string) error {
-	key := getVCodeKey(smsID, mobile)
+func (s *smsCache) StoreVCode(ctx context.Context, smsID string, number string, vCode string) error {
+	key := getVCodeKey(smsID, number)
 	return s.client.Set(ctx, key, vCode, time.Minute*10).Err()
 }
 
