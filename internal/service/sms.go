@@ -3,123 +3,86 @@ package service
 import (
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
+	"LinkMe/internal/repository/models"
+	"LinkMe/pkg/sms"
 	"LinkMe/utils"
 	"context"
 	"fmt"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	sms "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms/v20210111"
 	"go.uber.org/zap"
+	"strconv"
 	"time"
 )
 
-// SendCodeService 定义了发送验证码的服务接口
-type SendCodeService interface {
-	SendCode(ctx context.Context, tplId string, args []string, numbers ...string) error
-	//CheckCode(ctx context.Context, mobile, vCode string) (bool, error)
+// SmsService 定义了发送验证码的服务接口
+type SmsService interface {
+	SendCode(ctx context.Context, number string) error
+	CheckCode(ctx context.Context, smsID, mobile, vCode string) (bool, error)
 }
 
-// sendCodeService 实现了 SendCodeService 接口
-type sendCodeService struct {
-	repo     repository.SmsRepository
-	l        *zap.Logger
-	client   *sms.Client
-	rdb      cache.SMSCache
-	appId    string
-	signName string
+// smsService 实现了 SmsService 接口
+type smsService struct {
+	repo   repository.SmsRepository
+	l      *zap.Logger
+	client *sms.TencentSms //Todo 完成多个sms的集成
+	rdb    cache.SMSCache
 }
 
-// NewSendCodeService 创建并返回一个新的 sendCodeService 实例
-func NewSendCodeService(repo repository.SmsRepository, l *zap.Logger, client *sms.Client, appId string, signName string, rdb cache.SMSCache) SendCodeService {
-	s := &sendCodeService{
-		repo:     repo,
-		l:        l,
-		client:   client,
-		appId:    appId,
-		signName: signName,
-		rdb:      rdb,
+// NewSmsService 创建并返回一个新的 sendCodeService 实例
+func NewSmsService(r repository.SmsRepository, l *zap.Logger, client *sms.TencentSms, rdb cache.SMSCache) SmsService {
+	s := &smsService{
+		repo:   r,
+		l:      l,
+		client: client,
+		rdb:    rdb,
 	}
 	return s
 }
 
-func (s *sendCodeService) SendCode(ctx context.Context, tplId string, args []string, numbers ...string) error {
+func (s smsService) SendCode(ctx context.Context, number string) error {
+	//todo 参数校验
 
-	//使用分布式锁，保证每个手机号一分钟内只能请求一次
-	for _, number := range numbers {
-		lockKey := "sms_lock" + number
-		lock, err := s.rdb.SetNX(ctx, lockKey, "locked", time.Minute)
-		if err != nil {
-			s.l.Error("获取锁失败", zap.Error(err), zap.Error(err))
-		}
-		if !lock.Val() {
-			s.l.Warn("一分钟只能发送一次验证码", zap.String("number", number))
-			return fmt.Errorf("一分钟只能发送一次验证码")
-		}
+	//一个系统中的每个用户一分钟内 只能发送一条vCode
+	key := fmt.Sprintf("sms_locked:%s", number)
+	nx, err := s.repo.SetNX(ctx, key, "sms_locked", time.Second*60)
+	if err != nil || nx.Err() != nil {
+		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
 	}
-	//随机生成长度为6的验证码
-	code := fmt.Sprintf("%06d", utils.GenRandomCode(6))
-	args = append(args, code)
-
-	//构造req
-	request := sms.NewSendSmsRequest()
-	request.SetContext(ctx)
-	request.SmsSdkAppId = &s.appId
-	request.SignName = &s.signName
-	request.TemplateId = &tplId
-	request.TemplateParamSet = common.StringPtrs(args)
-	request.PhoneNumberSet = common.StringPtrs(numbers)
-	//向第三方发送req
-	response, err := s.client.SendSms(request)
+	//生成随机数
+	vCode := utils.GenRandomCode(6)
+	//发送sms req && 操作入库
+	//Todo 记录用户今日sms发送次数，后续完成限流处理
+	smsID, driver, err := s.client.Send(ctx, []string{vCode}, []string{number}...)
+	id, _ := strconv.ParseInt(smsID, 10, 64)
+	log := models.VCodeSmsLog{
+		SmsId:       id,
+		SmsType:     "vCode", //todo
+		Mobile:      number,
+		VCode:       vCode,
+		Driver:      driver,
+		Status:      1,  //0为失败，1为成功；其中默认为 成功
+		StatusCode:  "", //todo
+		CreateTime:  time.Now().UnixNano(),
+		UpdatedTime: time.Now().UnixNano(),
+		DeletedTime: time.Now().UnixNano(),
+	}
 	if err != nil {
-		s.l.Error("发送验证码失败", zap.Error(err))
+		s.l.Warn("sms发送失败", zap.Error(err), zap.String("driver", driver), zap.String("smsID", smsID), zap.String("number", number))
+		log.Status = 0
+		log.VCode = "-1"
+		s.repo.AddUserOperationLog(ctx, log)
 		return err
 	}
-
-	for _, status := range response.Response.SendStatusSet {
-		if status == nil || status.Code == nil || *status.Code != "Ok" {
-			// 发送失败
-			errMsg := fmt.Errorf("发送短信失败 code: %s, msg: %s", *status.Code, *status.Message)
-			s.l.Error(errMsg.Error())
-			return errMsg
-		}
+	if err = s.repo.StoreVCode(ctx, smsID, number, vCode); err != nil {
+		log.Status = 0
+		log.VCode = "-1"
+		s.repo.AddUserOperationLog(ctx, log)
+		return fmt.Errorf("存储随机数失败")
 	}
 
-	s.l.Info("验证码发送成功", zap.Strings("numbers", numbers), zap.String("templateId", tplId))
-
-	//redis存储验证码
-	for _, number := range numbers {
-		err = s.rdb.StoreVCode(ctx, tplId, number, code)
-		if err != nil {
-			s.l.Error("存储验证码失败", zap.String("number", number), zap.Error(err))
-			return fmt.Errorf("存储验证码失败:%w", err)
-		}
-		//记录发送日志
-		err = s.repo.SendCode(ctx, number, code)
-		if err != nil {
-			s.l.Error("记录发送日志失败", zap.String("number", number), zap.Error(err))
-			return err
-		}
-		err = s.repo.AddUserOperationLog(ctx, number, "发送验证码")
-		if err != nil {
-			s.l.Error("记录用户操作日志失败", zap.String("number", number), zap.Error(err))
-			return err
-		}
-	}
-	//存储用户操作日志
-
-	return nil
+	return s.repo.AddUserOperationLog(ctx, log)
 }
 
-/*// CheckCode 检查验证码是否正确
-func (s *sendCodeService) CheckCode(ctx context.Context, mobile, vCode string) (bool, error) {
-	// 假设存储库有记录 smsID
-	smsID := fmt.Sprintf("%s-%d", mobile, time.Now().UnixNano())
-
-	err := s.repo.CheckCode(ctx, mobile, smsID, vCode)
-	if err != nil {
-		s.l.Error("验证验证码失败", zap.Error(err))
-		return false, err
-	}
-
-	s.l.Info("验证码验证成功", zap.String("mobile", mobile), zap.String("code", vCode))
-	return true, nil
-}*/
+// CheckCode 检查验证码是否正确
+func (s smsService) CheckCode(ctx context.Context, smsID, number, vCode string) (bool, error) {
+	return s.repo.CheckCode(ctx, smsID, number, vCode)
+}
