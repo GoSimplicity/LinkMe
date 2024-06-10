@@ -15,11 +15,11 @@ type Producer interface {
 
 // SMSCodeEvent 代表单个短信验证码事件
 type SMSCodeEvent struct {
-	Phone          string
-	Code           string
-	TemplateId     string
-	Args           []string
-	PhoneNumberSet []string
+	Number string
+	//Code  string
+	//TemplateId     string
+	//Args           []string
+	//PhoneNumberSet []string
 }
 
 // SaramaSyncProducer 实现Producer接口的结构体
