@@ -103,6 +103,10 @@ go build -o linkme . && ./linkme
 go install github.com/cosmtrek/air@1.49.0 # 注意go版本不得低于air指定版本，本项目使用golang版本为1.22
 air
 ```
+### 项目超级管理员账号
+```bash
+admin/admin
+```
 ## 许可证
 本项目使用 MIT 许可证，详情请见 [LICENSE](./LICENSE) 文件。
 ## 联系方式
