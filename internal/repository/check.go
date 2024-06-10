@@ -14,6 +14,7 @@ type CheckRepository interface {
 	UpdateStatus(ctx context.Context, check domain.Check) error                            // 更新审核状态
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
 	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                     // 获取审核详情
+	FindByPostId(ctx context.Context, postID int64) (domain.Check, error)
 }
 
 type checkRepository struct {
@@ -26,6 +27,11 @@ func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
 		dao: dao,
 		l:   l,
 	}
+}
+
+func (r *checkRepository) FindByPostId(ctx context.Context, postID int64) (domain.Check, error) {
+	return r.dao.FindByPostId(ctx, postID)
+
 }
 
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
