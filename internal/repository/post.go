@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// PostRepository 帖子仓库接口
 type PostRepository interface {
 	Create(ctx context.Context, post domain.Post) (int64, error)
 	Update(ctx context.Context, post domain.Post) error

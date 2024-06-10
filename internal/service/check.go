@@ -5,6 +5,7 @@ import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository"
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 )
 
@@ -53,49 +54,59 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	})
 	if err != nil {
 		s.l.Error("Failed to approve check", zap.Error(err))
-		return err
+		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 	s.l.Info("Approved check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
 		s.l.Error("Failed to get check detail", zap.Error(err))
-		return err
+		return fmt.Errorf("获取审核详情失败: %w", err)
 	}
 	// 获取相关的帖子
 	post, err := s.postRepo.GetPostById(ctx, check.PostID, check.UserID)
 	if err != nil {
 		s.l.Error("Failed to get post", zap.Error(err))
-		return err
+		return fmt.Errorf("获取帖子失败: %w", err)
 	}
-	// 更新帖子状态为已发布
+	// 更新帖子状态为已发布并同步
 	post.Status = domain.Published
 	if _, er := s.postRepo.Sync(ctx, post); er != nil {
 		s.l.Error("Failed to sync post", zap.Error(er))
-		return er
+		return fmt.Errorf("同步帖子失败: %w", er)
 	}
 	if er := s.postRepo.UpdateStatus(ctx, post); er != nil {
 		s.l.Error("Failed to update post status", zap.Error(er))
-		return er
+		return fmt.Errorf("更新帖子状态失败: %w", er)
 	}
 	// 存入历史记录
 	if er := s.historyRepo.SetHistory(ctx, post); er != nil {
-		s.l.Error("set history failed", zap.Error(er))
+		s.l.Error("Set history failed", zap.Error(er))
 	}
 	s.l.Info("Post has been published", zap.Int64("PostID", post.ID))
 	return nil
 }
 
 func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark string) error {
+	// 获取审核详情
+	check, err := s.repo.FindByID(ctx, checkID)
+	if err != nil {
+		s.l.Error("Failed to get check detail", zap.Error(err))
+		return fmt.Errorf("获取审核详情失败: %w", err)
+	}
+	// 检查是否已拒绝
+	if check.Status == constants.PostUnApproved {
+		return fmt.Errorf("请勿重复提交：%v", checkID)
+	}
 	// 更新审核状态为拒绝
-	err := s.repo.UpdateStatus(ctx, domain.Check{
+	err = s.repo.UpdateStatus(ctx, domain.Check{
 		ID:     checkID,
 		Remark: remark,
 		Status: constants.PostUnApproved,
 	})
 	if err != nil {
 		s.l.Error("Failed to reject check", zap.Error(err))
-		return err
+		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 	s.l.Info("Rejected check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
 	return nil
