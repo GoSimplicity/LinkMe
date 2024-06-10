@@ -17,4 +17,5 @@ const (
 	UserPasswordMismatchError = "The two passwords entered are different, please re-enter"                                          // 两次输入的密码不一致
 	UserPasswordFormatError   = "Password must contain letters, numbers, and special characters, and be at least 8 characters long" // 密码格式错误
 	UserEmailConflictError    = "Email already exists"                                                                              // 邮箱冲突
+	UserSendSMSCodeSuccess    = "Code sent successfully"
 )
