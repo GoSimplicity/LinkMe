@@ -50,7 +50,7 @@ func InitWebServer() *Cmd {
 	saramaClient := ioc.InitSaramaClient()
 	syncProducer := ioc.InitSyncProducer(saramaClient)
 	producer := post.NewSaramaSyncProducer(syncProducer)
-	postService := service.NewPostService(postRepository, logger, interactiveService, checkService, producer, historyRepository)
+	postService := service.NewPostService(postRepository, logger, interactiveService, checkService, producer, historyRepository, checkRepository)
 	postHandler := api.NewPostHandler(postService, logger, interactiveService)
 	historyService := service.NewHistoryService(historyRepository, logger)
 	historyHandler := api.NewHistoryHandler(historyService, logger)

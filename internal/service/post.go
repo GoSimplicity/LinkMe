@@ -7,6 +7,7 @@ import (
 	"LinkMe/internal/repository"
 	"context"
 	"errors"
+	"fmt"
 	"go.uber.org/zap"
 )
 
@@ -28,11 +29,12 @@ type postService struct {
 	historyRepo repository.HistoryRepository
 	intSvc      InteractiveService
 	checkSvc    CheckService
+	checkRepo   repository.CheckRepository
 	producer    post.Producer
 	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository) PostService {
 	return &postService{
 		repo:        repo,
 		l:           l,
@@ -40,6 +42,7 @@ func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc Intera
 		checkSvc:    checkSvc,
 		producer:    p,
 		historyRepo: historyRepo,
+		checkRepo:   checkRepo,
 	}
 }
 
@@ -59,32 +62,38 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	return p.repo.Update(ctx, post)
 }
 
-// Publish 发布帖子，并提交审核
+// Publish 发布帖子到审核
 func (p *postService) Publish(ctx context.Context, post domain.Post) error {
+	// 检查帖子是否存在
+	po, err := p.checkRepo.FindByID(ctx, post.ID)
+	if err != nil {
+		return fmt.Errorf("无法找到帖子ID为 %d 的帖子: %w", post.ID, err)
+	}
+	// 检查帖子状态是否允许重新提交审核
+	if po.Status == constants.PostUnApproved {
+		po.Status = constants.PostUnderReview
+		if err := p.checkRepo.UpdateStatus(ctx, domain.Check{Status: po.Status}); err != nil {
+			p.l.Error("更新审核状态失败", zap.Error(err))
+			return fmt.Errorf("更新审核状态失败: %w", err)
+		}
+	}
+	// 获取帖子详细信息
 	dp, err := p.repo.GetPostById(ctx, post.ID, post.Author.Id)
 	if err != nil {
 		p.l.Error("获取帖子失败", zap.Error(err))
-		return err
-	}
-	// 检查帖子状态是否允许重新提交审核
-	if dp.Status == constants.PostUnApproved {
-		dp.Status = constants.PostUnderReview
-		err = p.repo.UpdateStatus(ctx, dp)
-		if err != nil {
-			p.l.Error("更新帖子状态失败", zap.Error(err))
-			return err
-		}
+		return fmt.Errorf("获取帖子失败: %w", err)
 	}
 	// 提交审核
-	checkId, err := p.checkSvc.SubmitCheck(ctx, domain.Check{
+	check := domain.Check{
 		PostID:  dp.ID,
 		Content: dp.Content,
 		Title:   dp.Title,
 		UserID:  dp.Author.Id,
-	})
+	}
+	checkId, err := p.checkSvc.SubmitCheck(ctx, check)
 	if err != nil {
 		p.l.Error("提交审核失败", zap.Error(err))
-		return err
+		return fmt.Errorf("提交审核失败: %w", err)
 	}
 	// 确保 checkId 有效
 	if checkId == 0 {
