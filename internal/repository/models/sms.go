@@ -14,9 +14,3 @@ type VCodeSmsLog struct {
 	UpdatedTime int64  `gorm:"column:updated_at;type:bigint;not null;index"` // 更新时间
 	DeletedTime int64  `gorm:"column:deleted_at;type:bigint;index"`          // 删除时间
 }
-
-type UserOperationLog struct {
-	Phone      string `gorm:"column:phone"`
-	Action     string `gorm:"column:action"`
-	CreateTime int64  `gorm:"column:create_Time"`
-}

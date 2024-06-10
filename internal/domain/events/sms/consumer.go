@@ -14,13 +14,13 @@ import (
 )
 
 type SMSConsumer struct {
-	service service.SendCodeService
+	service service.SmsService
 	client  sarama.Client
 	l       *zap.Logger
 	rdb     cache.SMSCache
 }
 
-func NewSMSConsumer(service service.SendCodeService, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
+func NewSMSConsumer(service service.SmsService, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
 	return &SMSConsumer{service: service, client: client, l: l, rdb: rdb}
 }
 
@@ -52,37 +52,10 @@ func (s *SMSConsumer) Start(ctx context.Context) error {
 func (s *SMSConsumer) HandleMessage(msg *sarama.ConsumerMessage, smsEvent SMSCodeEvent) error {
 	err := json.Unmarshal(msg.Value, &smsEvent)
 	if err != nil {
+		s.l.Error("json.Unmarshal 失败", zap.Any("msg", msg))
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	err = s.service.SendCode(ctx, smsEvent.TemplateId, smsEvent.Args, smsEvent.PhoneNumberSet...)
-	if err != nil {
-		s.l.Error("发送验证码失败", zap.Error(err))
-		return err
-	}
-	s.l.Info("成功发送验证码", zap.String("phone", smsEvent.PhoneNumberSet[0]), zap.String("templateId", smsEvent.TemplateId))
-
-	// TODO: 添加用户操作日志存储逻辑
-	return nil
+	return s.service.SendCode(ctx, smsEvent.Number)
 }
-
-/*lockKey := "sms_lock_" + smsEvent.Phone
-lock, err := s.rdb.SetNX(ctx, lockKey, "locked", time.Minute)
-if err != nil {
-	s.l.Error("获取锁失败", zap.Error(err))
-	return err
-}
-if !lock.Val() {
-	s.l.Warn("一分钟内只能发送一次验证码", zap.String("phone", smsEvent.Phone))
-	return nil
-}
-code := utils.GenRandomCode(6) // 使用工具包生成随机验证码
-smsEvent.Code = code
-s.rdb.StoreVCode(ctx, smsEvent.Phone, smsEvent.Code, code)
-// TODO: 调用第三方SMS服务发送验证码
-/*if er := s.repo.SendCode(ctx, smsEvent.Phone, smsEvent.Code); er != nil {
-	s.l.Error("发送验证码失败", zap.Error(er))
-}修改前的逻辑
-*/
