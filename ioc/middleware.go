@@ -3,7 +3,6 @@ package ioc
 import (
 	"LinkMe/middleware"
 	ijwt "LinkMe/utils/jwt"
-	"github.com/casbin/casbin/v2"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -12,7 +11,7 @@ import (
 )
 
 // InitMiddlewares 初始化中间件
-func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) []gin.HandlerFunc {
+func InitMiddlewares(ih ijwt.Handler, l *zap.Logger) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowCredentials: true,
