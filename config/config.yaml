@@ -7,4 +7,12 @@ log:
 mongodb:
   addr: "mongodb://localhost:27017"
 kafka:
-  addr: "100.64.1.1:30885"
+  addr: "localhost:9092"
+sms:
+  tencent:
+    secretId: "AKID69wdAXs9Wj2b5d8eUPFDAymbaWK1dKuW"
+    secretKey: "nZTWh9iGoJrU3hInQ8oaUKA5zqvvpbIt"
+    endPoint: "sms.tencentcloudapi.com"
+    smsID: "1400900065"
+    sign: "简单云网站"
+    templateID: "2117334"

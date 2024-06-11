@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const locked = "sms_locked"
+
 // SmsService 定义了发送验证码的服务接口
 type SmsService interface {
 	SendCode(ctx context.Context, number string) error
@@ -39,18 +41,27 @@ func NewSmsService(r repository.SmsRepository, l *zap.Logger, client *sms.Tencen
 }
 
 func (s smsService) SendCode(ctx context.Context, number string) error {
-	//todo 参数校验
-
-	//一个系统中的每个用户一分钟内 只能发送一条vCode
-	key := fmt.Sprintf("sms_locked:%s", number)
-	nx, err := s.repo.SetNX(ctx, key, "sms_locked", time.Second*60)
-	if err != nil || nx.Err() != nil {
+	//每用sms限流，查询用户今日已访问次数，若大于5次则禁止用户当日再次发送sms
+	if s.rdb.Count(ctx, number) > 5 {
+		s.l.Warn("用户今日发送验证码次数过多", zap.String("number", number))
+		return fmt.Errorf("用户今日发送验证码次数过多")
+	}
+	//防止循环锁住，先查询分布式锁的key是否存在,存在则直接返回
+	if s.rdb.Exist(ctx, number) {
+		s.l.Debug("验证码尚未过期", zap.String("number", number))
 		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
 	}
+	//一个系统中的每个用户一分钟内 只能发送一条vCode
+	_, err := s.repo.SetNX(ctx, number, locked, time.Second*60)
+	if err != nil {
+		s.l.Error("s.repo.SetNX 报错", zap.Error(err))
+		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
+	}
+	s.rdb.IncrCnt(ctx, number)
 	//生成随机数
 	vCode := utils.GenRandomCode(6)
 	//发送sms req && 操作入库
-	//Todo 记录用户今日sms发送次数，后续完成限流处理
+	//todo: sms商无缝切换
 	smsID, driver, err := s.client.Send(ctx, []string{vCode}, []string{number}...)
 	id, _ := strconv.ParseInt(smsID, 10, 64)
 	log := models.VCodeSmsLog{
@@ -66,6 +77,7 @@ func (s smsService) SendCode(ctx context.Context, number string) error {
 		DeletedTime: time.Now().UnixNano(),
 	}
 	if err != nil {
+		//todo:发送失败，分布式锁释放
 		s.l.Warn("sms发送失败", zap.Error(err), zap.String("driver", driver), zap.String("smsID", smsID), zap.String("number", number))
 		log.Status = 0
 		log.VCode = "-1"
