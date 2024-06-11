@@ -1,4 +1,4 @@
-package post
+package sms
 
 import (
 	"context"
@@ -16,10 +16,6 @@ type Producer interface {
 // SMSCodeEvent 代表单个短信验证码事件
 type SMSCodeEvent struct {
 	Number string
-	//Code  string
-	//TemplateId     string
-	//Args           []string
-	//PhoneNumberSet []string
 }
 
 // SaramaSyncProducer 实现Producer接口的结构体
@@ -29,8 +25,11 @@ type SaramaSyncProducer struct {
 }
 
 // NewSaramaSyncProducer 创建一个新的SaramaSyncProducer实例
-func NewSaramaSyncProducer(producer sarama.SyncProducer) Producer {
-	return &SaramaSyncProducer{producer: producer}
+func NewSaramaSyncProducer(producer sarama.SyncProducer, logger *zap.Logger) Producer {
+	return &SaramaSyncProducer{
+		producer: producer,
+		logger:   logger,
+	}
 }
 
 // ProduceSMSCode 发送短信验证码事件到Kafka

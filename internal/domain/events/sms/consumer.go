@@ -1,4 +1,4 @@
-package post
+package sms
 
 import (
 	"LinkMe/internal/service"

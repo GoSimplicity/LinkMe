@@ -3,8 +3,10 @@ package api
 import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
+	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
+	"LinkMe/utils"
 	ijwt "LinkMe/utils/jwt"
 	"errors"
 	regexp "github.com/dlclark/regexp2"
@@ -24,17 +26,17 @@ type UserHandler struct {
 	svc      service.UserService
 	ijwt     ijwt.Handler
 	l        *zap.Logger
-	smsSvc   service.SmsService
+	producer sms.Producer
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsSvc service.SmsService) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, producer sms.Producer) *UserHandler {
 	return &UserHandler{
 		Email:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		PassWord: regexp.MustCompile(passwordRegexPattern, regexp.None),
 		svc:      svc,
 		ijwt:     j,
 		l:        l,
-		smsSvc:   smsSvc,
+		producer: producer,
 	}
 }
 
@@ -47,6 +49,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
 	userGroup.POST("/logout", uh.Logout)
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
+	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -171,13 +174,45 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
 }
 
 func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
-	err := uh.smsSvc.SendCode(ctx, req.Number)
-	if err != nil {
-		uh.l.Error("send sms failed", zap.Error(err))
+	valid := utils.IsValidNumber(req.Number)
+	if !valid {
+		uh.l.Error("电话号码无效", zap.String("number: ", req.Number))
+		return Result{}, errors.New("电话号码无效")
+	}
+	if err := uh.producer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
+		uh.l.Error("kafka produce sms failed", zap.Error(err))
 		return Result{}, err
 	}
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserSendSMSCodeSuccess,
+	}, nil
+}
+
+func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, error) {
+	// 检查新密码和确认密码是否匹配
+	if req.NewPassword != req.ConfirmPassword {
+		return Result{
+			Code: UserInvalidInput,
+			Msg:  "新密码和确认密码不一致",
+		}, nil
+	}
+	err := uh.svc.ChangePassword(ctx.Request.Context(), req.Email, req.Password, req.NewPassword, req.ConfirmPassword)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserOrPassword) {
+			return Result{
+				Code: UserInvalidOrPassword,
+				Msg:  "旧密码错误或用户不存在",
+			}, nil
+		}
+		uh.l.Error("change password failed", zap.Error(err))
+		return Result{
+			Code: UserInternalServerError,
+			Msg:  "更改密码失败",
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  "密码更改成功",
 	}, nil
 }
