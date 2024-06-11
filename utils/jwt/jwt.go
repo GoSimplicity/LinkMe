@@ -71,7 +71,7 @@ func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
 		UserAgent:   ctx.GetHeader("User-Agent"),
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 	}
 	token := jwt.NewWithClaims(h.signingMethod, uc)
