@@ -19,6 +19,7 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id int64) (domain.User, error)
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
+	ChangePassword(ctx context.Context, email string, newPassword string) error
 }
 
 type userRepository struct {
@@ -33,6 +34,10 @@ func NewUserRepository(dao dao.UserDAO, cache cache.UserCache, l *zap.Logger) Us
 		cache: cache,
 		l:     l,
 	}
+}
+
+func (ur *userRepository) ChangePassword(ctx context.Context, email string, newPassword string) error {
+	return ur.dao.UpdatePasswordByEmail(ctx, email, newPassword)
 }
 
 // CreateUser 创建用户
