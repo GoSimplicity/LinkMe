@@ -14,3 +14,10 @@ type LoginReq struct {
 type SMSReq struct {
 	Number string `json:"number"`
 }
+
+type ChangeReq struct {
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	NewPassword     string `json:"newPassword"`
+	ConfirmPassword string `json:"confirmPassword"`
+}
