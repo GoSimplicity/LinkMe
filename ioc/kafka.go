@@ -3,6 +3,7 @@ package ioc
 import (
 	"LinkMe/internal/domain/events"
 	"LinkMe/internal/domain/events/post"
+	"LinkMe/internal/domain/events/sms"
 	"github.com/IBM/sarama"
 	"github.com/spf13/viper"
 )
@@ -40,7 +41,7 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 }
 
 // InitConsumers 初始化并返回一个事件消费者，当前仅包含InteractiveReadEventConsumer
-func InitConsumers(pc *post.InteractiveReadEventConsumer) events.Consumer {
+func InitConsumers(postConsumer *post.InteractiveReadEventConsumer, smsConsumer *sms.SMSConsumer) []events.Consumer {
 	// 返回单个消费者
-	return pc
+	return []events.Consumer{postConsumer, smsConsumer}
 }

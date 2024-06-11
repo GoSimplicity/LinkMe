@@ -6,6 +6,7 @@ import (
 	"errors"
 	sf "github.com/bwmarrin/snowflake"
 	"github.com/go-sql-driver/mysql"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"time"
 )
@@ -21,17 +22,20 @@ type UserDAO interface {
 	FindByID(ctx context.Context, id int64) (User, error)
 	FindByEmail(ctx context.Context, email string) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
+	UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error
 }
 
 type userDAO struct {
 	db   *gorm.DB
 	node *sf.Node
+	l    *zap.Logger
 }
 
-func NewUserDAO(db *gorm.DB, node *sf.Node) UserDAO {
+func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger) UserDAO {
 	return &userDAO{
 		db:   db,
 		node: node,
+		l:    l,
 	}
 }
 
@@ -94,4 +98,27 @@ func (ud *userDAO) FindByPhone(ctx context.Context, phone string) (User, error) 
 		return User{}, err
 	}
 	return user, nil
+}
+
+func (ud *userDAO) UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error {
+	tx := ud.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		ud.l.Error("failed to begin transaction", zap.Error(tx.Error))
+		return tx.Error
+	}
+	// 更新密码
+	if err := tx.Model(&User{}).Where("email = ?", email).Update("password_hash", newPassword).Error; err != nil {
+		ud.l.Error("update password failed", zap.String("email", email), zap.Error(err))
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
+			ud.l.Error("failed to rollback transaction", zap.Error(rollbackErr))
+		}
+		return err
+	}
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ud.l.Error("failed to commit transaction", zap.Error(err))
+		return err
+	}
+	ud.l.Info("password updated successfully", zap.String("email", email))
+	return nil
 }

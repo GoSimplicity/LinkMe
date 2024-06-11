@@ -14,8 +14,11 @@ import (
 type SmsRepository interface {
 	CheckCode(ctx context.Context, smsID, number, vCode string) (bool, error)
 	AddUserOperationLog(ctx context.Context, log models.VCodeSmsLog) error
-	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error)
+	SetNX(ctx context.Context, number string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error)
 	StoreVCode(ctx context.Context, smsID, number string, vCode string) error
+	Exist(ctx context.Context, number string) bool
+	Count(ctx context.Context, number string) int
+	IncrCnt(ctx context.Context, number string) error
 }
 
 // smsRepository 实现了 SmsRepository 接口
@@ -49,10 +52,22 @@ func (s *smsRepository) AddUserOperationLog(ctx context.Context, log models.VCod
 	return s.dao.Insert(ctx, log)
 }
 
-func (s *smsRepository) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error) {
-	return s.cache.SetNX(ctx, key, value, expiration)
+func (s *smsRepository) SetNX(ctx context.Context, number string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error) {
+	return s.cache.SetNX(ctx, number, value, expiration)
 }
 
 func (s *smsRepository) StoreVCode(ctx context.Context, smsID, number, vCode string) error {
 	return s.cache.StoreVCode(ctx, smsID, number, vCode)
+}
+
+func (s *smsRepository) Exist(ctx context.Context, key string) bool {
+	return s.cache.Exist(ctx, key)
+}
+
+func (s *smsRepository) Count(ctx context.Context, number string) int {
+	return s.cache.Count(ctx, number)
+}
+
+func (s *smsRepository) IncrCnt(ctx context.Context, number string) error {
+	return s.IncrCnt(ctx, number)
 }
