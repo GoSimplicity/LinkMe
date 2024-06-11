@@ -17,6 +17,7 @@ var (
 type UserService interface {
 	SignUp(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, email string, password string) (domain.User, error)
+	ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error
 }
 
 type userService struct {
@@ -59,4 +60,29 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	return u, nil
+}
+
+func (us *userService) ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error {
+	u, err := us.repo.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return err
+		}
+		us.l.Error("failed to find user", zap.Error(err))
+		return err
+	}
+	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
+		us.l.Error("password verification failed", zap.Error(er))
+		return ErrInvalidUserOrPassword
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		us.l.Error("failed to hash new password", zap.Error(err))
+		return err
+	}
+	if er := us.repo.ChangePassword(ctx, email, string(newHash)); er != nil {
+		us.l.Error("failed to change password", zap.Error(er))
+		return er
+	}
+	return nil
 }
