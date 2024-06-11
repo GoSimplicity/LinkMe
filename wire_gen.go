@@ -26,10 +26,10 @@ import (
 func InitWebServer() *Cmd {
 	db := ioc.InitDB()
 	node := ioc.InitializeSnowflakeNode()
-	userDAO := dao.NewUserDAO(db, node)
+	logger := ioc.InitLogger()
+	userDAO := dao.NewUserDAO(db, node, logger)
 	cmdable := ioc.InitRedis()
 	userCache := cache.NewUserCache(cmdable)
-	logger := ioc.InitLogger()
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
 	userService := service.NewUserService(userRepository, logger)
 	handler := jwt.NewJWTHandler(cmdable)
