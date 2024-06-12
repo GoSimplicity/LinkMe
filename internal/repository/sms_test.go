@@ -27,8 +27,8 @@ func TestSendCode(t *testing.T) {
 	repo := repository.NewSmsRepository(d, c)
 	client := ioc.InitSms()
 	smsService := service.NewSmsService(repo, logger, client, c)
-	if err := smsService.SendCode(context.Background(), "18390553596"); err != nil {
-		fmt.Println(err)
+	if er := smsService.SendCode(context.Background(), "xxx"); er != nil {
+		fmt.Println(er)
 		return
 	}
 }
