@@ -177,7 +177,10 @@ func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
 	valid := utils.IsValidNumber(req.Number)
 	if !valid {
 		uh.l.Error("电话号码无效", zap.String("number: ", req.Number))
-		return Result{}, errors.New("电话号码无效")
+		return Result{
+			Code: SMSNumberErr,
+			Msg:  InvalidNumber,
+		}, nil
 	}
 	if err := uh.producer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
 		uh.l.Error("kafka produce sms failed", zap.Error(err))
