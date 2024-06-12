@@ -70,10 +70,10 @@ func (i *interactiveService) GetByIds(ctx context.Context, biz string, ids []int
 		i.l.Error("get interactions failed", zap.Error(err))
 		return make(map[int64]domain.Interactive), err
 	}
-	result_dis := make(map[int64]domain.Interactive)
+	resultDis := make(map[int64]domain.Interactive)
 
 	for _, interactive := range dis {
-		result_dis[interactive.BizID] = interactive
+		resultDis[interactive.BizID] = interactive
 	}
-	return result_dis, err
+	return resultDis, err
 }
