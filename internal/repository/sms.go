@@ -19,6 +19,7 @@ type SmsRepository interface {
 	Exist(ctx context.Context, number string) bool
 	Count(ctx context.Context, number string) int
 	IncrCnt(ctx context.Context, number string) error
+	ReleaseLock(ctx context.Context, number string) error
 }
 
 // smsRepository 实现了 SmsRepository 接口
@@ -69,5 +70,9 @@ func (s *smsRepository) Count(ctx context.Context, number string) int {
 }
 
 func (s *smsRepository) IncrCnt(ctx context.Context, number string) error {
-	return s.IncrCnt(ctx, number)
+	return s.cache.IncrCnt(ctx, number)
+}
+
+func (s *smsRepository) ReleaseLock(ctx context.Context, number string) error {
+	return s.cache.ReleaseLock(ctx, number)
 }
