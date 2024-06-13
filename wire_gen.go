@@ -9,6 +9,7 @@ package main
 import (
 	"LinkMe/internal/api"
 	"LinkMe/internal/domain/events/post"
+	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
@@ -33,14 +34,12 @@ func InitWebServer() *Cmd {
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
 	userService := service.NewUserService(userRepository, logger)
 	handler := jwt.NewJWTHandler(cmdable)
-	smsDAO := dao.NewSmsDAO(db, logger)
-	smsCache := cache.NewSMSCache(cmdable)
-	smsRepository := repository.NewSmsRepository(smsDAO, smsCache)
-	tencentSms := ioc.InitSms()
-	smsService := service.NewSmsService(smsRepository, logger, tencentSms, smsCache)
-	userHandler := api.NewUserHandler(userService, handler, logger, smsService)
-	client := ioc.InitMongoDB()
-	postDAO := dao.NewPostDAO(db, logger, client)
+	client := ioc.InitSaramaClient()
+	syncProducer := ioc.InitSyncProducer(client)
+	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
+	userHandler := api.NewUserHandler(userService, handler, logger, producer)
+	mongoClient := ioc.InitMongoDB()
+	postDAO := dao.NewPostDAO(db, logger, mongoClient)
 	postCache := cache.NewPostCache(cmdable, logger)
 	postRepository := repository.NewPostRepository(postDAO, logger, postCache)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
@@ -52,10 +51,8 @@ func InitWebServer() *Cmd {
 	historyCache := cache.NewHistoryCache(logger, cmdable)
 	historyRepository := repository.NewHistoryRepository(logger, historyCache)
 	checkService := service.NewCheckService(checkRepository, postRepository, historyRepository, logger)
-	saramaClient := ioc.InitSaramaClient()
-	syncProducer := ioc.InitSyncProducer(saramaClient)
-	producer := post.NewSaramaSyncProducer(syncProducer)
-	postService := service.NewPostService(postRepository, logger, interactiveService, checkService, producer, historyRepository, checkRepository)
+	postProducer := post.NewSaramaSyncProducer(syncProducer)
+	postService := service.NewPostService(postRepository, logger, interactiveService, checkService, postProducer, historyRepository, checkRepository)
 	postHandler := api.NewPostHandler(postService, logger, interactiveService)
 	historyService := service.NewHistoryService(historyRepository, logger)
 	historyHandler := api.NewHistoryHandler(historyService, logger)
@@ -67,11 +64,17 @@ func InitWebServer() *Cmd {
 	permissionService := service.NewPermissionService(permissionRepository, logger)
 	permissionHandler := api.NewPermissionHandler(permissionService, logger)
 	engine := ioc.InitWebServer(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler)
-	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, saramaClient, logger)
-	consumer := ioc.InitConsumers(interactiveReadEventConsumer)
+	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, client, logger)
+	smsDAO := dao.NewSmsDAO(db, logger)
+	smsCache := cache.NewSMSCache(cmdable)
+	smsRepository := repository.NewSmsRepository(smsDAO, smsCache)
+	tencentSms := ioc.InitSms()
+	smsService := service.NewSmsService(smsRepository, logger, tencentSms, smsCache)
+	smsConsumer := sms.NewSMSConsumer(smsService, client, logger, smsCache)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer)
 	cmd := &Cmd{
 		server:   engine,
-		consumer: consumer,
+		consumer: v2,
 	}
 	return cmd
 }
