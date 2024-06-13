@@ -5,6 +5,7 @@ package main
 import (
 	"LinkMe/internal/api"
 	"LinkMe/internal/domain/events/post"
+	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
@@ -62,6 +63,8 @@ func InitWebServer() *Cmd {
 		dao.NewPermissionDAO,
 		post.NewSaramaSyncProducer,
 		post.NewInteractiveReadEventConsumer,
+		sms.NewSMSConsumer,
+		sms.NewSaramaSyncProducer,
 		wire.Struct(new(Cmd), "*"),
 	)
 	return new(Cmd)

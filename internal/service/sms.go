@@ -8,10 +8,13 @@ import (
 	"LinkMe/utils"
 	"context"
 	"fmt"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	"go.uber.org/zap"
 	"strconv"
 	"time"
 )
+
+const locked = "sms_locked"
 
 // SmsService 定义了发送验证码的服务接口
 type SmsService interface {
@@ -39,18 +42,18 @@ func NewSmsService(r repository.SmsRepository, l *zap.Logger, client *sms.Tencen
 }
 
 func (s smsService) SendCode(ctx context.Context, number string) error {
-	//todo 参数校验
-
-	//一个系统中的每个用户一分钟内 只能发送一条vCode
-	key := fmt.Sprintf("sms_locked:%s", number)
-	nx, err := s.repo.SetNX(ctx, key, "sms_locked", time.Second*60)
-	if err != nil || nx.Err() != nil {
+	// 限制：用户一分钟内只能发送一次sms请求 && 用户一天内只能发送5次SMS请求
+	if s.rdb.Count(ctx, number) > 5 {
+		s.l.Warn("用户今日发送验证码次数过多", zap.String("number", number))
+		return fmt.Errorf("用户今日发送验证码次数过多")
+	}
+	_, err := s.repo.SetNX(ctx, number, locked, time.Second*60)
+	if err != nil {
+		s.l.Warn("[smsService SendCode] s.repo.SetNX 报错: ", zap.Error(err))
 		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
 	}
-	//生成随机数
 	vCode := utils.GenRandomCode(6)
-	//发送sms req && 操作入库
-	//Todo 记录用户今日sms发送次数，后续完成限流处理
+	//todo: sms商无缝切换
 	smsID, driver, err := s.client.Send(ctx, []string{vCode}, []string{number}...)
 	id, _ := strconv.ParseInt(smsID, 10, 64)
 	log := models.VCodeSmsLog{
@@ -65,20 +68,31 @@ func (s smsService) SendCode(ctx context.Context, number string) error {
 		UpdatedTime: time.Now().UnixNano(),
 		DeletedTime: time.Now().UnixNano(),
 	}
+
+	// SDK异常
+	if _, ok := err.(*errors.TencentCloudSDKError); ok {
+		s.l.Error("[smsService SendCode] an API error has returned: ", zap.Error(err))
+		s.rdb.ReleaseLock(ctx, number)
+		return err
+	}
+	// 非SDK异常，直接失败
 	if err != nil {
-		s.l.Warn("sms发送失败", zap.Error(err), zap.String("driver", driver), zap.String("smsID", smsID), zap.String("number", number))
-		log.Status = 0
-		log.VCode = "-1"
-		s.repo.AddUserOperationLog(ctx, log)
+		s.l.Error("[smsService SendCode] an error has returned: ", zap.Error(err))
 		return err
 	}
 	if err = s.repo.StoreVCode(ctx, smsID, number, vCode); err != nil {
 		log.Status = 0
 		log.VCode = "-1"
 		s.repo.AddUserOperationLog(ctx, log)
+		s.rdb.ReleaseLock(ctx, number)
+		s.l.Error("[smsService SendCode] s.repo.StoreVCode 报错: ", zap.Error(err))
 		return fmt.Errorf("存储随机数失败")
 	}
 
+	if err = s.rdb.IncrCnt(ctx, number); err != nil {
+		s.l.Error("[smsService SendCode] s.rdb.IncrCnt 报错: ", zap.Error(err))
+		return err
+	}
 	return s.repo.AddUserOperationLog(ctx, log)
 }
 

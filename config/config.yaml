@@ -7,4 +7,12 @@ log:
 mongodb:
   addr: "mongodb://localhost:27017"
 kafka:
-  addr: "100.64.1.1:30885"
+  addr: "localhost:9092"
+sms:
+  tencent:
+    secretId: ""
+    secretKey: ""
+    endPoint: ""
+    smsID: ""
+    sign: ""
+    templateID: ""
