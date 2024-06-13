@@ -10,9 +10,9 @@ kafka:
   addr: "localhost:9092"
 sms:
   tencent:
-    secretId: "AKID69wdAXs9Wj2b5d8eUPFDAymbaWK1dKuW"
-    secretKey: "nZTWh9iGoJrU3hInQ8oaUKA5zqvvpbIt"
-    endPoint: "sms.tencentcloudapi.com"
-    smsID: "1400900065"
-    sign: "简单云网站"
-    templateID: "2117334"
+    secretId: ""
+    secretKey: ""
+    endPoint: ""
+    smsID: ""
+    sign: ""
+    templateID: ""
