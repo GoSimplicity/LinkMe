@@ -24,12 +24,10 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=linkme
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: linkme
     volumes:
-      - ./init-scripts:/docker-entrypoint-initdb.d
-      - ./init-scripts/linux_init.sh:/docker-entrypoint-initdb.d/linux_init.sh
-    command: ["bash", "/docker-entrypoint-initdb.d/linux_init.sh"]
+      - ./init-scripts:/docker-entrypoint-initdb.d/
   redis:
     image: bitnami/redis:latest
     container_name: linkme-redis
