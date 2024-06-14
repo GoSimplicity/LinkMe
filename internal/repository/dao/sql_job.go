@@ -48,15 +48,15 @@ func (dao *jobDAO) Preempt(ctx context.Context) (Job, error) {
 			return j, err
 		}
 		// 尝试更新任务的状态和版本
-		res := db.Model(&Job{}).Where("id = ? AND version = ?", j.Id, j.Version).Updates(map[string]any{
+		result := db.Model(&Job{}).Where("id = ? AND version = ?", j.Id, j.Version).Updates(map[string]any{
 			"status":     jobStatusRunning,
 			"version":    j.Version + 1,
 			"updated_at": now,
 		})
-		if res.Error != nil {
-			return Job{}, res.Error
+		if result.Error != nil {
+			return Job{}, result.Error
 		}
-		if res.RowsAffected == 0 {
+		if result.RowsAffected == 0 {
 			// 如果没有抢到任务，继续循环
 			continue
 		}
