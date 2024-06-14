@@ -56,9 +56,9 @@ func (r *rankingCache) Get(ctx context.Context) ([]domain.Post, error) {
 		return nil, err
 	}
 	var res []domain.Post
-	if err := json.Unmarshal(val, &res); err != nil {
-		log.Printf("Error unmarshalling posts: %v", err)
-		return nil, err
+	if er := json.Unmarshal(val, &res); er != nil {
+		log.Printf("Error unmarshalling posts: %v", er)
+		return nil, er
 	}
 	return res, nil
 }
