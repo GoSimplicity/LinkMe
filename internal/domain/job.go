@@ -15,7 +15,7 @@ type Job struct {
 }
 
 // NextTime 计算任务的下次执行时间
-func (j Job) NextTime() (time.Time, error) {
+func (j *Job) NextTime() (time.Time, error) {
 	// 创建新的 Cron 表达式解析器
 	c := cron.NewParser(cron.Second | cron.Minute | cron.Hour |
 		cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
