@@ -20,7 +20,9 @@ type LocalFuncExecutor struct {
 
 // NewLocalFuncExecutor 创建并初始化 LocalFuncExecutor 实例
 func NewLocalFuncExecutor() *LocalFuncExecutor {
-	return &LocalFuncExecutor{localFunc: map[string]func(ctx context.Context, dj domain.Job) error{}}
+	return &LocalFuncExecutor{localFunc: map[string]func(
+		ctx context.Context, dj domain.Job) error{},
+	}
 }
 
 // Name 返回执行器名称
