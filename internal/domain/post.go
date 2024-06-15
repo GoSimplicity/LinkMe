@@ -13,6 +13,7 @@ type Author struct {
 	Id   int64
 	Name string
 }
+
 type Post struct {
 	ID           int64
 	Title        string
@@ -39,6 +40,15 @@ type Interactive struct {
 	Collected    bool
 }
 
+type Pagination struct {
+	Page int    // 当前页码
+	Size *int64 // 每页数据量
+	Uid  int64
+	// 以下字段通常在服务端内部使用，不需要客户端传递
+	Offset *int64 // 数据偏移量
+	Total  *int64 // 总数据量
+}
+
 func (i *Interactive) IncrementReadCount() {
 	atomic.AddInt64(&i.ReadCount, 1)
 }
@@ -49,15 +59,6 @@ func (i *Interactive) IncrementLikeCount() {
 
 func (i *Interactive) IncrementCollectCount() {
 	atomic.AddInt64(&i.CollectCount, 1)
-}
-
-type Pagination struct {
-	Page int    // 当前页码
-	Size *int64 // 每页数据量
-	Uid  int64
-	// 以下字段通常在服务端内部使用，不需要客户端传递
-	Offset *int64 // 数据偏移量
-	Total  *int64 // 总数据量
 }
 
 func (p Post) Abstract() string {
