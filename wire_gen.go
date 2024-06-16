@@ -80,9 +80,8 @@ func InitWebServer() *Cmd {
 	smsService := service.NewSmsService(smsRepository, logger, tencentSms, smsCache)
 	smsConsumer := sms.NewSMSConsumer(smsService, client, logger, smsCache)
 	emailCache := cache.NewEmailCache(cmdable)
-	emailRepository := repository.NewEmailRepository(emailCache)
-	emailService := service.NewEmailService(emailRepository, logger)
-	emailConsumer := email.NewEmailConsumer(emailService, client, logger)
+	emailRepository := repository.NewEmailRepository(emailCache, logger)
+	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer)
 	cmd := &Cmd{
 		server:   engine,
