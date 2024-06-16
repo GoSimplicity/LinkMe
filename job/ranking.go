@@ -17,9 +17,9 @@ type cronJobBuilder struct {
 	l    *zap.Logger
 }
 
-func NewCronJobBuilder(run func() error, l *zap.Logger) CronJobBuilder {
+func NewCronJobBuilder(name string, run func() error, l *zap.Logger) CronJobBuilder {
 	return &cronJobBuilder{
-		name: "hotSearch",
+		name: name,
 		run:  run,
 		l:    l,
 	}
@@ -45,4 +45,16 @@ func (b *cronJobBuilder) Build() cron.Job {
 		}
 		b.l.Debug("结束运行", zap.String("name", b.Name()))
 	})
+}
+
+// StartCronJob 启动定时任务
+func StartCronJob(c *cron.Cron, jobBuilder CronJobBuilder, schedule string) (cron.EntryID, error) {
+	job := jobBuilder.Build()
+	entryID, err := c.AddJob(schedule, job)
+	if err != nil {
+		jobBuilder.(*cronJobBuilder).l.Error("添加任务失败", zap.String("name", jobBuilder.Name()), zap.Error(err))
+		return 0, err
+	}
+	jobBuilder.(*cronJobBuilder).l.Info("任务添加成功", zap.String("name", jobBuilder.Name()), zap.String("schedule", schedule))
+	return entryID, nil
 }
