@@ -21,3 +21,11 @@ type ChangeReq struct {
 	NewPassword     string `json:"newPassword"`
 	ConfirmPassword string `json:"confirmPassword"`
 }
+
+type ProfileReq struct {
+	UserId   int64  `json:"userId"`
+	Avatar   string `json:"avatar"`
+	ID       int64  `json:"id"`
+	NickName string `json:"nickName"`
+	Bio      string `json:"bio"`
+}

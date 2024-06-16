@@ -3,6 +3,7 @@ package service
 import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository"
+	"LinkMe/internal/repository/models"
 	"context"
 	"errors"
 	"go.uber.org/zap"
@@ -13,6 +14,19 @@ var (
 	ErrDuplicateEmail        = repository.ErrDuplicateEmail
 	ErrInvalidUserOrPassword = errors.New("username or password is incorrect")
 )
+
+type ProfileService interface {
+	UpdateProfile(ctx context.Context, profile *models.Profile) (err error)
+	GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error)
+}
+
+type profileServiceImpl struct {
+	profileRepo repository.ProfileRepository
+}
+
+func NewProfileService(profileRepo repository.ProfileRepository) ProfileService {
+	return &profileServiceImpl{profileRepo: profileRepo}
+}
 
 type UserService interface {
 	SignUp(ctx context.Context, u domain.User) error
@@ -85,4 +99,13 @@ func (us *userService) ChangePassword(ctx context.Context, email string, passwor
 		return er
 	}
 	return nil
+}
+
+func (s *profileServiceImpl) UpdateProfile(ctx context.Context, profile *models.Profile) (err error) {
+	return s.profileRepo.UpdateProfile(ctx, profile)
+}
+
+func (s *profileServiceImpl) GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error) {
+	return s.profileRepo.GetProfile(ctx, UserID)
+
 }
