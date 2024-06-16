@@ -21,6 +21,14 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, newPassword string) error
 }
+type ProfileRepository interface {
+	UpdateProfile(ctx context.Context, profile *models.Profile) error
+	GetProfile(ctx context.Context, UserId int64) (*models.Profile, error)
+}
+
+type profileRepositoryImpl struct {
+	profileDAO dao.ProfileDAO
+}
 
 type userRepository struct {
 	dao   dao.UserDAO
@@ -79,6 +87,17 @@ func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain
 	return toDomainUser(u), err
 }
 
+func NewProfileRepository(profileDAO dao.ProfileDAO) ProfileRepository {
+	return &profileRepositoryImpl{profileDAO: profileDAO}
+}
+
+func (repo *profileRepositoryImpl) UpdateProfile(ctx context.Context, profile *models.Profile) error {
+	return repo.profileDAO.UpdateProfile(ctx, *profile)
+}
+func (repo *profileRepositoryImpl) GetProfile(ctx context.Context, UserId int64) (*models.Profile, error) {
+	return repo.profileDAO.GetProfileByUserID(ctx, UserId)
+}
+
 // 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) models.User {
 	return models.User{
@@ -89,6 +108,7 @@ func fromDomainUser(u domain.User) models.User {
 		Email:        u.Email,
 		Phone:        u.Phone,
 		CreateTime:   u.CreateTime,
+		Profile:      fromDomainProfile(domain.Profile{}),
 	}
 }
 
@@ -102,5 +122,26 @@ func toDomainUser(u models.User) domain.User {
 		Email:      u.Email,
 		Phone:      u.Phone,
 		CreateTime: u.CreateTime,
+		Profile:    toDomainProfile(u.Profile),
+	}
+}
+
+func toDomainProfile(u models.Profile) domain.Profile {
+	return domain.Profile{
+		ID:       u.ID,
+		UserID:   u.UserId,
+		Avatar:   u.Avatar,
+		NickName: u.NickName,
+		Bio:      u.Bio,
+	}
+}
+
+func fromDomainProfile(u domain.Profile) models.Profile {
+	return models.Profile{
+		ID:       u.ID,
+		UserId:   u.UserID,
+		Avatar:   u.Avatar,
+		NickName: u.NickName,
+		Bio:      u.Bio,
 	}
 }
