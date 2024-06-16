@@ -47,7 +47,6 @@ func InitWebServer() *Cmd {
 		service.NewPermissionService,
 		service.NewSmsService,
 		service.NewRankingService,
-		service.NewEmailService,
 		repository.NewUserRepository,
 		repository.NewPostRepository,
 		repository.NewInteractiveRepository,
