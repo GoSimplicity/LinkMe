@@ -12,7 +12,7 @@ import (
 type InteractiveService interface {
 	Like(ctx context.Context, biz string, id int64, uid int64) error                             // 点赞
 	CancelLike(ctx context.Context, biz string, id int64, uid int64) error                       // 取消点赞
-	Collect(ctx context.Context, biz string, id, cid, uid int64) error                           //收藏
+	Collect(ctx context.Context, biz string, id, cid, uid int64) error                           // 收藏
 	CancelCollect(ctx context.Context, biz string, id, cid, uid int64) error                     // 取消收藏
 	Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error)        // 获取互动信息
 	GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error) // 批量获取互动信息(热榜算法需要)
@@ -68,10 +68,9 @@ func (i *interactiveService) GetByIds(ctx context.Context, biz string, ids []int
 	dis, err := i.repo.GetById(ctx, biz, ids)
 	if err != nil {
 		i.l.Error("get interactions failed", zap.Error(err))
-		return make(map[int64]domain.Interactive), err
+		return nil, err
 	}
 	resultDis := make(map[int64]domain.Interactive)
-
 	for _, interactive := range dis {
 		resultDis[interactive.BizID] = interactive
 	}
