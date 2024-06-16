@@ -19,6 +19,7 @@ func Init() {
 			panic(err)
 		}
 	}
+	cmd.Cron.Start() // 启动定时任务
 	if er := server.Run(":9999"); er != nil {
 		panic(er)
 	}

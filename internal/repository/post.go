@@ -156,9 +156,9 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	posts = fromDomainSlicePost(pub)
 	// 由于缓存未命中，这里选择异步更新缓存
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		ctx1, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
-		if er := p.c.SetPubFirstPage(ctx, pagination.Uid, posts); er != nil {
+		if er := p.c.SetPubFirstPage(ctx1, pagination.Uid, posts); er != nil {
 			p.l.Warn("set cache failed", zap.Error(er))
 		}
 	}()
