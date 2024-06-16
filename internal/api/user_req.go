@@ -21,3 +21,7 @@ type ChangeReq struct {
 	NewPassword     string `json:"newPassword"`
 	ConfirmPassword string `json:"confirmPassword"`
 }
+
+type EmailReq struct {
+	Email string `json:"email"`
+}
