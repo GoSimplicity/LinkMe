@@ -63,7 +63,13 @@ func InitWebServer() *Cmd {
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(permissionRepository, logger)
 	permissionHandler := api.NewPermissionHandler(permissionService, logger)
-	engine := ioc.InitWebServer(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler)
+	rankingRedisCache := cache.NewRankingRedisCache(cmdable)
+	rankingLocalCache := cache.NewRankingLocalCache()
+	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache)
+	rankingService := service.NewRankingService(interactiveService, postRepository, rankingRepository, logger)
+	rankingHandler := api.NewRakingHandler(rankingService, logger)
+	engine := ioc.InitWebServer(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler)
+	cron := ioc.InitRanking(logger, rankingService)
 	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, client, logger)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
@@ -74,6 +80,7 @@ func InitWebServer() *Cmd {
 	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer)
 	cmd := &Cmd{
 		server:   engine,
+		Cron:     cron,
 		consumer: v2,
 	}
 	return cmd
