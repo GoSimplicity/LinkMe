@@ -11,7 +11,7 @@ import (
 
 func InitRanking(l *zap.Logger, svc service.RankingService) *cron.Cron {
 	// 初始化 cron 实例
-	c := cron.New(cron.WithSeconds())
+	c := cron.New()
 	// 定义 TopN 任务逻辑
 	topNTask := func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
