@@ -8,6 +8,7 @@ package main
 
 import (
 	"LinkMe/internal/api"
+	"LinkMe/internal/domain/events/email"
 	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/repository"
@@ -37,7 +38,8 @@ func InitWebServer() *Cmd {
 	client := ioc.InitSaramaClient()
 	syncProducer := ioc.InitSyncProducer(client)
 	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
-	userHandler := api.NewUserHandler(userService, handler, logger, producer)
+	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
+	userHandler := api.NewUserHandler(userService, handler, logger, producer, emailProducer)
 	mongoClient := ioc.InitMongoDB()
 	postDAO := dao.NewPostDAO(db, logger, mongoClient)
 	postCache := cache.NewPostCache(cmdable, logger)
@@ -77,7 +79,11 @@ func InitWebServer() *Cmd {
 	tencentSms := ioc.InitSms()
 	smsService := service.NewSmsService(smsRepository, logger, tencentSms, smsCache)
 	smsConsumer := sms.NewSMSConsumer(smsService, client, logger, smsCache)
-	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer)
+	emailCache := cache.NewEmailCache(cmdable)
+	emailRepository := repository.NewEmailRepository(emailCache)
+	emailService := service.NewEmailService(emailRepository, logger)
+	emailConsumer := email.NewEmailConsumer(emailService, client, logger)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer)
 	cmd := &Cmd{
 		server:   engine,
 		Cron:     cron,
