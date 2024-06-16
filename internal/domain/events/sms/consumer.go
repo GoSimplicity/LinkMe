@@ -26,6 +26,7 @@ func NewSMSConsumer(service service.SmsService, client sarama.Client, l *zap.Log
 
 func (s *SMSConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("sms_consumer_group", s.client)
+	s.l.Info("SMSConsumer 开始消费")
 	if err != nil {
 		return err
 	}

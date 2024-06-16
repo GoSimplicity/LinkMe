@@ -3,6 +3,7 @@ package api
 import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
+	"LinkMe/internal/domain/events/email"
 	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
@@ -21,22 +22,24 @@ const (
 )
 
 type UserHandler struct {
-	Email    *regexp.Regexp
-	PassWord *regexp.Regexp
-	svc      service.UserService
-	ijwt     ijwt.Handler
-	l        *zap.Logger
-	producer sms.Producer
+	Email         *regexp.Regexp
+	PassWord      *regexp.Regexp
+	svc           service.UserService
+	ijwt          ijwt.Handler
+	l             *zap.Logger
+	smsProducer   sms.Producer
+	emailProducer email.Producer
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, producer sms.Producer) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsProducer sms.Producer, emailProducer email.Producer) *UserHandler {
 	return &UserHandler{
-		Email:    regexp.MustCompile(emailRegexPattern, regexp.None),
-		PassWord: regexp.MustCompile(passwordRegexPattern, regexp.None),
-		svc:      svc,
-		ijwt:     j,
-		l:        l,
-		producer: producer,
+		Email:         regexp.MustCompile(emailRegexPattern, regexp.None),
+		PassWord:      regexp.MustCompile(passwordRegexPattern, regexp.None),
+		svc:           svc,
+		ijwt:          j,
+		l:             l,
+		smsProducer:   smsProducer,
+		emailProducer: emailProducer,
 	}
 }
 
@@ -47,6 +50,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
+	userGroup.POST("/send_email", WrapBody(uh.SendEmail))
 	userGroup.POST("/logout", uh.Logout)
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
@@ -182,7 +186,7 @@ func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
 			Msg:  InvalidNumber,
 		}, nil
 	}
-	if err := uh.producer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
+	if err := uh.smsProducer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
 		uh.l.Error("kafka produce sms failed", zap.Error(err))
 		return Result{}, err
 	}
@@ -217,5 +221,25 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 	return Result{
 		Code: RequestsOK,
 		Msg:  "密码更改成功",
+	}, nil
+}
+
+func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error) {
+	emailBool, err := uh.Email.MatchString(req.Email)
+	if err != nil {
+		return Result{}, err
+	}
+	if !emailBool {
+		return Result{
+			Code: UserInvalidInput,
+			Msg:  UserEmailFormatError,
+		}, nil
+	}
+	if err = uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Email}); err != nil {
+		return Result{}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserSendEmailCodeSuccess,
 	}, nil
 }
