@@ -25,6 +25,15 @@ type UserDAO interface {
 	UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error
 }
 
+type ProfileDAO interface {
+	UpdateProfile(ctx context.Context, profile Profile) error
+	GetProfileByUserID(ctx context.Context, UserID int64) (*Profile, error)
+}
+
+type profileDAOImpl struct {
+	db *gorm.DB
+}
+
 type userDAO struct {
 	db   *gorm.DB
 	node *sf.Node
@@ -121,4 +130,15 @@ func (ud *userDAO) UpdatePasswordByEmail(ctx context.Context, email string, newP
 	}
 	ud.l.Info("password updated successfully", zap.String("email", email))
 	return nil
+}
+func NewProfileDAO(db *gorm.DB) ProfileDAO {
+	return &profileDAOImpl{db: db}
+}
+func (dao *profileDAOImpl) UpdateProfile(ctx context.Context, profile Profile) error {
+	return dao.db.WithContext(ctx).Save(profile).Error
+}
+func (dao *profileDAOImpl) GetProfileByUserID(ctx context.Context, UserID int64) (*Profile, error) {
+	var profile *Profile
+	err := dao.db.WithContext(ctx).Where("user_id = ?", UserID).First(&profile).Error
+	return profile, err
 }

@@ -40,6 +40,14 @@ func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, prod
 	}
 }
 
+type ProfileHandler struct {
+	profileService service.ProfileService
+}
+
+func NewProfileHandler(profileService service.ProfileService) *ProfileHandler {
+	return &ProfileHandler{profileService: profileService}
+}
+
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup := server.Group("/users")
 	// 使用插件中的泛型函数
@@ -218,4 +226,50 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 		Code: RequestsOK,
 		Msg:  "密码更改成功",
 	}, nil
+}
+
+func (ph *ProfileHandler) GetProfile(ctx *gin.Context, req ProfileReq) (Result, error) {
+	profile, err := ph.profileService.GetProfileByUserID(ctx, req.ID)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileGetFailure,
+			Data: profile,
+		}, err
+	}
+	return Result{
+		Code: UserValidProfile,
+		Msg:  UserProfileGetSuccess,
+		Data: profile,
+	}, nil
+}
+
+func (ph *ProfileHandler) UpdateProfileByID(ctx *gin.Context, req ProfileReq) (Result, error) {
+	profile, err := ph.profileService.GetProfileByUserID(ctx, req.ID)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileGetFailure,
+			Data: profile,
+		}, err
+	}
+	err = ph.profileService.UpdateProfile(ctx, profile)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileUpdateFailure,
+			Data: profile,
+		}, err
+	}
+	return Result{
+		Code: UserValidProfile,
+		Msg:  UserProfileUpdateSuccess,
+		Data: profile,
+	}, nil
+}
+func SetUpRouter(profileHandler *ProfileHandler) *gin.Engine {
+	ProfileRouter := gin.Default()
+	ProfileRouter.GET("/profile/:userID", WrapBody(profileHandler.GetProfile))
+	ProfileRouter.PUT("/profile/:userID/UpdateProfile", WrapBody(profileHandler.UpdateProfileByID))
+	return ProfileRouter
 }
