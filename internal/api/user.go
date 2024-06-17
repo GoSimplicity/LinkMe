@@ -54,6 +54,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/logout", uh.Logout)
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
+	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -241,5 +242,20 @@ func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error)
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserSendEmailCodeSuccess,
+	}, nil
+}
+
+func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid)
+	if err != nil {
+		return Result{
+			Code: ServerERROR,
+			Msg:  UserDeletedFailure,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserDeletedSuccess,
 	}, nil
 }

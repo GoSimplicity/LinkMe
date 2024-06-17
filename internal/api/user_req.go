@@ -25,3 +25,8 @@ type ChangeReq struct {
 type EmailReq struct {
 	Email string `json:"email"`
 }
+
+type DeleteUserReq struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
