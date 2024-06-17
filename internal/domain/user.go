@@ -11,4 +11,5 @@ type User struct {
 	Birthday   *time.Time
 	CreateTime int64
 	About      string
+	Deleted    bool
 }
