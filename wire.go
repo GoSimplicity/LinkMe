@@ -4,6 +4,7 @@ package main
 
 import (
 	"LinkMe/internal/api"
+	"LinkMe/internal/domain/events/email"
 	"LinkMe/internal/domain/events/post"
 	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/repository"
@@ -44,7 +45,6 @@ func InitWebServer() *Cmd {
 		service.NewHistoryService,
 		service.NewCheckService,
 		service.NewPermissionService,
-		service.NewSmsService,
 		service.NewRankingService,
 		repository.NewUserRepository,
 		repository.NewPostRepository,
@@ -54,6 +54,7 @@ func InitWebServer() *Cmd {
 		repository.NewSmsRepository,
 		repository.NewPermissionRepository,
 		repository.NewRankingCache,
+		repository.NewEmailRepository,
 		cache.NewRankingLocalCache,
 		cache.NewRankingRedisCache,
 		cache.NewUserCache,
@@ -61,6 +62,7 @@ func InitWebServer() *Cmd {
 		cache.NewInteractiveCache,
 		cache.NewHistoryCache,
 		cache.NewSMSCache,
+		cache.NewEmailCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
@@ -71,6 +73,8 @@ func InitWebServer() *Cmd {
 		post.NewInteractiveReadEventConsumer,
 		sms.NewSMSConsumer,
 		sms.NewSaramaSyncProducer,
+		email.NewEmailConsumer,
+		email.NewSaramaSyncProducer,
 		wire.Struct(new(Cmd), "*"),
 	)
 	return new(Cmd)

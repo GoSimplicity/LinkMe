@@ -3,6 +3,7 @@ package api
 import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
+	"LinkMe/internal/domain/events/email"
 	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/service"
 	. "LinkMe/pkg/ginp"
@@ -21,31 +22,25 @@ const (
 )
 
 type UserHandler struct {
-	Email    *regexp.Regexp
-	PassWord *regexp.Regexp
-	svc      service.UserService
-	ijwt     ijwt.Handler
-	l        *zap.Logger
-	producer sms.Producer
+	Email         *regexp.Regexp
+	PassWord      *regexp.Regexp
+	svc           service.UserService
+	ijwt          ijwt.Handler
+	l             *zap.Logger
+	smsProducer   sms.Producer
+	emailProducer email.Producer
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, producer sms.Producer) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsProducer sms.Producer, emailProducer email.Producer) *UserHandler {
 	return &UserHandler{
-		Email:    regexp.MustCompile(emailRegexPattern, regexp.None),
-		PassWord: regexp.MustCompile(passwordRegexPattern, regexp.None),
-		svc:      svc,
-		ijwt:     j,
-		l:        l,
-		producer: producer,
+		Email:         regexp.MustCompile(emailRegexPattern, regexp.None),
+		PassWord:      regexp.MustCompile(passwordRegexPattern, regexp.None),
+		svc:           svc,
+		ijwt:          j,
+		l:             l,
+		smsProducer:   smsProducer,
+		emailProducer: emailProducer,
 	}
-}
-
-type ProfileHandler struct {
-	profileService service.ProfileService
-}
-
-func NewProfileHandler(profileService service.ProfileService) *ProfileHandler {
-	return &ProfileHandler{profileService: profileService}
 }
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
@@ -55,9 +50,11 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
+	userGroup.POST("/send_email", WrapBody(uh.SendEmail))
 	userGroup.POST("/logout", uh.Logout)
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
+	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -190,7 +187,7 @@ func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
 			Msg:  InvalidNumber,
 		}, nil
 	}
-	if err := uh.producer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
+	if err := uh.smsProducer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
 		uh.l.Error("kafka produce sms failed", zap.Error(err))
 		return Result{}, err
 	}
@@ -228,48 +225,37 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 	}, nil
 }
 
-func (ph *ProfileHandler) GetProfile(ctx *gin.Context, req ProfileReq) (Result, error) {
-	profile, err := ph.profileService.GetProfileByUserID(ctx, req.ID)
+func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error) {
+	emailBool, err := uh.Email.MatchString(req.Email)
 	if err != nil {
+		return Result{}, err
+	}
+	if !emailBool {
 		return Result{
-			Code: UserInvalidOrProfileError,
-			Msg:  UserProfileGetFailure,
-			Data: profile,
-		}, err
+			Code: UserInvalidInput,
+			Msg:  UserEmailFormatError,
+		}, nil
+	}
+	if err = uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Email}); err != nil {
+		return Result{}, err
 	}
 	return Result{
-		Code: UserValidProfile,
-		Msg:  UserProfileGetSuccess,
-		Data: profile,
+		Code: RequestsOK,
+		Msg:  UserSendEmailCodeSuccess,
 	}, nil
 }
 
-func (ph *ProfileHandler) UpdateProfileByID(ctx *gin.Context, req ProfileReq) (Result, error) {
-	profile, err := ph.profileService.GetProfileByUserID(ctx, req.ID)
+func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid)
 	if err != nil {
 		return Result{
-			Code: UserInvalidOrProfileError,
-			Msg:  UserProfileGetFailure,
-			Data: profile,
-		}, err
-	}
-	err = ph.profileService.UpdateProfile(ctx, profile)
-	if err != nil {
-		return Result{
-			Code: UserInvalidOrProfileError,
-			Msg:  UserProfileUpdateFailure,
-			Data: profile,
+			Code: ServerERROR,
+			Msg:  UserDeletedFailure,
 		}, err
 	}
 	return Result{
-		Code: UserValidProfile,
-		Msg:  UserProfileUpdateSuccess,
-		Data: profile,
+		Code: RequestsOK,
+		Msg:  UserDeletedSuccess,
 	}, nil
-}
-func SetUpRouter(profileHandler *ProfileHandler) *gin.Engine {
-	ProfileRouter := gin.Default()
-	ProfileRouter.GET("/profile/:userID", WrapBody(profileHandler.GetProfile))
-	ProfileRouter.PUT("/profile/:userID/UpdateProfile", WrapBody(profileHandler.UpdateProfileByID))
-	return ProfileRouter
 }

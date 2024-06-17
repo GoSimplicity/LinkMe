@@ -11,13 +11,5 @@ type User struct {
 	Birthday   *time.Time
 	CreateTime int64
 	About      string
-	Profile    Profile
-}
-
-type Profile struct {
-	ID       int64
-	UserID   int64
-	Avatar   string
-	NickName string
-	Bio      string
+	Deleted    bool
 }

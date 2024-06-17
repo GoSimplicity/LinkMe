@@ -1,10 +1,8 @@
 package constants
 
 const (
-	UserInvalidInput          = 401001 // 用户输入错误
-	UserInvalidOrPassword     = 401002 // 用户名或密码错误
-	UserInvalidOrProfileError = 401004
-	UserValidProfile          = 401005
+	UserInvalidInput          = 401001                                                                                              // 用户输入错误
+	UserInvalidOrPassword     = 401002                                                                                              // 用户名或密码错误
 	UserDuplicateEmail        = 401003                                                                                              // 用户邮箱重复
 	UserInternalServerError   = 500001                                                                                              // 用户服务内部错误
 	UserSignUpSuccess         = "User registration successful"                                                                      // 用户注册成功
@@ -20,10 +18,9 @@ const (
 	UserPasswordFormatError   = "Password must contain letters, numbers, and special characters, and be at least 8 characters long" // 密码格式错误
 	UserEmailConflictError    = "Email already exists"                                                                              // 邮箱冲突
 	UserSendSMSCodeSuccess    = "Code sent successfully"
+	UserSendEmailCodeSuccess  = "Code sent successfully"
 	UserPasswordChangeFailure = "Password change failed"
 	UserPasswordChangeSuccess = "Password change successful"
-	UserProfileGetFailure     = "Profile get failed"
-	UserProfileGetSuccess     = "Profile get successfully"
-	UserProfileUpdateSuccess  = "Profile update successfully"
-	UserProfileUpdateFailure  = "Profile update failed"
+	UserDeletedSuccess        = "User deleted successfully"
+	UserDeletedFailure        = "User deleted failed"
 )

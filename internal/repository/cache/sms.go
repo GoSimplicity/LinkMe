@@ -100,11 +100,7 @@ func (s *smsCache) IncrCnt(ctx context.Context, number string) error {
 
 	// 执行 Lua 脚本
 	_, err := s.client.Eval(ctx, luaScript, []string{key}, ttl).Result()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // ReleaseLock 释放 lock
