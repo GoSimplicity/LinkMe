@@ -75,14 +75,12 @@ func InitWebServer() *Cmd {
 	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, client, logger)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
-	smsRepository := repository.NewSmsRepository(smsDAO, smsCache)
 	tencentSms := ioc.InitSms()
-	smsService := service.NewSmsService(smsRepository, logger, tencentSms, smsCache)
-	smsConsumer := sms.NewSMSConsumer(smsService, client, logger, smsCache)
+	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
+	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
 	emailCache := cache.NewEmailCache(cmdable)
-	emailRepository := repository.NewEmailRepository(emailCache)
-	emailService := service.NewEmailService(emailRepository, logger)
-	emailConsumer := email.NewEmailConsumer(emailService, client, logger)
+	emailRepository := repository.NewEmailRepository(emailCache, logger)
+	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer)
 	cmd := &Cmd{
 		server:   engine,

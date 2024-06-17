@@ -1,7 +1,7 @@
 package email
 
 import (
-	"LinkMe/internal/service"
+	"LinkMe/internal/repository"
 	"context"
 	"encoding/json"
 	"time"
@@ -12,13 +12,13 @@ import (
 )
 
 type EmailConsumer struct {
-	service service.EmailService
-	client  sarama.Client
-	l       *zap.Logger
+	repo   repository.EmailRepository
+	client sarama.Client
+	l      *zap.Logger
 }
 
-func NewEmailConsumer(service service.EmailService, client sarama.Client, l *zap.Logger) *EmailConsumer {
-	return &EmailConsumer{service: service, client: client, l: l}
+func NewEmailConsumer(repo repository.EmailRepository, client sarama.Client, l *zap.Logger) *EmailConsumer {
+	return &EmailConsumer{repo: repo, client: client, l: l}
 }
 
 func (e *EmailConsumer) Start(ctx context.Context) error {
@@ -55,5 +55,5 @@ func (e *EmailConsumer) HandleMessage(msg *sarama.ConsumerMessage, emailEvent Em
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return e.service.SendCode(ctx, emailEvent.Email)
+	return e.repo.SendCode(ctx, emailEvent.Email)
 }
