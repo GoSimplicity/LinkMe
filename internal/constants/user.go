@@ -21,4 +21,6 @@ const (
 	UserSendEmailCodeSuccess  = "Code sent successfully"
 	UserPasswordChangeFailure = "Password change failed"
 	UserPasswordChangeSuccess = "Password change successful"
+	UserDeletedSuccess        = "User deleted successfully"
+	UserDeletedFailure        = "User deleted failed"
 )
