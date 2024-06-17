@@ -20,14 +20,7 @@ type UserRepository interface {
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, newPassword string) error
-}
-type ProfileRepository interface {
-	UpdateProfile(ctx context.Context, profile *models.Profile) error
-	GetProfile(ctx context.Context, UserId int64) (*models.Profile, error)
-}
-
-type profileRepositoryImpl struct {
-	profileDAO dao.ProfileDAO
+	DeleteUser(ctx context.Context, email string, uid int64) error
 }
 
 type userRepository struct {
@@ -87,15 +80,13 @@ func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain
 	return toDomainUser(u), err
 }
 
-func NewProfileRepository(profileDAO dao.ProfileDAO) ProfileRepository {
-	return &profileRepositoryImpl{profileDAO: profileDAO}
-}
-
-func (repo *profileRepositoryImpl) UpdateProfile(ctx context.Context, profile *models.Profile) error {
-	return repo.profileDAO.UpdateProfile(ctx, *profile)
-}
-func (repo *profileRepositoryImpl) GetProfile(ctx context.Context, UserId int64) (*models.Profile, error) {
-	return repo.profileDAO.GetProfileByUserID(ctx, UserId)
+func (ur *userRepository) DeleteUser(ctx context.Context, email string, uid int64) error {
+	err := ur.dao.DeleteUser(ctx, email, uid)
+	if err != nil {
+		ur.l.Error("delete user failed", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // 将领域层对象转为dao层对象
@@ -108,7 +99,6 @@ func fromDomainUser(u domain.User) models.User {
 		Email:        u.Email,
 		Phone:        u.Phone,
 		CreateTime:   u.CreateTime,
-		Profile:      fromDomainProfile(domain.Profile{}),
 	}
 }
 
@@ -122,26 +112,5 @@ func toDomainUser(u models.User) domain.User {
 		Email:      u.Email,
 		Phone:      u.Phone,
 		CreateTime: u.CreateTime,
-		Profile:    toDomainProfile(u.Profile),
-	}
-}
-
-func toDomainProfile(u models.Profile) domain.Profile {
-	return domain.Profile{
-		ID:       u.ID,
-		UserID:   u.UserId,
-		Avatar:   u.Avatar,
-		NickName: u.NickName,
-		Bio:      u.Bio,
-	}
-}
-
-func fromDomainProfile(u domain.Profile) models.Profile {
-	return models.Profile{
-		ID:       u.ID,
-		UserId:   u.UserID,
-		Avatar:   u.Avatar,
-		NickName: u.NickName,
-		Bio:      u.Bio,
 	}
 }

@@ -9,6 +9,7 @@ type User struct {
 	DeletedTime  int64      `gorm:"column:deleted_at;type:bigint;index"`
 	Nickname     string     `gorm:"size:50"`
 	PasswordHash string     `gorm:"not null"`
+	Deleted      bool       `gorm:"column:deleted;default:false"`
 	Birthday     *time.Time `gorm:"column:birthday;type:datetime"`
 	Email        string     `gorm:"type:varchar(100);uniqueIndex"`
 	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`

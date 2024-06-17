@@ -1,7 +1,7 @@
 package sms
 
 import (
-	"LinkMe/internal/service"
+	"LinkMe/internal/repository"
 	"context"
 	"encoding/json"
 	"time"
@@ -14,18 +14,19 @@ import (
 )
 
 type SMSConsumer struct {
-	service service.SmsService
-	client  sarama.Client
-	l       *zap.Logger
-	rdb     cache.SMSCache
+	repo   repository.SmsRepository
+	client sarama.Client
+	l      *zap.Logger
+	rdb    cache.SMSCache
 }
 
-func NewSMSConsumer(service service.SmsService, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
-	return &SMSConsumer{service: service, client: client, l: l, rdb: rdb}
+func NewSMSConsumer(repo repository.SmsRepository, client sarama.Client, l *zap.Logger, rdb cache.SMSCache) *SMSConsumer {
+	return &SMSConsumer{repo: repo, client: client, l: l, rdb: rdb}
 }
 
 func (s *SMSConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("sms_consumer_group", s.client)
+	s.l.Info("SMSConsumer 开始消费")
 	if err != nil {
 		return err
 	}
@@ -57,5 +58,5 @@ func (s *SMSConsumer) HandleMessage(msg *sarama.ConsumerMessage, smsEvent SMSCod
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return s.service.SendCode(ctx, smsEvent.Number)
+	return s.repo.SendCode(ctx, smsEvent.Number)
 }
