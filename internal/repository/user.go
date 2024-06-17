@@ -20,6 +20,7 @@ type UserRepository interface {
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, newPassword string) error
+	DeleteUser(ctx context.Context, email string, uid int64) error
 }
 
 type userRepository struct {
@@ -77,6 +78,15 @@ func (ur *userRepository) FindByPhone(ctx context.Context, phone string) (domain
 func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := ur.dao.FindByEmail(ctx, email)
 	return toDomainUser(u), err
+}
+
+func (ur *userRepository) DeleteUser(ctx context.Context, email string, uid int64) error {
+	err := ur.dao.DeleteUser(ctx, email, uid)
+	if err != nil {
+		ur.l.Error("delete user failed", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // 将领域层对象转为dao层对象

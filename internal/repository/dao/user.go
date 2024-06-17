@@ -23,6 +23,7 @@ type UserDAO interface {
 	FindByEmail(ctx context.Context, email string) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
 	UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error
+	DeleteUser(ctx context.Context, email string, uid int64) error
 }
 
 type userDAO struct {
@@ -64,7 +65,7 @@ func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 // FindByID 根据ID查询用户数据
 func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
 	var user User
-	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	err := ud.db.WithContext(ctx).Where("id = ? AND deleted = ?", id, false).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return User{}, ErrUserNotFound
@@ -77,7 +78,7 @@ func (ud *userDAO) FindByID(ctx context.Context, id int64) (User, error) {
 // FindByEmail 根据Email查询用户信息
 func (ud *userDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var user User
-	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := ud.db.WithContext(ctx).Where("email = ? AND deleted = ?", email, false).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return User{}, ErrUserNotFound
@@ -90,7 +91,7 @@ func (ud *userDAO) FindByEmail(ctx context.Context, email string) (User, error) 
 // FindByPhone 根据phone查询用户信息
 func (ud *userDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
 	var user User
-	err := ud.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
+	err := ud.db.WithContext(ctx).Where("phone = ? AND deleted = ?", phone).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return User{}, ErrUserNotFound
@@ -107,7 +108,7 @@ func (ud *userDAO) UpdatePasswordByEmail(ctx context.Context, email string, newP
 		return tx.Error
 	}
 	// 更新密码
-	if err := tx.Model(&User{}).Where("email = ?", email).Update("password_hash", newPassword).Error; err != nil {
+	if err := tx.Model(&User{}).Where("email = ? AND deleted = ?", email, false).Update("password_hash", newPassword).Error; err != nil {
 		ud.l.Error("update password failed", zap.String("email", email), zap.Error(err))
 		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
 			ud.l.Error("failed to rollback transaction", zap.Error(rollbackErr))
@@ -120,5 +121,26 @@ func (ud *userDAO) UpdatePasswordByEmail(ctx context.Context, email string, newP
 		return err
 	}
 	ud.l.Info("password updated successfully", zap.String("email", email))
+	return nil
+}
+
+func (ud *userDAO) DeleteUser(ctx context.Context, email string, uid int64) error {
+	tx := ud.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+	if err := tx.Model(&User{}).Where("email = ? AND deleted = ? AND id = ?", email, false, uid).Update("deleted", true).Error; err != nil {
+		tx.Rollback()
+		ud.l.Error("failed to mark user as deleted", zap.String("email", email), zap.Error(err))
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
+		ud.l.Error("failed to commit transaction", zap.String("email", email), zap.Error(err))
+		return err
+	}
+	ud.l.Info("user marked as deleted", zap.String("email", email))
 	return nil
 }
