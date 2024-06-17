@@ -3,7 +3,6 @@ package service
 import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository"
-	"LinkMe/internal/repository/models"
 	"context"
 	"errors"
 	"go.uber.org/zap"
@@ -15,23 +14,11 @@ var (
 	ErrInvalidUserOrPassword = errors.New("username or password is incorrect")
 )
 
-type ProfileService interface {
-	UpdateProfile(ctx context.Context, profile *models.Profile) (err error)
-	GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error)
-}
-
-type profileServiceImpl struct {
-	profileRepo repository.ProfileRepository
-}
-
-func NewProfileService(profileRepo repository.ProfileRepository) ProfileService {
-	return &profileServiceImpl{profileRepo: profileRepo}
-}
-
 type UserService interface {
 	SignUp(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, email string, password string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error
+	DeleteUser(ctx context.Context, email string, password string, uid int64) error
 }
 
 type userService struct {
@@ -101,11 +88,23 @@ func (us *userService) ChangePassword(ctx context.Context, email string, passwor
 	return nil
 }
 
-func (s *profileServiceImpl) UpdateProfile(ctx context.Context, profile *models.Profile) (err error) {
-	return s.profileRepo.UpdateProfile(ctx, profile)
-}
-
-func (s *profileServiceImpl) GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error) {
-	return s.profileRepo.GetProfile(ctx, UserID)
-
+func (us *userService) DeleteUser(ctx context.Context, email string, password string, uid int64) error {
+	u, err := us.repo.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return err
+		}
+		us.l.Error("failed to find user", zap.Error(err))
+		return err
+	}
+	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
+		us.l.Error("password verification failed", zap.Error(er))
+		return ErrInvalidUserOrPassword
+	}
+	err = us.repo.DeleteUser(ctx, email, uid)
+	if err != nil {
+		us.l.Error("failed to delete user", zap.Error(err))
+		return err
+	}
+	return nil
 }

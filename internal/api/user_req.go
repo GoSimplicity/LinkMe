@@ -22,10 +22,11 @@ type ChangeReq struct {
 	ConfirmPassword string `json:"confirmPassword"`
 }
 
-type ProfileReq struct {
-	UserId   int64  `json:"userId"`
-	Avatar   string `json:"avatar"`
-	ID       int64  `json:"id"`
-	NickName string `json:"nickName"`
-	Bio      string `json:"bio"`
+type EmailReq struct {
+	Email string `json:"email"`
+}
+
+type DeleteUserReq struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
