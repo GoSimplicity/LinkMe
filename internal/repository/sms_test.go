@@ -4,7 +4,6 @@ import (
 	"LinkMe/internal/repository"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/service"
 	"LinkMe/ioc"
 	"context"
 	"fmt"
@@ -24,10 +23,9 @@ func TestSendCode(t *testing.T) {
 	logger := ioc.InitLogger()
 	d := dao.NewSmsDAO(ioc.InitDB(), logger)
 	c := cache.NewSMSCache(ioc.InitRedis())
-	repo := repository.NewSmsRepository(d, c)
 	client := ioc.InitSms()
-	smsService := service.NewSmsService(repo, logger, client, c)
-	if er := smsService.SendCode(context.Background(), "xxx"); er != nil {
+	repo := repository.NewSmsRepository(d, c, logger, client)
+	if er := repo.SendCode(context.Background(), "xxx"); er != nil {
 		fmt.Println(er)
 		return
 	}
