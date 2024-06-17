@@ -25,7 +25,9 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		if path == "/users/signup" ||
 			path == "/users/login" ||
 			path == "/users/refresh_token" ||
-			path == "/users/change_password" {
+			path == "/users/change_password" ||
+			path == "/users/send_sms" ||
+			path == "/users/send_email" {
 			return
 		}
 		// 从请求中提取token
