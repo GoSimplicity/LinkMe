@@ -14,4 +14,13 @@ type User struct {
 	Email        string     `gorm:"type:varchar(100);uniqueIndex"`
 	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`
 	About        string     `gorm:"type=varchar(4096)"`
+	Profile      Profile    `gorm:"foreignKey:UserID;references:ID"`
+}
+
+type Profile struct {
+	ID       int64  `gorm:"primaryKey"`
+	UserID   int64  `gorm:"column:not null;type:bigint"`
+	NickName string `gorm:"size:50"`
+	Avatar   string `gorm:"type:text"`
+	Bio      string `gorm:"type:text"`
 }
