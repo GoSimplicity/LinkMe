@@ -34,5 +34,5 @@ type UpdateProfileReq struct {
 	NickName string `json:"nickName"` // 昵称
 	Avatar   string `json:"avatar"`   // 头像URL
 	About    string `json:"about"`    // 个人简介
-	Birthday string `json:"birthday"` // 生日，指针类型，允许为空
+	Birthday string `json:"birthday"` // 生日
 }
