@@ -5,6 +5,8 @@ const (
 	UserInvalidOrPassword     = 401002                                                                                              // 用户名或密码错误
 	UserDuplicateEmail        = 401003                                                                                              // 用户邮箱重复
 	UserInternalServerError   = 500001                                                                                              // 用户服务内部错误
+	UserInvalidOrProfileError = 401004                                                                                              // 用户资料无效
+	UserValidProfile          = 401005                                                                                              // 用户资料有效
 	UserSignUpSuccess         = "User registration successful"                                                                      // 用户注册成功
 	UserSignUpFailure         = "User registration failed"                                                                          // 用户注册失败
 	UserLoginSuccess          = "User login successful"                                                                             // 用户登陆成功
@@ -23,4 +25,8 @@ const (
 	UserPasswordChangeSuccess = "Password change successful"
 	UserDeletedSuccess        = "User deleted successfully"
 	UserDeletedFailure        = "User deleted failed"
+	UserProfileGetFailure     = "Profile get failed"
+	UserProfileGetSuccess     = "Profile get successfully"
+	UserProfileUpdateSuccess  = "Profile update successfully"
+	UserProfileUpdateFailure  = "Profile update failed"
 )
