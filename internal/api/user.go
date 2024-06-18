@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
+	"strconv"
 )
 
 const (
@@ -55,6 +56,8 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
+	userGroup.GET("/profile/:UserID", WrapBody(uh.GetProfile))
+	userGroup.PUT("/profile/:UserID", WrapBody(uh.UpdateProfileByID))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -257,5 +260,66 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserDeletedSuccess,
+	}, nil
+}
+func (uh *UserHandler) GetProfile(ctx *gin.Context, req ProfileReq) (Result, error) {
+	userIDStr := ctx.Param("UserID")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil || userID <= 0 {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  "Invalid userID",
+		}, err
+	}
+	profile, err := uh.svc.GetProfileByUserID(ctx, userID)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileGetFailure,
+		}, err
+	}
+	return Result{
+		Code: UserValidProfile,
+		Msg:  UserProfileGetSuccess,
+		Data: profile,
+	}, nil
+}
+
+func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req ProfileReq) (Result, error) {
+	userIDStr := ctx.Param("UserID")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil || userID <= 0 {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  "Invalid userID",
+		}, err
+	}
+	req.UserID = userID
+
+	profile, err := uh.svc.GetProfileByUserID(ctx, req.UserID)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileGetFailure,
+			Data: profile,
+		}, err
+	}
+
+	profile.Bio = req.Bio
+	profile.NickName = req.NickName
+	profile.Avatar = req.Avatar
+
+	err = uh.svc.UpdateProfile(ctx, profile)
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileUpdateFailure,
+			Data: profile,
+		}, err
+	}
+	return Result{
+		Code: UserValidProfile,
+		Msg:  UserProfileUpdateSuccess,
+		Data: profile,
 	}, nil
 }
