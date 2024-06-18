@@ -3,6 +3,7 @@ package service
 import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository"
+	"LinkMe/internal/repository/models"
 	"context"
 	"errors"
 	"go.uber.org/zap"
@@ -19,6 +20,8 @@ type UserService interface {
 	Login(ctx context.Context, email string, password string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error
 	DeleteUser(ctx context.Context, email string, password string, uid int64) error
+	UpdateProfile(ctx context.Context, profile *models.Profile) (err error)
+	GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error)
 }
 
 type userService struct {
@@ -107,4 +110,11 @@ func (us *userService) DeleteUser(ctx context.Context, email string, password st
 		return err
 	}
 	return nil
+}
+func (us *userService) UpdateProfile(ctx context.Context, profile *models.Profile) (err error) {
+	return us.repo.UpdateProfile(ctx, profile)
+}
+
+func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (profile *models.Profile, err error) {
+	return us.repo.GetProfile(ctx, UserID)
 }

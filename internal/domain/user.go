@@ -12,4 +12,12 @@ type User struct {
 	CreateTime int64
 	About      string
 	Deleted    bool
+	Profile    Profile
+}
+type Profile struct {
+	ID       int64
+	UserID   int64
+	NickName string
+	Avatar   string
+	Bio      string
 }
