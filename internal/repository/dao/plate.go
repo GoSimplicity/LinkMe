@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"time"
 )
 
 type PlateDAO interface {
@@ -27,10 +28,13 @@ func NewPlateDAO(l *zap.Logger, db *gorm.DB) PlateDAO {
 	}
 }
 func (p *plateDAO) CreatePlate(ctx *gin.Context, plate domain.Plate) error {
+	now := time.Now().UnixMilli()
 	newPlate := &models.Plate{
 		Name:        plate.Name,
 		Description: plate.Description,
 		Uid:         plate.Uid,
+		CreateTime:  now,
+		UpdatedTime: now,
 	}
 	err := p.db.WithContext(ctx).Create(newPlate).Error
 	if err != nil {
