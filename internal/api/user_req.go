@@ -30,10 +30,9 @@ type DeleteUserReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-type ProfileReq struct {
-	UserID   int64  `json:"userId"`
-	Avatar   string `json:"avatar"`
-	ID       int64  `json:"id"`
-	NickName string `json:"nickName"`
-	Bio      string `json:"bio"`
+type UpdateProfileReq struct {
+	NickName string `json:"nickName"` // 昵称
+	Avatar   string `json:"avatar"`   // 头像URL
+	About    string `json:"about"`    // 个人简介
+	Birthday string `json:"birthday"` // 生日，指针类型，允许为空
 }
