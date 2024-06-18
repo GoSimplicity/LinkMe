@@ -23,6 +23,26 @@ type MockUserService struct {
 	recorder *MockUserServiceMockRecorder
 }
 
+func (m *MockUserService) ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockUserService) DeleteUser(ctx context.Context, email string, password string, uid int64) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockUserService) UpdateProfile(ctx context.Context, profile domain.Profile) (err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockUserService) GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // MockUserServiceMockRecorder is the mock recorder for MockUserService.
 type MockUserServiceMockRecorder struct {
 	mock *MockUserService

@@ -1,12 +1,12 @@
 package constants
 
 const (
-	UserInvalidInput          = 401001 // 用户输入错误
-	UserInvalidOrPassword     = 401002 // 用户名或密码错误
-	UserDuplicateEmail        = 401003 // 用户邮箱重复
-	UserInternalServerError   = 500001 // 用户服务内部错误
-	UserInvalidOrProfileError = 401004
-	UserValidProfile          = 401005
+	UserInvalidInput          = 401001                                                                                              // 用户输入错误
+	UserInvalidOrPassword     = 401002                                                                                              // 用户名或密码错误
+	UserDuplicateEmail        = 401003                                                                                              // 用户邮箱重复
+	UserInternalServerError   = 500001                                                                                              // 用户服务内部错误
+	UserInvalidOrProfileError = 401004                                                                                              // 用户资料无效
+	UserValidProfile          = 401005                                                                                              // 用户资料有效
 	UserSignUpSuccess         = "User registration successful"                                                                      // 用户注册成功
 	UserSignUpFailure         = "User registration failed"                                                                          // 用户注册失败
 	UserLoginSuccess          = "User login successful"                                                                             // 用户登陆成功
