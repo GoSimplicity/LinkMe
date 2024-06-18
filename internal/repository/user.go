@@ -21,6 +21,8 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	ChangePassword(ctx context.Context, email string, newPassword string) error
 	DeleteUser(ctx context.Context, email string, uid int64) error
+	UpdateProfile(ctx context.Context, profile domain.Profile) error
+	GetProfile(ctx context.Context, UserId int64) (domain.Profile, error)
 }
 
 type userRepository struct {
@@ -88,14 +90,18 @@ func (ur *userRepository) DeleteUser(ctx context.Context, email string, uid int6
 	}
 	return nil
 }
+func (ur *userRepository) UpdateProfile(ctx context.Context, profile domain.Profile) error {
+	return ur.dao.UpdateProfile(ctx, profile)
+}
+func (ur *userRepository) GetProfile(ctx context.Context, UserId int64) (domain.Profile, error) {
+	return ur.dao.GetProfileByUserID(ctx, UserId)
+}
 
 // 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) models.User {
 	return models.User{
 		ID:           u.ID,
 		PasswordHash: u.Password,
-		Nickname:     u.Nickname,
-		Birthday:     u.Birthday,
 		Email:        u.Email,
 		Phone:        u.Phone,
 		CreateTime:   u.CreateTime,
@@ -107,8 +113,6 @@ func toDomainUser(u models.User) domain.User {
 	return domain.User{
 		ID:         u.ID,
 		Password:   u.PasswordHash,
-		Nickname:   u.Nickname,
-		Birthday:   u.Birthday,
 		Email:      u.Email,
 		Phone:      u.Phone,
 		CreateTime: u.CreateTime,

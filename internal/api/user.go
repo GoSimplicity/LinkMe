@@ -55,6 +55,8 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.PUT("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
+	userGroup.GET("/profile", uh.GetProfile)
+	userGroup.PUT("/update_profile", WrapBody(uh.UpdateProfileByID))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -257,5 +259,39 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserDeletedSuccess,
+	}, nil
+}
+func (uh *UserHandler) GetProfile(ctx *gin.Context) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
+	if err != nil {
+		ctx.JSON(RequestsOK, gin.H{
+			"data": profile,
+		})
+		return
+	}
+	ctx.JSON(RequestsOK, gin.H{
+		"data": profile,
+	})
+}
+
+func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	err := uh.svc.UpdateProfile(ctx, domain.Profile{
+		NickName: req.NickName,
+		Avatar:   req.Avatar,
+		About:    req.About,
+		Birthday: req.Birthday,
+		UserID:   uc.Uid,
+	})
+	if err != nil {
+		return Result{
+			Code: UserInvalidOrProfileError,
+			Msg:  UserProfileUpdateFailure,
+		}, err
+	}
+	return Result{
+		Code: UserValidProfile,
+		Msg:  UserProfileUpdateSuccess,
 	}, nil
 }
