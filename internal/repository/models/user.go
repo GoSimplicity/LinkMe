@@ -15,4 +15,13 @@ type User struct {
 	Email        string     `gorm:"type:varchar(100);uniqueIndex"`       // 邮箱地址，唯一
 	Phone        *string    `gorm:"type:varchar(15);uniqueIndex"`        // 手机号码，唯一
 	About        string     `gorm:"type:varchar(4096)"`                  // 关于用户的介绍，最大长度4096
+	Profile      Profile    `gorm:"foreignKey:UserID;references:ID"`
+}
+
+type Profile struct {
+	ID       int64  `gorm:"primaryKey"`
+	UserID   int64  `gorm:"column:not null;type:bigint"`
+	NickName string `gorm:"size:50"`
+	Avatar   string `gorm:"type:text"`
+	Bio      string `gorm:"type:text"`
 }
