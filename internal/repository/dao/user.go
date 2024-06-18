@@ -24,6 +24,8 @@ type UserDAO interface {
 	FindByPhone(ctx context.Context, phone string) (User, error)
 	UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error
 	DeleteUser(ctx context.Context, email string, uid int64) error
+	UpdateProfile(ctx context.Context, profile Profile) error
+	GetProfileByUserID(ctx context.Context, UserID int64) (*Profile, error)
 }
 
 type userDAO struct {
@@ -143,4 +145,18 @@ func (ud *userDAO) DeleteUser(ctx context.Context, email string, uid int64) erro
 	}
 	ud.l.Info("user marked as deleted", zap.String("email", email))
 	return nil
+}
+func (ud *userDAO) UpdateProfile(ctx context.Context, profile Profile) error {
+	return ud.db.WithContext(ctx).Model(&Profile{}).Where("user_id = ?", profile.UserID).Save(&profile).Error
+}
+func (ud *userDAO) GetProfileByUserID(ctx context.Context, UserID int64) (*Profile, error) {
+	var profile Profile
+	err := ud.db.WithContext(ctx).Where("user_id = ?", UserID).First(&profile).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &profile, nil
 }

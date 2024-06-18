@@ -30,3 +30,10 @@ type DeleteUserReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+type ProfileReq struct {
+	UserID   int64  `json:"userId"`
+	Avatar   string `json:"avatar"`
+	ID       int64  `json:"id"`
+	NickName string `json:"nickName"`
+	Bio      string `json:"bio"`
+}
