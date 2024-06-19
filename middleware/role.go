@@ -32,27 +32,22 @@ func (cm *CasbinMiddleware) CheckCasbin() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
 		sub, ok := userClaims.(ijwt.UserClaims)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid user claims"})
 			c.Abort()
 			return
 		}
-
 		if sub.Uid == 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid user ID"})
 			c.Abort()
 			return
 		}
-
 		// 将用户ID转换为字符串
 		userIDStr := strconv.FormatInt(sub.Uid, 10)
-
 		// 获取请求的 URL 和请求方法
 		obj := c.Request.URL.Path
 		act := c.Request.Method
-
 		// 使用 Casbin 检查权限
 		ok, err := cm.enforcer.Enforce(userIDStr, obj, act)
 		if err != nil {
@@ -67,7 +62,6 @@ func (cm *CasbinMiddleware) CheckCasbin() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
 		// 继续处理请求
 		c.Next()
 	}
