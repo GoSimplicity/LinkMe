@@ -127,9 +127,9 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 	posts = fromDomainSlicePost(pub)
 	// 如果缓存未命中，这里选择异步更新缓存
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		ctx1, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
-		if er := p.c.SetFirstPage(ctx, pagination.Uid, posts); er != nil {
+		if er := p.c.SetFirstPage(ctx1, pagination.Uid, posts); er != nil {
 			p.l.Warn("set cache failed", zap.Error(er))
 		}
 	}()
