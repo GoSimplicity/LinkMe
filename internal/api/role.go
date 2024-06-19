@@ -2,8 +2,10 @@ package api
 
 import (
 	"LinkMe/internal/service"
+	"LinkMe/middleware"
 	"LinkMe/pkg/ginp"
 	"LinkMe/utils/jwt"
+	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"net/http"
@@ -12,17 +14,21 @@ import (
 type PermissionHandler struct {
 	svc service.PermissionService
 	l   *zap.Logger
+	ce  *casbin.Enforcer
 }
 
-func NewPermissionHandler(svc service.PermissionService, l *zap.Logger) *PermissionHandler {
+func NewPermissionHandler(svc service.PermissionService, l *zap.Logger, ce *casbin.Enforcer) *PermissionHandler {
 	return &PermissionHandler{
 		svc: svc,
 		l:   l,
+		ce:  ce,
 	}
 }
 
 func (h *PermissionHandler) RegisterRoutes(server *gin.Engine) {
+	casbinMiddleware := middleware.NewCasbinMiddleware(h.ce, h.l)
 	permissionGroup := server.Group("/permissions")
+	permissionGroup.Use(casbinMiddleware.CheckCasbin())
 	permissionGroup.GET("/list", ginp.WrapBody(h.GetPermissions))        // 获取权限列表
 	permissionGroup.POST("/assign", ginp.WrapBody(h.AssignPermission))   // 分配权限
 	permissionGroup.DELETE("/remove", ginp.WrapBody(h.RemovePermission)) // 移除权限
