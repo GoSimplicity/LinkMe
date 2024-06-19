@@ -3,15 +3,16 @@ package repository
 import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/dao"
-	"github.com/gin-gonic/gin"
+	"LinkMe/internal/repository/models"
+	"context"
 	"go.uber.org/zap"
 )
 
 type PlateRepository interface {
-	CreatePlate(ctx *gin.Context, plate domain.Plate) error
-	ListPlate(ctx *gin.Context, pagination domain.Pagination) ([]domain.Plate, error)
-	UpdatePlate(ctx *gin.Context, plateId int64, uid int64) error
-	DeletePlate(ctx *gin.Context, plateId int64, uid int64) error
+	CreatePlate(ctx context.Context, plate domain.Plate) error
+	ListPlate(ctx context.Context, pagination domain.Pagination) ([]domain.Plate, error)
+	UpdatePlate(ctx context.Context, plate domain.Plate) error
+	DeletePlate(ctx context.Context, plateId int64, uid int64) error
 }
 
 type plateRepository struct {
@@ -26,21 +27,41 @@ func NewPlateRepository(l *zap.Logger, dao dao.PlateDAO) PlateRepository {
 	}
 }
 
-func (p *plateRepository) CreatePlate(ctx *gin.Context, plate domain.Plate) error {
+func (p *plateRepository) CreatePlate(ctx context.Context, plate domain.Plate) error {
 	return p.dao.CreatePlate(ctx, plate)
 }
 
-func (p *plateRepository) ListPlate(ctx *gin.Context, pagination domain.Pagination) ([]domain.Plate, error) {
-	//TODO implement me
-	panic("implement me")
+func (p *plateRepository) ListPlate(ctx context.Context, pagination domain.Pagination) ([]domain.Plate, error) {
+	plates, err := p.dao.ListPlate(ctx, pagination)
+	if err != nil {
+		p.l.Error("failed to list plate", zap.Error(err))
+		return nil, err
+	}
+	return fromDomainSlicePlate(plates), err
 }
 
-func (p *plateRepository) UpdatePlate(ctx *gin.Context, plateId int64, uid int64) error {
-	//TODO implement me
-	panic("implement me")
+func (p *plateRepository) UpdatePlate(ctx context.Context, plate domain.Plate) error {
+	return p.dao.UpdatePlate(ctx, plate)
 }
 
-func (p *plateRepository) DeletePlate(ctx *gin.Context, plateId int64, uid int64) error {
-	//TODO implement me
-	panic("implement me")
+func (p *plateRepository) DeletePlate(ctx context.Context, plateId int64, uid int64) error {
+	return p.dao.DeletePlate(ctx, plateId, uid)
+}
+
+// 将dao层对象转为领域层对象
+func fromDomainSlicePlate(post []models.Plate) []domain.Plate {
+	domainPlate := make([]domain.Plate, len(post)) // 创建与输入切片等长的domain.Post切片
+	for i, repoPlate := range post {
+		domainPlate[i] = domain.Plate{
+			ID:          repoPlate.ID,
+			Name:        repoPlate.Name,
+			Uid:         repoPlate.Uid,
+			Description: repoPlate.Description,
+			CreatedAt:   repoPlate.CreateTime,
+			UpdatedAt:   repoPlate.UpdatedTime,
+			DeletedAt:   repoPlate.DeletedTime,
+			Deleted:     repoPlate.Deleted,
+		}
+	}
+	return domainPlate
 }
