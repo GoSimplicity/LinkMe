@@ -1,7 +1,7 @@
 package server
 
 import (
-	v1 "linkme-kratos/api/helloworld/v1"
+	v1 "linkme-kratos/api/linkme/v1"
 	"linkme-kratos/internal/conf"
 	"linkme-kratos/internal/service"
 
