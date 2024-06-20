@@ -3,17 +3,15 @@ package cache
 import (
 	"LinkMe/internal/domain"
 	"context"
-	_ "embed"
 	"fmt"
+	"github.com/bsm/redislock"
 	"github.com/redis/go-redis/v9"
 	"strconv"
 	"time"
 )
 
 var (
-	//go:embed lua/interactive_count.lua
-	luaInteractiveCount string
-	ErrKeyNotExist      = redis.Nil
+	ErrKeyNotExist = redis.Nil
 )
 
 const ReadCount = "read_count"
@@ -32,11 +30,14 @@ type InteractiveCache interface {
 
 type interactiveCache struct {
 	client redis.Cmdable
+	locker *redislock.Client
 }
 
 func NewInteractiveCache(client redis.Cmdable) InteractiveCache {
+	locker := redislock.New(client)
 	return &interactiveCache{
 		client: client,
+		locker: locker,
 	}
 }
 
@@ -80,34 +81,63 @@ func (i *interactiveCache) Set(ctx context.Context,
 func (i *interactiveCache) PostCollectCountRecord(ctx context.Context,
 	biz string, id int64) error {
 	key := fmt.Sprintf("interactive:%s:%d", biz, id)
-	// 执行lua脚本，获取到计数加1
-	return i.client.Eval(ctx, luaInteractiveCount, []string{key}, CollectCount, 1).Err()
+	lock, err := i.locker.Obtain(ctx, key+":lock", 10*time.Second, nil)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return i.client.HIncrBy(ctx, key, CollectCount, 1).Err()
 }
 
 // DecrCollectCountRecord 取消收藏
 func (i *interactiveCache) DecrCollectCountRecord(ctx context.Context,
 	biz string, id int64) error {
 	key := fmt.Sprintf("interactive:%s:%d", biz, id)
-	return i.client.Eval(ctx, luaInteractiveCount, []string{key}, CollectCount, -1).Err()
+	lock, err := i.locker.Obtain(ctx, key+":lock", 10*time.Second, nil)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return i.client.HIncrBy(ctx, key, CollectCount, -1).Err()
 }
 
 // PostLikeCountRecord 点赞计数
 func (i *interactiveCache) PostLikeCountRecord(ctx context.Context,
 	biz string, id int64) error {
 	key := fmt.Sprintf("interactive:%s:%d", biz, id)
-	return i.client.Eval(ctx, luaInteractiveCount, []string{key}, LikeCount, 1).Err()
+	lock, err := i.locker.Obtain(ctx, key+":lock", 10*time.Second, nil)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return i.client.HIncrBy(ctx, key, LikeCount, 1).Err()
 }
 
 // DecrLikeCountRecord 取消点赞
 func (i *interactiveCache) DecrLikeCountRecord(ctx context.Context,
 	biz string, id int64) error {
 	key := fmt.Sprintf("interactive:%s:%d", biz, id)
-	return i.client.Eval(ctx, luaInteractiveCount, []string{key}, LikeCount, -1).Err()
+	lock, err := i.locker.Obtain(ctx, key+":lock", 10*time.Second, nil)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return i.client.HIncrBy(ctx, key, LikeCount, -1).Err()
 }
 
 // PostReadCountRecord 阅读计数
 func (i *interactiveCache) PostReadCountRecord(ctx context.Context,
 	biz string, id int64) error {
 	key := fmt.Sprintf("interactive:%s:%d", biz, id)
-	return i.client.Eval(ctx, luaInteractiveCount, []string{key}, ReadCount, 1).Err()
+	lock, err := i.locker.Obtain(ctx, key+":lock", 10*time.Second, nil)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return i.client.HIncrBy(ctx, key, ReadCount, 1).Err()
 }
