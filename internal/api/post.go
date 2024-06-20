@@ -51,6 +51,7 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 		ID:      req.PostId,
 		Content: req.Content,
 		Title:   req.Title,
+		PlateID: req.PlateID,
 		Author: domain.Author{
 			Id: uc.Uid,
 		},
@@ -75,6 +76,7 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 		ID:      req.PostId,
 		Title:   req.Title,
 		Content: req.Content,
+		PlateID: req.PlateID,
 		Author: domain.Author{
 			Id: uc.Uid,
 		},
