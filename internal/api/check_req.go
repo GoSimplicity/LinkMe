@@ -11,7 +11,6 @@ type SubmitCheckReq struct {
 // ApproveCheckReq 定义了审核通过请求的结构体
 type ApproveCheckReq struct {
 	CheckID int64  `json:"checkId" binding:"required"` // 审核ID
-	UserID  int64  `json:"userId" binding:"required"`  // 审核通过的用户ID
 	Remark  string `json:"remark"`                     // 审核通过备注
 }
 
@@ -30,5 +29,5 @@ type ListCheckReq struct {
 
 // CheckDetailReq 定义了获取审核详情请求的结构体
 type CheckDetailReq struct {
-	CheckID int64 `uri:"checkId" binding:"required"` // 审核ID
+	CheckID int64 `json:"checkId" binding:"required"` // 审核ID
 }

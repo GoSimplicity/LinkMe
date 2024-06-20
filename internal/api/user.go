@@ -45,8 +45,6 @@ func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsP
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup := server.Group("/users")
-	// 使用插件中的泛型函数
-	//userGroup.POST("/signup", WrapBody[SignUpReq](uh.SignUp))
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
@@ -63,7 +61,6 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	})
 }
 
-// SignUp 注册
 func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	emailBool, err := uh.Email.MatchString(req.Email)
 	if err != nil {
