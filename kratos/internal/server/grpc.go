@@ -1,9 +1,9 @@
 package server
 
 import (
-	v1 "linkme-kratos/api/linkme/v1"
-	"linkme-kratos/internal/conf"
-	"linkme-kratos/internal/service"
+	v1 "kratos/api/helloworld/v1"
+	"kratos/internal/conf"
+	"kratos/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
