@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	v1 "linkme-kratos/api/linkme/v1"
-	"linkme-kratos/internal/biz"
+	v1 "kratos/api/helloworld/v1"
+	"kratos/internal/biz"
 )
 
 // GreeterService is a greeter service.

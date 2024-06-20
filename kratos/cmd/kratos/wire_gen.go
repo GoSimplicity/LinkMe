@@ -7,11 +7,11 @@
 package main
 
 import (
-	"linkme-kratos/internal/biz"
-	"linkme-kratos/internal/conf"
-	"linkme-kratos/internal/data"
-	"linkme-kratos/internal/server"
-	"linkme-kratos/internal/service"
+	"kratos/internal/biz"
+	"kratos/internal/conf"
+	"kratos/internal/data"
+	"kratos/internal/server"
+	"kratos/internal/service"
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
