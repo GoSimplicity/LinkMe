@@ -1,4 +1,4 @@
-module linkme-kratos
+module kratos
 
 go 1.19
 
