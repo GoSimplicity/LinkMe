@@ -4,6 +4,7 @@ type EditReq struct {
 	PostId  int64  `json:"postId,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
+	PlateID int64  `json:"plateId,omitempty"`
 }
 
 type PublishReq struct {
@@ -28,6 +29,7 @@ type UpdateReq struct {
 	PostId  int64  `json:"postId,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
+	PlateID int64  `json:"plateId,omitempty"`
 }
 type DetailReq struct {
 	PostId int64 `uri:"postId"`

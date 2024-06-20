@@ -51,11 +51,21 @@ func (p *postDAO) getCurrentTime() int64 {
 	return time.Now().UnixMilli()
 }
 
-// Insert 创建一个新的帖子记录(mysql)
+// Insert 创建一个新的帖子记录
 func (p *postDAO) Insert(ctx context.Context, post Post) (int64, error) {
 	now := p.getCurrentTime()
 	post.CreateTime = now
 	post.UpdatedTime = now
+	// 检查 plate_id 是否存在
+	var count int64
+	if err := p.db.WithContext(ctx).Model(&Plate{}).Where("id = ?", post.PlateID).Count(&count).Error; err != nil {
+		p.l.Error("failed to check plate existence", zap.Error(err))
+		return -1, err
+	}
+	if count == 0 {
+		return -1, errors.New("plate not found")
+	}
+	// 创建帖子
 	if err := p.db.WithContext(ctx).Create(&post).Error; err != nil {
 		p.l.Error("failed to insert post", zap.Error(err))
 		return -1, err
@@ -68,13 +78,30 @@ func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
 	if post.ID == 0 || post.Author == 0 {
 		return ErrInvalidParams
 	}
+	var existingPost Post
+	if err := p.db.WithContext(ctx).First(&existingPost, "id = ? AND author_id = ?", post.ID, post.Author).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPostNotFound
+		}
+		p.l.Error("failed to find post", zap.Error(err))
+		return err
+	}
+	// 检查是否有任何变化
+	if existingPost.Title == post.Title &&
+		existingPost.Content == post.Content &&
+		existingPost.Status == post.Status &&
+		existingPost.PlateID == post.PlateID {
+		return errors.New("no changes") // 没有变化，不执行更新
+	}
 	now := p.getCurrentTime()
-	res := p.db.WithContext(ctx).Model(&post).Where("id = ? AND author_id = ?", post.ID, post.Author).Updates(map[string]any{
+	updatedPost := map[string]any{
 		"title":      post.Title,
 		"content":    post.Content,
 		"status":     post.Status,
+		"plate_id":   post.PlateID,
 		"updated_at": now,
-	})
+	}
+	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND author_id = ?", post.ID, post.Author).Updates(updatedPost)
 	if res.Error != nil {
 		p.l.Error("failed to update post", zap.Error(res.Error))
 		return res.Error
