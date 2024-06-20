@@ -25,6 +25,7 @@ type Post struct {
 	Author       Author
 	Status       string
 	Visibility   string
+	PlateID      int64
 	Slug         string
 	CategoryID   int64
 	Tags         string

@@ -31,10 +31,10 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce, ch.l)
 	checkGroup := server.Group("/checks")
 	checkGroup.Use(casbinMiddleware.CheckCasbin())
-	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck))        // 审核通过
-	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))          // 审核拒绝
-	checkGroup.GET("/list", WrapBody(ch.ListChecks))              // 审核列表
-	checkGroup.GET("/detail/:checkId", WrapParam(ch.CheckDetail)) // 审核详情
+	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck)) // 审核通过
+	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))   // 审核拒绝
+	checkGroup.GET("/list", WrapBody(ch.ListChecks))       // 审核列表
+	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))    // 审核详情
 }
 
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
