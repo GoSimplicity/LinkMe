@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/IBM/sarama v1.43.2
+	github.com/bsm/redislock v0.9.4
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/casbin/casbin/v2 v2.93.0
 	github.com/casbin/gorm-adapter/v3 v3.25.0
@@ -18,8 +19,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
-	github.com/swaggo/files v1.0.1
-	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.933
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.933
@@ -35,7 +34,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/bsm/redislock v0.9.4 // indirect
 	github.com/casbin/govaluate v1.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
