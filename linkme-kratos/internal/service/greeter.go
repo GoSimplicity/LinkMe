@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	v1 "linkme-kratos/api/helloworld/v1"
+	v1 "linkme-kratos/api/linkme/v1"
 	"linkme-kratos/internal/biz"
 )
 
