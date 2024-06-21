@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package api.helloworld.v1;
+
+option go_package = "kratos/api/helloworld/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.helloworld.v1";
+
+service Demo {
+	rpc CreateDemo (CreateDemoRequest) returns (CreateDemoReply);
+	rpc UpdateDemo (UpdateDemoRequest) returns (UpdateDemoReply);
+	rpc DeleteDemo (DeleteDemoRequest) returns (DeleteDemoReply);
+	rpc GetDemo (GetDemoRequest) returns (GetDemoReply);
+	rpc ListDemo (ListDemoRequest) returns (ListDemoReply);
+}
+
+message CreateDemoRequest {}
+message CreateDemoReply {}
+
+message UpdateDemoRequest {}
+message UpdateDemoReply {}
+
+message DeleteDemoRequest {}
+message DeleteDemoReply {}
+
+message GetDemoRequest {}
+message GetDemoReply {}
+
+message ListDemoRequest {}
+message ListDemoReply {}
