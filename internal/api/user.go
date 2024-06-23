@@ -253,6 +253,9 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 			Msg:  UserDeletedFailure,
 		}, err
 	}
+	if err = uh.ijwt.ClearToken(ctx); err != nil {
+		return Result{}, err
+	}
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserDeletedSuccess,
