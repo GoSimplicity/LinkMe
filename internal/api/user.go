@@ -118,7 +118,6 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 		return Result{
 			Code: RequestsOK,
 			Msg:  UserLoginSuccess,
-			Data: du,
 		}, nil
 	} else if errors.Is(err, service.ErrInvalidUserOrPassword) {
 		return Result{
