@@ -4,19 +4,16 @@ import (
 	"LinkMe/internal/constants"
 	"LinkMe/internal/service"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type RankingHandler struct {
 	svc service.RankingService
-	l   *zap.Logger
 	biz string
 }
 
-func NewRakingHandler(svc service.RankingService, l *zap.Logger) *RankingHandler {
+func NewRakingHandler(svc service.RankingService) *RankingHandler {
 	return &RankingHandler{
 		svc: svc,
-		l:   l,
 		biz: "raking",
 	}
 }

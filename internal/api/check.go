@@ -40,7 +40,6 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark)
 	if err != nil {
-		ch.l.Error("failed to approve check", zap.Error(err))
 		return Result{
 			Code: RequestsERROR,
 			Msg:  "failed to approve check",
@@ -55,7 +54,6 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Res
 func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req RejectCheckReq) (Result, error) {
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark)
 	if err != nil {
-		ch.l.Error("failed to reject check", zap.Error(err))
 		return Result{
 			Code: RequestsERROR,
 			Msg:  "failed to reject check",
@@ -73,7 +71,6 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context, req ListCheckReq) (Result, 
 		Size: req.Size,
 	})
 	if err != nil {
-		ch.l.Error("failed to list checks", zap.Error(err))
 		return Result{
 			Code: RequestsERROR,
 			Msg:  "failed to list checks",
@@ -89,7 +86,6 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context, req ListCheckReq) (Result, 
 func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req CheckDetailReq) (Result, error) {
 	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
 	if err != nil {
-		ch.l.Error("failed to get check detail", zap.Error(err))
 		return Result{
 			Code: RequestsERROR,
 			Msg:  "failed to get check detail",
