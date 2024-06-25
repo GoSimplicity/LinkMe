@@ -32,7 +32,7 @@ func NewPermissionService(repo repository.PermissionRepository, l *zap.Logger) P
 func (s *permissionService) GetPermissions(ctx context.Context, userID int64) ([]domain.Permission, error) {
 	permissions, err := s.repo.GetPermissions(ctx, userID)
 	if err != nil {
-		s.l.Error("获取权限失败", zap.Error(err))
+		s.l.Error("get permissions failed", zap.Error(err))
 		return nil, err
 	}
 	return permissions, nil
@@ -41,7 +41,7 @@ func (s *permissionService) GetPermissions(ctx context.Context, userID int64) ([
 // AssignPermission 分配权限给指定用户
 func (s *permissionService) AssignPermission(ctx context.Context, userID int64, path string, method string) error {
 	if err := s.repo.AssignPermission(ctx, userID, path, method); err != nil {
-		s.l.Error("分配权限失败", zap.Error(err))
+		s.l.Error("assign permissions failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -50,7 +50,7 @@ func (s *permissionService) AssignPermission(ctx context.Context, userID int64, 
 // RemovePermission 移除指定用户的权限
 func (s *permissionService) RemovePermission(ctx context.Context, userID int64, path string, method string) error {
 	if err := s.repo.RemovePermission(ctx, userID, path, method); err != nil {
-		s.l.Error("移除权限失败", zap.Error(err))
+		s.l.Error("remove permissions failed", zap.Error(err))
 		return err
 	}
 	return nil
