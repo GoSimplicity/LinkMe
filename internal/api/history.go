@@ -7,19 +7,16 @@ import (
 	. "LinkMe/pkg/ginp"
 	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	"net/http"
 )
 
 type HistoryHandler struct {
 	svc service.HistoryService
-	l   *zap.Logger
 }
 
-func NewHistoryHandler(svc service.HistoryService, l *zap.Logger) *HistoryHandler {
+func NewHistoryHandler(svc service.HistoryService) *HistoryHandler {
 	return &HistoryHandler{
 		svc: svc,
-		l:   l,
 	}
 }
 
@@ -38,7 +35,6 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context, req ListHistoryReq) (Resul
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		h.l.Error("get history failed", zap.Error(err))
 		return Result{
 			Code: 500,
 			Msg:  HistoryListError,
@@ -54,7 +50,6 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context, req ListHistoryReq) (Resul
 func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req DeleteHistoryReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.DeleteOneHistory(ctx, req.PostId, uc.Uid); err != nil {
-		h.l.Error("delete history failed", zap.Error(err))
 		return Result{
 			Code: 500,
 			Msg:  HistoryDeleteError,
@@ -70,7 +65,6 @@ func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req DeleteHistoryAll
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.IsDeleteAll == true {
 		if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {
-			h.l.Error("delete history failed", zap.Error(err))
 			return Result{
 				Code: 500,
 				Msg:  HistoryDeleteError,
