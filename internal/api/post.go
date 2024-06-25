@@ -7,20 +7,17 @@ import (
 	. "LinkMe/pkg/ginp"
 	ijwt "LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type PostHandler struct {
 	svc    service.PostService
 	intSvc service.InteractiveService
-	l      *zap.Logger
 	biz    string
 }
 
-func NewPostHandler(svc service.PostService, l *zap.Logger, intSvc service.InteractiveService) *PostHandler {
+func NewPostHandler(svc service.PostService, intSvc service.InteractiveService) *PostHandler {
 	return &PostHandler{
 		svc:    svc,
-		l:      l,
 		intSvc: intSvc,
 		biz:    "post",
 	}
@@ -57,7 +54,6 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 		},
 	})
 	if err != nil {
-		ph.l.Error(PostEditError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -81,7 +77,6 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostUpdateError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -101,7 +96,6 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostPublishError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -122,7 +116,6 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 			Id: uc.Uid,
 		},
 	}); err != nil {
-		ph.l.Error(PostWithdrawError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -143,7 +136,6 @@ func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		ph.l.Error(PostListError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -164,7 +156,6 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		ph.l.Error(PostListPubError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -181,14 +172,12 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	post, err := ph.svc.GetDraftsByAuthor(ctx, req.PostId, uc.Uid)
 	if err != nil {
-		ph.l.Error(PostGetDetailERROR, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostGetDetailERROR,
 		}, nil
 	}
 	if post.Content == "" && post.Title == "" {
-		ph.l.Error("get post failed by author")
 		return Result{
 			Code: RequestsOK,
 			Msg:  PostGetDetailERROR,
@@ -205,7 +194,6 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId, uc.Uid)
 	if err != nil {
-		ph.l.Error(PostGetPubDetailERROR, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostGetPubDetailERROR,
@@ -221,7 +209,6 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error
 func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Delete(ctx, req.PostId, uc.Uid); err != nil {
-		ph.l.Error(PostDeleteError, zap.Error(err))
 		return Result{
 			Code: PostInternalServerError,
 			Msg:  PostServerError,
@@ -238,12 +225,10 @@ func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Liked {
 		if err := ph.intSvc.Like(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
-			ph.l.Error(PostLikedError, zap.Error(err))
 			return Result{}, err
 		}
 	} else {
 		if err := ph.intSvc.CancelLike(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
-			ph.l.Error(PostCanceLikedError, zap.Error(err))
 			return Result{}, err
 		}
 	}
@@ -258,12 +243,10 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Collectd {
 		if err := ph.intSvc.Collect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
-			ph.l.Error(PostCollectError, zap.Error(err))
 			return Result{}, err
 		}
 	} else {
 		if err := ph.intSvc.CancelCollect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
-			ph.l.Error(PostCanceCollectError, zap.Error(err))
 			return Result{}, err
 		}
 	}
