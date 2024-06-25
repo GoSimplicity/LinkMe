@@ -61,53 +61,67 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	})
 }
 
+// SignUp 用户注册
 func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
-	emailBool, err := uh.Email.MatchString(req.Email)
+	// 验证邮箱格式
+	emailValid, err := uh.Email.MatchString(req.Email)
 	if err != nil {
-		return Result{}, err
+		return Result{
+			Code: UserInternalServerError,
+			Msg:  UserSignUpFailure,
+		}, err
 	}
-	if !emailBool {
+	if !emailValid {
 		return Result{
 			Code: UserInvalidInput,
 			Msg:  UserEmailFormatError,
 		}, nil
 	}
+	// 验证密码是否一致
 	if req.Password != req.ConfirmPassword {
 		return Result{
 			Code: UserInvalidInput,
 			Msg:  UserPasswordMismatchError,
 		}, nil
 	}
-	passwordBool, err := uh.PassWord.MatchString(req.Password)
+	// 验证密码格式
+	passwordValid, err := uh.PassWord.MatchString(req.Password)
 	if err != nil {
-		return Result{}, err
+		return Result{
+			Code: UserInternalServerError,
+			Msg:  UserSignUpFailure,
+		}, err
 	}
-	if !passwordBool {
+	if !passwordValid {
 		return Result{
 			Code: UserInvalidInput,
 			Msg:  UserPasswordFormatError,
 		}, nil
 	}
+	// 尝试注册用户
 	err = uh.svc.SignUp(ctx.Request.Context(), domain.User{
 		Email:    req.Email,
 		Password: req.Password,
 	})
-	if err == nil {
+	if err != nil {
+		// 检查是否为重复邮箱错误
+		if errors.Is(err, service.ErrDuplicateEmail) {
+			return Result{
+				Code: UserDuplicateEmail,
+				Msg:  UserEmailConflictError,
+			}, nil
+		}
+		uh.l.Error("signup failed", zap.Error(err))
 		return Result{
-			Code: RequestsOK,
-			Msg:  UserSignUpSuccess,
-		}, nil
-	} else if errors.Is(err, service.ErrDuplicateEmail) {
-		return Result{
-			Code: UserDuplicateEmail,
-			Msg:  UserEmailConflictError,
-		}, nil
+			Code: UserInternalServerError,
+			Msg:  UserSignUpFailure,
+		}, err
 	}
-	uh.l.Error("signup failed", zap.Error(err))
+	// 注册成功
 	return Result{
-		Code: UserInternalServerError,
-		Msg:  UserSignUpFailure,
-	}, err
+		Code: RequestsOK,
+		Msg:  UserSignUpSuccess,
+	}, nil
 }
 
 // Login 登陆

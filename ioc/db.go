@@ -17,7 +17,7 @@ type config struct {
 func InitDB() *gorm.DB {
 	var c config
 	if err := viper.UnmarshalKey("db", &c); err != nil {
-		panic(fmt.Errorf("初始化失败：%v", err))
+		panic(fmt.Errorf("init failed：%v", err))
 	}
 	db, err := gorm.Open(mysql.Open(c.DSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
