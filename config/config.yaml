@@ -7,8 +7,8 @@ log:
 mongodb:
   addr: "mongodb://localhost:27017"
 kafka:
-  addr: "100.64.1.1:30885"
-#  addr: "localhost:9092"
+#  addr: "100.64.1.1:30885"
+  addr: "localhost:9092"
 #  addr: "45.136.14.21:9092" # 公网kafka地址
 sms:
   tencent:

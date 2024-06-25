@@ -72,16 +72,16 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	// 检查帖子状态是否允许重新提交审核
 	if po.Status == constants.PostUnApproved {
 		po.Status = constants.PostUnderReview
-		if err := p.checkRepo.UpdateStatus(ctx, domain.Check{Status: po.Status}); err != nil {
-			p.l.Error("更新审核状态失败", zap.Error(err))
-			return fmt.Errorf("更新审核状态失败: %w", err)
+		if er := p.checkRepo.UpdateStatus(ctx, domain.Check{Status: po.Status}); er != nil {
+			p.l.Error("update check status failed", zap.Error(er))
+			return fmt.Errorf("update check status failed: %w", er)
 		}
 	}
 	// 获取帖子详细信息
 	dp, err := p.repo.GetPostById(ctx, post.ID, post.Author.Id)
 	if err != nil {
-		p.l.Error("获取帖子失败", zap.Error(err))
-		return fmt.Errorf("获取帖子失败: %w", err)
+		p.l.Error("get post failed", zap.Error(err))
+		return fmt.Errorf("get post failed: %w", err)
 	}
 	// 提交审核
 	check := domain.Check{
@@ -92,13 +92,13 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	}
 	checkId, err := p.checkSvc.SubmitCheck(ctx, check)
 	if err != nil {
-		p.l.Error("提交审核失败", zap.Error(err))
-		return fmt.Errorf("提交审核失败: %w", err)
+		p.l.Error("push check failed", zap.Error(err))
+		return fmt.Errorf("push check failed: %w", err)
 	}
 	// 确保 checkId 有效
 	if checkId == 0 {
-		p.l.Error("提交审核失败，checkId 无效", zap.Int64("postID", post.ID))
-		return errors.New("提交审核失败，checkId 无效")
+		p.l.Error("push check failed，checkId 无效", zap.Int64("postID", post.ID))
+		return errors.New("push check failed，checkId 无效")
 	}
 	return nil
 }
