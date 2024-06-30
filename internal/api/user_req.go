@@ -36,3 +36,7 @@ type UpdateProfileReq struct {
 	About    string `json:"about"`    // 个人简介
 	Birthday string `json:"birthday"` // 生日
 }
+
+type LoginSMSReq struct {
+	Code string `json:"code"`
+}
