@@ -55,8 +55,8 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 	})
 	if err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostEditERRORCode,
+			Msg:  PostEditERROR,
 		}, err
 	}
 	return Result{
@@ -78,8 +78,8 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 		},
 	}); err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostUpdateERRORCode,
+			Msg:  PostUpdateERROR,
 		}, err
 	}
 	return Result{
@@ -97,8 +97,8 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 		},
 	}); err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostPublishERRORCode,
+			Msg:  PostPublishERROR,
 		}, err
 	}
 	return Result{
@@ -117,8 +117,8 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 		},
 	}); err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostWithdrawERRORCode,
+			Msg:  PostWithdrawERROR,
 		}, err
 	}
 	return Result{
@@ -137,8 +137,8 @@ func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
 	})
 	if err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostListERRORCode,
+			Msg:  PostListERROR,
 		}, err
 	}
 	return Result{
@@ -157,8 +157,8 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 	})
 	if err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostListPubERRORCode,
+			Msg:  PostListPubERROR,
 		}, err
 	}
 	return Result{
@@ -173,13 +173,13 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 	post, err := ph.svc.GetDraftsByAuthor(ctx, req.PostId, uc.Uid)
 	if err != nil {
 		return Result{
-			Code: PostInternalServerError,
+			Code: PostGetDetailERRORCode,
 			Msg:  PostGetDetailERROR,
 		}, nil
 	}
 	if post.Content == "" && post.Title == "" {
 		return Result{
-			Code: RequestsOK,
+			Code: PostGetDetailERRORCode,
 			Msg:  PostGetDetailERROR,
 		}, nil
 	}
@@ -195,7 +195,7 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error
 	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId, uc.Uid)
 	if err != nil {
 		return Result{
-			Code: PostInternalServerError,
+			Code: PostGetPubDetailERRORCode,
 			Msg:  PostGetPubDetailERROR,
 		}, err
 	}
@@ -210,8 +210,8 @@ func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, erro
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Delete(ctx, req.PostId, uc.Uid); err != nil {
 		return Result{
-			Code: PostInternalServerError,
-			Msg:  PostServerError,
+			Code: PostDeleteERRORCode,
+			Msg:  PostDeleteERROR,
 		}, err
 	}
 	return Result{
@@ -225,11 +225,17 @@ func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Liked {
 		if err := ph.intSvc.Like(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
-			return Result{}, err
+			return Result{
+				Code: PostLikedERRORCode,
+				Msg:  PostLikedERROR,
+			}, err
 		}
 	} else {
 		if err := ph.intSvc.CancelLike(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
-			return Result{}, err
+			return Result{
+				Code: PostLikedERRORCode,
+				Msg:  PostLikedERROR,
+			}, err
 		}
 	}
 	return Result{
@@ -243,11 +249,17 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Collectd {
 		if err := ph.intSvc.Collect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
-			return Result{}, err
+			return Result{
+				Code: PostCollectERRORCode,
+				Msg:  PostCollectERROR,
+			}, err
 		}
 	} else {
 		if err := ph.intSvc.CancelCollect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
-			return Result{}, err
+			return Result{
+				Code: PostCollectERRORCode,
+				Msg:  PostCollectERROR,
+			}, err
 		}
 	}
 	return Result{
