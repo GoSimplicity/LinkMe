@@ -68,20 +68,20 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	emailValid, err := uh.Email.MatchString(req.Email)
 	if err != nil {
 		return Result{
-			Code: UserInternalServerError,
+			Code: UserServerErrorCode,
 			Msg:  UserSignUpFailure,
 		}, err
 	}
 	if !emailValid {
 		return Result{
-			Code: UserInvalidInput,
+			Code: UserEmailFormatErrorCode,
 			Msg:  UserEmailFormatError,
 		}, nil
 	}
 	// 验证密码是否一致
 	if req.Password != req.ConfirmPassword {
 		return Result{
-			Code: UserInvalidInput,
+			Code: UserPasswordMismatchErrorCode,
 			Msg:  UserPasswordMismatchError,
 		}, nil
 	}
@@ -89,13 +89,13 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 	passwordValid, err := uh.PassWord.MatchString(req.Password)
 	if err != nil {
 		return Result{
-			Code: UserInternalServerError,
+			Code: UserServerErrorCode,
 			Msg:  UserSignUpFailure,
 		}, err
 	}
 	if !passwordValid {
 		return Result{
-			Code: UserInvalidInput,
+			Code: UserPasswordFormatErrorCode,
 			Msg:  UserPasswordFormatError,
 		}, nil
 	}
@@ -108,13 +108,12 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 		// 检查是否为重复邮箱错误
 		if errors.Is(err, service.ErrDuplicateEmail) {
 			return Result{
-				Code: UserDuplicateEmail,
+				Code: UserEmailConflictErrorCode,
 				Msg:  UserEmailConflictError,
 			}, nil
 		}
-		uh.l.Error("signup failed", zap.Error(err))
 		return Result{
-			Code: UserInternalServerError,
+			Code: UserServerErrorCode,
 			Msg:  UserSignUpFailure,
 		}, err
 	}
@@ -136,13 +135,12 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 		}, nil
 	} else if errors.Is(err, service.ErrInvalidUserOrPassword) {
 		return Result{
-			Code: UserInvalidOrPassword,
+			Code: UserInvalidOrPasswordCode,
 			Msg:  UserLoginFailure,
 		}, nil
 	}
-	uh.l.Error("login failed", zap.Error(err))
 	return Result{
-		Code: UserInternalServerError,
+		Code: UserServerErrorCode,
 	}, err
 }
 
@@ -150,7 +148,6 @@ func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
 func (uh *UserHandler) Logout(ctx *gin.Context) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		uh.l.Error("logout failed", zap.Error(err))
 		ctx.JSON(ServerERROR, gin.H{"error": UserLogoutFailure})
 		return
 	}
@@ -214,38 +211,37 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 	// 检查新密码和确认密码是否匹配
 	if req.NewPassword != req.ConfirmPassword {
 		return Result{
-			Code: UserInvalidInput,
-			Msg:  "新密码和确认密码不一致",
+			Code: UserInvalidInputCode,
+			Msg:  UserPasswordMismatchError,
 		}, nil
 	}
 	err := uh.svc.ChangePassword(ctx.Request.Context(), req.Email, req.Password, req.NewPassword, req.ConfirmPassword)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
-				Code: UserInvalidOrPassword,
-				Msg:  "旧密码错误或用户不存在",
+				Code: UserInvalidOrPasswordCode,
+				Msg:  UserLoginFailure,
 			}, nil
 		}
 		uh.l.Error("change password failed", zap.Error(err))
 		return Result{
-			Code: UserInternalServerError,
-			Msg:  "更改密码失败",
+			Code: UserServerErrorCode,
+			Msg:  UserPasswordChangeFailure,
 		}, err
 	}
 	return Result{
 		Code: RequestsOK,
-		Msg:  "密码更改成功",
+		Msg:  UserPasswordChangeSuccess,
 	}, nil
 }
-
 func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error) {
-	emailBool, err := uh.Email.MatchString(req.Email)
+	emailValid, err := uh.Email.MatchString(req.Email)
 	if err != nil {
 		return Result{}, err
 	}
-	if !emailBool {
+	if !emailValid {
 		return Result{
-			Code: UserInvalidInput,
+			Code: UserInvalidInputCode,
 			Msg:  UserEmailFormatError,
 		}, nil
 	}
@@ -262,8 +258,15 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserOrPassword) {
+			return Result{
+				Code: UserInvalidOrPasswordCode,
+				Msg:  UserLoginFailure,
+			}, nil
+		}
+		uh.l.Error("write off failed", zap.Error(err))
 		return Result{
-			Code: ServerERROR,
+			Code: UserServerErrorCode,
 			Msg:  UserDeletedFailure,
 		}, err
 	}
@@ -275,6 +278,7 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 		Msg:  UserDeletedSuccess,
 	}, nil
 }
+
 func (uh *UserHandler) GetProfile(ctx *gin.Context) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
@@ -300,12 +304,12 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq)
 	})
 	if err != nil {
 		return Result{
-			Code: UserInvalidOrProfileError,
+			Code: UserInvalidOrProfileErrorCode,
 			Msg:  UserProfileUpdateFailure,
 		}, err
 	}
 	return Result{
-		Code: UserValidProfile,
+		Code: RequestsOK,
 		Msg:  UserProfileUpdateSuccess,
 	}, nil
 }
