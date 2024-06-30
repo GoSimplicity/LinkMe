@@ -47,14 +47,15 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup := server.Group("/users")
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
+	userGroup.POST("/login_sms", WrapBody(uh.LoginSMS))
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
 	userGroup.POST("/send_email", WrapBody(uh.SendEmail))
 	userGroup.POST("/logout", uh.Logout)
-	userGroup.PUT("/refresh_token", uh.RefreshToken)
+	userGroup.POST("/refresh_token", uh.RefreshToken)
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	userGroup.GET("/profile", uh.GetProfile)
-	userGroup.PUT("/update_profile", WrapBody(uh.UpdateProfileByID))
+	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -307,4 +308,8 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq)
 		Code: UserValidProfile,
 		Msg:  UserProfileUpdateSuccess,
 	}, nil
+}
+
+func (uh *UserHandler) LoginSMS(ctx *gin.Context, req LoginSMSReq) (Result, error) {
+	return Result{}, nil
 }
