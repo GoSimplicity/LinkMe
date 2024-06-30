@@ -16,7 +16,7 @@ func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) 
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowCredentials: true,
-			AllowHeaders:     []string{"Content-Type", "Authorization"},
+			AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"},
 			ExposeHeaders:    []string{"x-jwt-token", "x-refresh-token"},
 			AllowOriginFunc: func(origin string) bool {
 				if strings.HasPrefix(origin, "http://localhost") {
