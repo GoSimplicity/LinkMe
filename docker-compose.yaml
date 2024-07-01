@@ -27,7 +27,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: linkme
     volumes:
-      - ./init-scripts:/docker-entrypoint-initdb.d/
+      - ./init:/docker-entrypoint-initdb.d/
   redis:
     image: bitnami/redis:latest
     container_name: linkme-redis
