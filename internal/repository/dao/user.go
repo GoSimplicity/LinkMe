@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	sf "github.com/bwmarrin/snowflake"
+	"github.com/casbin/casbin/v2"
 	"github.com/go-sql-driver/mysql"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,20 +30,22 @@ type UserDAO interface {
 	DeleteUser(ctx context.Context, email string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
-	GetAllUser(ctx context.Context) ([]domain.UserWithProfile, error)
+	GetAllUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error)
 }
 
 type userDAO struct {
 	db   *gorm.DB
 	node *sf.Node
 	l    *zap.Logger
+	ce   *casbin.Enforcer
 }
 
-func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger) UserDAO {
+func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger, ce *casbin.Enforcer) UserDAO {
 	return &userDAO{
 		db:   db,
 		node: node,
 		l:    l,
+		ce:   ce,
 	}
 }
 
@@ -200,17 +205,56 @@ func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain
 	return profile, nil
 }
 
-func (ud *userDAO) GetAllUser(ctx context.Context) ([]domain.UserWithProfile, error) {
-	var usersWithProfiles []domain.UserWithProfile
+func (ud *userDAO) GetAllUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error) {
+	var usersWithProfiles []domain.UserWithProfileAndRule
 	// 执行连接查询
 	if err := ud.db.WithContext(ctx).
 		Table("users").
 		Select(`users.id, users.password_hash, users.deleted, users.email, users.phone,
-				profiles.id as profile_id, profiles.user_id, profiles.nick_name, profiles.avatar, profiles.about, profiles.birthday`).
+                profiles.id as profile_id, profiles.user_id, profiles.nick_name, profiles.avatar, profiles.about, profiles.birthday`).
 		Joins("left join profiles on profiles.user_id = users.id").
 		Scan(&usersWithProfiles).Error; err != nil {
 		ud.l.Error("failed to get all users with profiles", zap.Error(err))
 		return nil, err
 	}
+	// 获取每个用户的角色
+	for i, user := range usersWithProfiles {
+		roleEmails, err := ud.getUserRoleEmails(ctx, user.ID)
+		if err != nil {
+			ud.l.Error("failed to get role emails for user", zap.Error(err))
+			return nil, err
+		}
+		if len(roleEmails) > 0 {
+			usersWithProfiles[i].Role = strings.Join(roleEmails, ",")
+		}
+	}
 	return usersWithProfiles, nil
+}
+
+// getUserRoleEmails 获取给定用户ID的角色电子邮件
+func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]string, error) {
+	userIDStr := strconv.FormatInt(userID, 10)
+	roles, err := ud.ce.GetRolesForUser(userIDStr)
+	if err != nil {
+		return nil, err
+	}
+	var roleEmails []string
+	for _, roleIDStr := range roles {
+		roleID, er := strconv.ParseInt(roleIDStr, 10, 64)
+		if er != nil {
+			return nil, er
+		}
+		var roleUser struct {
+			Email string
+		}
+		if e := ud.db.WithContext(ctx).
+			Table("users").
+			Select("email").
+			Where("id = ?", roleID).
+			Scan(&roleUser).Error; e != nil {
+			return nil, e
+		}
+		roleEmails = append(roleEmails, roleUser.Email)
+	}
+	return roleEmails, nil
 }

@@ -22,7 +22,7 @@ type Profile struct {
 	Birthday string // 生日
 }
 
-type UserWithProfile struct {
+type UserWithProfileAndRule struct {
 	ID           int64
 	PasswordHash string
 	Deleted      bool
@@ -34,4 +34,5 @@ type UserWithProfile struct {
 	Avatar       string
 	About        string
 	Birthday     string
+	Role         string
 }
