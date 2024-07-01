@@ -27,6 +27,7 @@ type UserDAO interface {
 	DeleteUser(ctx context.Context, email string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
+	GetAllUser(ctx context.Context) ([]domain.UserWithProfile, error)
 }
 
 type userDAO struct {
@@ -197,4 +198,19 @@ func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain
 		return domain.Profile{}, err
 	}
 	return profile, nil
+}
+
+func (ud *userDAO) GetAllUser(ctx context.Context) ([]domain.UserWithProfile, error) {
+	var usersWithProfiles []domain.UserWithProfile
+	// 执行连接查询
+	if err := ud.db.WithContext(ctx).
+		Table("users").
+		Select(`users.id, users.password_hash, users.deleted, users.email, users.phone,
+				profiles.id as profile_id, profiles.user_id, profiles.nick_name, profiles.avatar, profiles.about, profiles.birthday`).
+		Joins("left join profiles on profiles.user_id = users.id").
+		Scan(&usersWithProfiles).Error; err != nil {
+		ud.l.Error("failed to get all users with profiles", zap.Error(err))
+		return nil, err
+	}
+	return usersWithProfiles, nil
 }
