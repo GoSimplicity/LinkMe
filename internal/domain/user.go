@@ -21,3 +21,17 @@ type Profile struct {
 	About    string // 个人简介
 	Birthday string // 生日
 }
+
+type UserWithProfile struct {
+	ID           int64
+	PasswordHash string
+	Deleted      bool
+	Email        string
+	Phone        *string
+	ProfileID    int64
+	UserID       int64
+	NickName     string
+	Avatar       string
+	About        string
+	Birthday     string
+}
