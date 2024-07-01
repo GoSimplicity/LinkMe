@@ -33,7 +33,7 @@ CREATE TABLE `casbin_rule` (
   `v5` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_casbin_rule` (`ptype`,`v0`,`v1`,`v2`,`v3`,`v4`,`v5`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `casbin_rule` (
 
 LOCK TABLES `casbin_rule` WRITE;
 /*!40000 ALTER TABLE `casbin_rule` DISABLE KEYS */;
-INSERT INTO `casbin_rule` VALUES (2,'p','10308038636343296','/checks/approve','POST','','',''),(4,'p','10308038636343296','/checks/detail','GET','','',''),(1,'p','10308038636343296','/checks/list','GET','','',''),(3,'p','10308038636343296','/checks/reject','POST','','',''),(5,'p','10308038636343296','/permissions/assign','POST','','',''),(6,'p','10308038636343296','/permissions/list','GET','','',''),(7,'p','10308038636343296','/permissions/remove','DELETE','','',''),(8,'p','10308038636343296','/plate/create','POST','','',''),(10,'p','10308038636343296','/plate/delete','DELETE','','',''),(9,'p','10308038636343296','/plate/list','GET','','','');
+INSERT INTO `casbin_rule` VALUES (2,'p','10308038636343296','/checks/approve','POST','','',''),(4,'p','10308038636343296','/checks/detail','GET','','',''),(1,'p','10308038636343296','/checks/list','GET','','',''),(3,'p','10308038636343296','/checks/reject','POST','','',''),(5,'p','10308038636343296','/permissions/assign','POST','','',''),(13,'p','10308038636343296','/permissions/assign_role','POST','','',''),(6,'p','10308038636343296','/permissions/list','GET','','',''),(7,'p','10308038636343296','/permissions/remove','DELETE','','',''),(16,'p','10308038636343296','/permissions/remove_role','DELETE','','',''),(8,'p','10308038636343296','/plate/create','POST','','',''),(10,'p','10308038636343296','/plate/delete','DELETE','','',''),(9,'p','10308038636343296','/plate/list','GET','','',''),(11,'p','10308038636343296','/users/get_user','GET','','','');
 /*!40000 ALTER TABLE `casbin_rule` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -199,7 +199,7 @@ CREATE TABLE `profiles` (
   PRIMARY KEY (`id`),
   KEY `idx_profiles_user_id` (`user_id`),
   CONSTRAINT `fk_users_profile` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -208,7 +208,7 @@ CREATE TABLE `profiles` (
 
 LOCK TABLES `profiles` WRITE;
 /*!40000 ALTER TABLE `profiles` DISABLE KEYS */;
-INSERT INTO `profiles` VALUES (1,10308038636343296,'admin','admin','admin','2024-4-22');
+INSERT INTO `profiles` VALUES (1,10308038636343296,'admin','admin12341','admin','2020-02-02');
 /*!40000 ALTER TABLE `profiles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -301,7 +301,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `idx_users_email` (`email`),
   UNIQUE KEY `idx_users_phone` (`phone`),
   KEY `idx_users_deleted_time` (`deleted_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=10308038636343297 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17774579904679937 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -357,4 +357,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-06-23  8:53:44
+-- Dump completed on 2024-07-01 12:05:26
