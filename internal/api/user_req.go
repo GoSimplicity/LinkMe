@@ -40,3 +40,6 @@ type UpdateProfileReq struct {
 type LoginSMSReq struct {
 	Code string `json:"code"`
 }
+
+type GetAllUserReq struct {
+}

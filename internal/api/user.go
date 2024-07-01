@@ -6,10 +6,12 @@ import (
 	"LinkMe/internal/domain/events/email"
 	"LinkMe/internal/domain/events/sms"
 	"LinkMe/internal/service"
+	"LinkMe/middleware"
 	. "LinkMe/pkg/ginp"
 	"LinkMe/utils"
 	ijwt "LinkMe/utils/jwt"
 	"errors"
+	"github.com/casbin/casbin/v2"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -27,23 +29,26 @@ type UserHandler struct {
 	svc           service.UserService
 	ijwt          ijwt.Handler
 	l             *zap.Logger
+	ce            *casbin.Enforcer
 	smsProducer   sms.Producer
 	emailProducer email.Producer
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsProducer sms.Producer, emailProducer email.Producer) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsProducer sms.Producer, emailProducer email.Producer, ce *casbin.Enforcer) *UserHandler {
 	return &UserHandler{
 		Email:         regexp.MustCompile(emailRegexPattern, regexp.None),
 		PassWord:      regexp.MustCompile(passwordRegexPattern, regexp.None),
 		svc:           svc,
 		ijwt:          j,
 		l:             l,
+		ce:            ce,
 		smsProducer:   smsProducer,
 		emailProducer: emailProducer,
 	}
 }
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
+	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce, uh.l)
 	userGroup := server.Group("/users")
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
@@ -56,6 +61,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	userGroup.GET("/profile", uh.GetProfile)
 	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))
+	userGroup.GET("/get_user", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetAllUser))
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -316,4 +322,19 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq)
 
 func (uh *UserHandler) LoginSMS(ctx *gin.Context, req LoginSMSReq) (Result, error) {
 	return Result{}, nil
+}
+
+func (uh *UserHandler) GetAllUser(ctx *gin.Context, req GetAllUserReq) (Result, error) {
+	users, err := uh.svc.GetALlUser(ctx)
+	if err != nil {
+		return Result{
+			Code: UserGetErrorCode,
+			Msg:  UserGetError,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserGetSuccess,
+		Data: users,
+	}, nil
 }
