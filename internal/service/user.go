@@ -21,6 +21,7 @@ type UserService interface {
 	DeleteUser(ctx context.Context, email string, password string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) (err error)
 	GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error)
+	GetALlUser(ctx context.Context) ([]domain.UserWithProfile, error)
 }
 
 type userService struct {
@@ -116,4 +117,8 @@ func (us *userService) UpdateProfile(ctx context.Context, profile domain.Profile
 
 func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error) {
 	return us.repo.GetProfile(ctx, UserID)
+}
+
+func (us *userService) GetALlUser(ctx context.Context) ([]domain.UserWithProfile, error) {
+	return us.repo.GetALlUser(ctx)
 }
