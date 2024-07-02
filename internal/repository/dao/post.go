@@ -30,6 +30,8 @@ type PostDAO interface {
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
 	List(ctx context.Context, pagination domain.Pagination) ([]Post, error)    // 获取个人的帖子记录列表
 	DeleteById(ctx context.Context, post domain.Post) error
+	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]Post, error)
+	GetPost(ctx context.Context, id int64) (Post, error)
 }
 
 type postDAO struct {
@@ -271,4 +273,25 @@ func (p *postDAO) DeleteById(ctx context.Context, post domain.Post) error {
 		return err
 	}
 	return nil
+}
+
+func (p *postDAO) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
+	var posts []Post
+	intSize := int(*pagination.Size)
+	intOffset := int(*pagination.Offset)
+	if err := p.db.WithContext(ctx).Where("deleted = ?", false).Limit(intSize).Offset(intOffset).Find(&posts).Error; err != nil {
+		p.l.Error("find post list failed", zap.Error(err))
+		return nil, err
+	}
+	return posts, nil
+}
+
+func (p *postDAO) GetPost(ctx context.Context, id int64) (Post, error) {
+	var post Post
+	err := p.db.WithContext(ctx).Where("id = ? AND deleted = ?", id, false).Find(&post).Error
+	if err != nil {
+		p.l.Error("find post failed", zap.Error(err))
+		return Post{}, err
+	}
+	return post, nil
 }
