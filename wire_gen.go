@@ -56,7 +56,7 @@ func InitWebServer() *Cmd {
 	checkService := service.NewCheckService(checkRepository, postRepository, historyRepository, logger)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	postService := service.NewPostService(postRepository, logger, interactiveService, checkService, postProducer, historyRepository, checkRepository)
-	postHandler := api.NewPostHandler(postService, interactiveService)
+	postHandler := api.NewPostHandler(postService, interactiveService, enforcer, logger)
 	historyService := service.NewHistoryService(historyRepository, logger)
 	historyHandler := api.NewHistoryHandler(historyService)
 	checkHandler := api.NewCheckHandler(checkService, logger, enforcer)
