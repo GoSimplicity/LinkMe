@@ -21,7 +21,9 @@ type PostService interface {
 	GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error)            // 获取特定ID的已发布帖子
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表，支持分页
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)          // 获取个人帖子列表，支持分页
-	Delete(ctx context.Context, postId int64, uid int64) error                                   // 删除帖子
+	Delete(ctx context.Context, postId int64, uid int64) error
+	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	GetPost(ctx context.Context, id int64) (domain.Post, error)
 }
 
 type postService struct {
@@ -184,4 +186,24 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 		return er
 	}
 	return p.repo.Delete(ctx, res)
+}
+
+func (p *postService) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	allPost, err := p.repo.ListAllPost(ctx, pagination)
+	if err != nil {
+		p.l.Error("list all post failed", zap.Error(err))
+		return nil, err
+	}
+	return allPost, nil
+}
+
+func (p *postService) GetPost(ctx context.Context, id int64) (domain.Post, error) {
+	getPost, err := p.repo.GetPost(ctx, id)
+	if err != nil {
+		p.l.Error("get post failed", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return getPost, nil
 }

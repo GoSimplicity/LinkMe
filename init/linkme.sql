@@ -33,7 +33,7 @@ CREATE TABLE `casbin_rule` (
   `v5` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_casbin_rule` (`ptype`,`v0`,`v1`,`v2`,`v3`,`v4`,`v5`)
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `casbin_rule` (
 
 LOCK TABLES `casbin_rule` WRITE;
 /*!40000 ALTER TABLE `casbin_rule` DISABLE KEYS */;
-INSERT INTO `casbin_rule` VALUES (2,'p','10308038636343296','/checks/approve','POST','','',''),(4,'p','10308038636343296','/checks/detail','GET','','',''),(1,'p','10308038636343296','/checks/list','GET','','',''),(3,'p','10308038636343296','/checks/reject','POST','','',''),(5,'p','10308038636343296','/permissions/assign','POST','','',''),(13,'p','10308038636343296','/permissions/assign_role','POST','','',''),(6,'p','10308038636343296','/permissions/list','GET','','',''),(7,'p','10308038636343296','/permissions/remove','DELETE','','',''),(16,'p','10308038636343296','/permissions/remove_role','DELETE','','',''),(8,'p','10308038636343296','/plate/create','POST','','',''),(10,'p','10308038636343296','/plate/delete','DELETE','','',''),(9,'p','10308038636343296','/plate/list','GET','','',''),(11,'p','10308038636343296','/users/get_user','GET','','','');
+INSERT INTO `casbin_rule` VALUES (2,'p','10308038636343296','/checks/approve','POST','','',''),(4,'p','10308038636343296','/checks/detail','GET','','',''),(1,'p','10308038636343296','/checks/list','GET','','',''),(3,'p','10308038636343296','/checks/reject','POST','','',''),(5,'p','10308038636343296','/permissions/assign','POST','','',''),(13,'p','10308038636343296','/permissions/assign_role','POST','','',''),(6,'p','10308038636343296','/permissions/list','GET','','',''),(7,'p','10308038636343296','/permissions/remove','DELETE','','',''),(16,'p','10308038636343296','/permissions/remove_role','DELETE','','',''),(8,'p','10308038636343296','/plate/create','POST','','',''),(10,'p','10308038636343296','/plate/delete','DELETE','','',''),(9,'p','10308038636343296','/plate/list','GET','','',''),(21,'p','10308038636343296','/posts/detail_post/:postId','GET','','',''),(19,'p','10308038636343296','/posts/list_post','POST','','',''),(11,'p','10308038636343296','/users/get_user','GET','','','');
 /*!40000 ALTER TABLE `casbin_rule` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -66,7 +66,7 @@ CREATE TABLE `checks` (
   PRIMARY KEY (`id`),
   KEY `idx_checks_author` (`author_id`),
   KEY `idx_checks_updated_at` (`updated_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -75,6 +75,7 @@ CREATE TABLE `checks` (
 
 LOCK TABLES `checks` WRITE;
 /*!40000 ALTER TABLE `checks` DISABLE KEYS */;
+INSERT INTO `checks` VALUES (1,1,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917324148,1719917355),(2,2,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917333741,1719917359),(3,3,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917336331,1719917362),(4,4,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917339910,1719917367),(5,5,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917342213,1719917369),(6,6,'测试内容123','测试标题123',10308038636343296,'Approved','',1719917345003,1719917372),(7,7,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919432168,1719919464),(8,8,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919436217,1719919468),(9,9,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919439007,1719919471),(10,10,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919442178,1719919475),(11,11,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919444471,1719919478),(12,12,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919446993,1719919481),(13,13,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919449239,1719919484),(14,14,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919451482,1719919486),(15,15,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919454600,1719919489),(16,16,'测试内容123','测试标题123',10308038636343296,'Approved','',1719919892218,1719919900),(17,17,'测试内容123','测试标题123',10308038636343296,'Approved','',1719920339457,1719920349);
 /*!40000 ALTER TABLE `checks` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -128,7 +129,7 @@ CREATE TABLE `plates` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_plates_name` (`name`),
   KEY `idx_plates_uid` (`uid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -137,6 +138,7 @@ CREATE TABLE `plates` (
 
 LOCK TABLES `plates` WRITE;
 /*!40000 ALTER TABLE `plates` DISABLE KEYS */;
+INSERT INTO `plates` VALUES (1,'golang板块','golang学习...',1719917266377,1719917266377,0,0,10308038636343296);
 /*!40000 ALTER TABLE `plates` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -170,7 +172,7 @@ CREATE TABLE `posts` (
   KEY `idx_posts_author` (`author_id`),
   KEY `idx_posts_plate_id` (`plate_id`),
   CONSTRAINT `fk_plates_posts` FOREIGN KEY (`plate_id`) REFERENCES `plates` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -179,6 +181,7 @@ CREATE TABLE `posts` (
 
 LOCK TABLES `posts` WRITE;
 /*!40000 ALTER TABLE `posts` DISABLE KEYS */;
+INSERT INTO `posts` VALUES (1,'测试标题1','测试内容1',1719917275465,1719917356008,0,0,'Published',10308038636343296,'9f6cb49a-76bd-4f54-aae8-af72b63a781a',0,'',0,1),(2,'测试标题2','测试内容2',1719917276431,1719917359132,0,0,'Published',10308038636343296,'d014df61-57f7-4462-97ac-c5d5fee0883e',0,'',0,1),(3,'测试标题3','测试内容3',1719917276849,1719917362018,0,0,'Published',10308038636343296,'81152351-60cb-42aa-b8f3-11b8b3f2e62b',0,'',0,1),(4,'测试标题4','测试内容4',1719917277143,1719917367013,0,0,'Published',10308038636343296,'b14ceef2-78b0-4b5c-836c-25b8a4a10c91',0,'',0,1),(5,'测试标题5','测试内容5',1719917277482,1719917369664,0,0,'Published',10308038636343296,'6061c930-c285-4e6d-9a08-0da3ab2bb969',0,'',0,1),(6,'测试标题6','测试内容6',1719917277780,1719917372418,0,0,'Published',10308038636343296,'949772b8-600f-40f9-b432-f5a0d6d92c25',0,'',0,1),(7,'测试标题7','测试内容7',1719919420735,1719919464655,0,0,'Published',10308038636343296,'ebf10c8b-b9e1-4e5c-9640-a48c4b6d2980',0,'',0,1),(8,'测试标题8','测试内容8',1719919421235,1719919468934,0,0,'Published',10308038636343296,'ce3bc95f-64c6-4f4a-9abf-df8d646c0068',0,'',0,1),(9,'测试标题9','测试内容9',1719919421694,1719919471814,0,0,'Published',10308038636343296,'cfab4f7d-62de-4c24-b3d1-964f2f436a5e',0,'',0,1),(10,'测试标题10','测试内容10',1719919422004,1719919475332,0,0,'Published',10308038636343296,'388df334-2c2b-4d76-9ca7-2d860b8c92bf',0,'',0,1),(11,'测试标题11','测试内容11',1719919422361,1719919478185,0,0,'Published',10308038636343296,'0ba4c399-cb16-4e67-8693-a43542660d14',0,'',0,1),(12,'测试标题12','测试内容12',1719919422694,1719919481367,0,0,'Published',10308038636343296,'330cd427-f0b2-4fd2-af02-ff706a4a2725',0,'',0,1),(13,'测试标题13','测试内容13',1719919423044,1719919484257,0,0,'Published',10308038636343296,'70c17b0f-1f13-44cb-ba3c-c8a62614c2b9',0,'',0,1),(14,'测试标题14','测试内容14',1719919423515,1719919486986,0,0,'Published',10308038636343296,'3cc3e3f2-5355-4cd8-9ac9-153bbecf80d1',0,'',0,1),(15,'测试标题15','测试内容15',1719919424245,1719919489433,0,0,'Published',10308038636343296,'b02374e6-387f-48a7-8f3a-ca2749d6f394',0,'',0,1),(16,'测试标题16','测试内容16',1719919882907,1719919900804,0,0,'Published',10308038636343296,'e28beb93-f604-433f-8a92-da40a72ece7c',0,'',0,1),(17,'测试标题17','测试内容17',1719920331872,1719920357597,0,0,'Published',10308038636343296,'2b5342ce-6c11-416e-a9d3-7efa8149b5df',0,'',0,1);
 /*!40000 ALTER TABLE `posts` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -199,7 +202,7 @@ CREATE TABLE `profiles` (
   PRIMARY KEY (`id`),
   KEY `idx_profiles_user_id` (`user_id`),
   CONSTRAINT `fk_users_profile` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -301,7 +304,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `idx_users_email` (`email`),
   UNIQUE KEY `idx_users_phone` (`phone`),
   KEY `idx_users_deleted_time` (`deleted_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=17774579904679937 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18281565326938113 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -357,4 +360,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-07-01 12:05:26
+-- Dump completed on 2024-07-02 22:19:16
