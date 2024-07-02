@@ -24,6 +24,8 @@ type PostRepository interface {
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, post domain.Post) error
 	Sync(ctx context.Context, post domain.Post) (int64, error)
+	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	GetPost(ctx context.Context, id int64) (domain.Post, error)
 }
 
 type postRepository struct {
@@ -216,6 +218,24 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 		return -1, fmt.Errorf("删除发布缓存失败: %w", e)
 	}
 	return id, nil
+}
+
+func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	posts, err := p.dao.ListAllPost(ctx, pagination)
+	if err != nil {
+		p.l.Error("get all post failed", zap.Error(err))
+		return nil, err
+	}
+	return fromDomainSlicePost(posts), nil
+}
+
+func (p *postRepository) GetPost(ctx context.Context, id int64) (domain.Post, error) {
+	post, err := p.dao.GetPost(ctx, id)
+	if err != nil {
+		p.l.Error("get post failed", zap.Error(err))
+		return domain.Post{}, err
+	}
+	return toDomainPost(post), nil
 }
 
 // 将领域层对象转为dao层对象
