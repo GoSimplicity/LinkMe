@@ -4,38 +4,48 @@ import (
 	. "LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	"LinkMe/internal/service"
+	"LinkMe/middleware"
 	. "LinkMe/pkg/ginp"
 	ijwt "LinkMe/utils/jwt"
+	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type PostHandler struct {
 	svc    service.PostService
 	intSvc service.InteractiveService
+	ce     *casbin.Enforcer
+	l      *zap.Logger
 	biz    string
 }
 
-func NewPostHandler(svc service.PostService, intSvc service.InteractiveService) *PostHandler {
+func NewPostHandler(svc service.PostService, intSvc service.InteractiveService, ce *casbin.Enforcer, l *zap.Logger) *PostHandler {
 	return &PostHandler{
 		svc:    svc,
 		intSvc: intSvc,
+		ce:     ce,
+		l:      l,
 		biz:    "post",
 	}
 }
 
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
+	casbinMiddleware := middleware.NewCasbinMiddleware(ph.ce, ph.l)
 	postGroup := server.Group("/posts")
-	postGroup.POST("/edit", WrapBody(ph.Edit))                    // 编辑帖子
-	postGroup.POST("/update", WrapBody(ph.Update))                // 更新帖子
-	postGroup.POST("/publish", WrapBody(ph.Publish))              // 更新帖子状态为发布
-	postGroup.POST("/withdraw", WrapBody(ph.Withdraw))            // 更新帖子状态为撤回
-	postGroup.POST("/list", WrapBody(ph.List))                    // 可以添加分页和排序参数
-	postGroup.POST("/list_pub", WrapBody(ph.ListPub))             // 同上
-	postGroup.GET("/detail/:postId", WrapParam(ph.Detail))        // 使用参数获取特定帖子详细数据
-	postGroup.GET("/detail_pub/:postId", WrapParam(ph.DetailPub)) // 同上
-	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))        // 使用 DELETE 方法删除特定帖子
-	postGroup.POST("/like", WrapBody(ph.Like))                    // 点赞
-	postGroup.POST("/collect", WrapBody(ph.Collect))              // 收藏
+	postGroup.POST("/edit", WrapBody(ph.Edit))                                                      // 编辑帖子
+	postGroup.POST("/update", WrapBody(ph.Update))                                                  // 更新帖子
+	postGroup.POST("/publish", WrapBody(ph.Publish))                                                // 更新帖子状态为发布
+	postGroup.POST("/withdraw", WrapBody(ph.Withdraw))                                              // 更新帖子状态为撤回
+	postGroup.POST("/list", WrapBody(ph.List))                                                      // 可以添加分页和排序参数
+	postGroup.POST("/list_pub", WrapBody(ph.ListPub))                                               // 同上
+	postGroup.POST("/list_post", casbinMiddleware.CheckCasbin(), WrapBody(ph.ListPost))             // 管理员使用
+	postGroup.GET("/detail/:postId", WrapParam(ph.Detail))                                          // 使用参数获取特定帖子详细数据
+	postGroup.GET("/detail_pub/:postId", WrapParam(ph.DetailPub))                                   // 同上
+	postGroup.GET("/detail_post/:postId", casbinMiddleware.CheckCasbin(), WrapParam(ph.DetailPost)) // 管理员使用
+	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))                                          // 使用 DELETE 方法删除特定帖子
+	postGroup.POST("/like", WrapBody(ph.Like))                                                      // 点赞
+	postGroup.POST("/collect", WrapBody(ph.Collect))                                                // 收藏
 	postGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(200, "hello")
 	})
@@ -266,5 +276,38 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 		Code: RequestsOK,
 		Msg:  PostCollectSuccess,
 		Data: req.PostId,
+	}, nil
+}
+
+func (ph *PostHandler) ListPost(ctx *gin.Context, req ListPostReq) (Result, error) {
+	du, err := ph.svc.ListAllPost(ctx, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
+	if err != nil {
+		return Result{
+			Code: PostListERRORCode,
+			Msg:  PostListERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostListSuccess,
+		Data: du,
+	}, nil
+}
+
+func (ph *PostHandler) DetailPost(ctx *gin.Context, req DetailPostReq) (Result, error) {
+	post, err := ph.svc.GetPost(ctx, req.PostId)
+	if err != nil {
+		return Result{
+			Code: PostGetDetailERRORCode,
+			Msg:  PostGetDetailERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetDetailSuccess,
+		Data: post,
 	}, nil
 }
