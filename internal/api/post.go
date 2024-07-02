@@ -26,11 +26,11 @@ func NewPostHandler(svc service.PostService, intSvc service.InteractiveService) 
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup := server.Group("/posts")
 	postGroup.POST("/edit", WrapBody(ph.Edit))                    // 编辑帖子
-	postGroup.PUT("/update", WrapBody(ph.Update))                 // 更新帖子
-	postGroup.PUT("/publish", WrapBody(ph.Publish))               // 更新帖子状态为发布
-	postGroup.PUT("/withdraw", WrapBody(ph.Withdraw))             // 更新帖子状态为撤回
-	postGroup.GET("/list", WrapBody(ph.List))                     // 可以添加分页和排序参数
-	postGroup.GET("/list_pub", WrapBody(ph.ListPub))              // 同上
+	postGroup.POST("/update", WrapBody(ph.Update))                // 更新帖子
+	postGroup.POST("/publish", WrapBody(ph.Publish))              // 更新帖子状态为发布
+	postGroup.POST("/withdraw", WrapBody(ph.Withdraw))            // 更新帖子状态为撤回
+	postGroup.POST("/list", WrapBody(ph.List))                    // 可以添加分页和排序参数
+	postGroup.POST("/list_pub", WrapBody(ph.ListPub))             // 同上
 	postGroup.GET("/detail/:postId", WrapParam(ph.Detail))        // 使用参数获取特定帖子详细数据
 	postGroup.GET("/detail_pub/:postId", WrapParam(ph.DetailPub)) // 同上
 	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))        // 使用 DELETE 方法删除特定帖子
