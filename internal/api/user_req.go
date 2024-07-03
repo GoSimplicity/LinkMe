@@ -41,5 +41,7 @@ type LoginSMSReq struct {
 	Code string `json:"code"`
 }
 
-type GetAllUserReq struct {
+type ListUserReq struct {
+	Page int    `json:"page,omitempty"` // 当前页码
+	Size *int64 `json:"size,omitempty"` // 每页数据量
 }
