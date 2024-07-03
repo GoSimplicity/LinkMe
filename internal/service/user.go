@@ -21,7 +21,7 @@ type UserService interface {
 	DeleteUser(ctx context.Context, email string, password string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) (err error)
 	GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error)
-	GetALlUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error)
+	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
 }
 
 type userService struct {
@@ -119,6 +119,9 @@ func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (pr
 	return us.repo.GetProfile(ctx, UserID)
 }
 
-func (us *userService) GetALlUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error) {
-	return us.repo.GetALlUser(ctx)
+func (us *userService) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return us.repo.ListUser(ctx, pagination)
 }
