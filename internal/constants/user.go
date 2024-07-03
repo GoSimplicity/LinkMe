@@ -8,11 +8,11 @@ const (
 	UserPasswordMismatchErrorCode = 401005                                                                                              // 两次输入的密码不一致
 	UserPasswordFormatErrorCode   = 401006                                                                                              // 密码格式错误
 	UserEmailConflictErrorCode    = 401007                                                                                              // 邮箱冲突
-	UserGetErrorCode              = 401008                                                                                              // 用户获取失败
+	UserListErrorCode             = 401008                                                                                              // 用户获取失败
 	UserServerErrorCode           = 500001                                                                                              // 用户服务内部错误
 	UserSignUpSuccess             = "User registration successful"                                                                      // 用户注册成功
-	UserGetError                  = "User get error"                                                                                    // 用户获取失败
-	UserGetSuccess                = "User get success"                                                                                  // 用户获取成功
+	UserListError                 = "User list error"                                                                                   // 用户获取失败
+	UserListSuccess               = "User get success"                                                                                  // 用户获取成功
 	UserSignUpFailure             = "User registration failed"                                                                          // 用户注册失败
 	UserLoginSuccess              = "User login successful"                                                                             // 用户登陆成功
 	UserLoginFailure              = "User login failed"                                                                                 // 用户登陆失败
