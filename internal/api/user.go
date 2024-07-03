@@ -61,7 +61,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	userGroup.GET("/profile", uh.GetProfile)
 	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))
-	userGroup.GET("/get_user", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetAllUser))
+	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser)) // 管理员使用
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -324,17 +324,20 @@ func (uh *UserHandler) LoginSMS(ctx *gin.Context, req LoginSMSReq) (Result, erro
 	return Result{}, nil
 }
 
-func (uh *UserHandler) GetAllUser(ctx *gin.Context, req GetAllUserReq) (Result, error) {
-	users, err := uh.svc.GetALlUser(ctx)
+func (uh *UserHandler) ListUser(ctx *gin.Context, req ListUserReq) (Result, error) {
+	users, err := uh.svc.ListUser(ctx, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
 	if err != nil {
 		return Result{
-			Code: UserGetErrorCode,
-			Msg:  UserGetError,
+			Code: UserListErrorCode,
+			Msg:  UserListError,
 		}, err
 	}
 	return Result{
 		Code: RequestsOK,
-		Msg:  UserGetSuccess,
+		Msg:  UserListSuccess,
 		Data: users,
 	}, nil
 }
