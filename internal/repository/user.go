@@ -23,7 +23,7 @@ type UserRepository interface {
 	DeleteUser(ctx context.Context, email string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfile(ctx context.Context, UserId int64) (domain.Profile, error)
-	GetALlUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error)
+	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
 }
 
 type userRepository struct {
@@ -98,8 +98,8 @@ func (ur *userRepository) GetProfile(ctx context.Context, UserId int64) (domain.
 	return ur.dao.GetProfileByUserID(ctx, UserId)
 }
 
-func (ur *userRepository) GetALlUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error) {
-	users, err := ur.dao.GetAllUser(ctx)
+func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
+	users, err := ur.dao.ListUser(ctx, pagination)
 	if err != nil {
 		ur.l.Error("get all user failed", zap.Error(err))
 		return nil, err
