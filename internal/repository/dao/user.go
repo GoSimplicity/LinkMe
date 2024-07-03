@@ -30,7 +30,7 @@ type UserDAO interface {
 	DeleteUser(ctx context.Context, email string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
-	GetAllUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error)
+	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
 }
 
 type userDAO struct {
@@ -205,15 +205,20 @@ func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain
 	return profile, nil
 }
 
-func (ud *userDAO) GetAllUser(ctx context.Context) ([]domain.UserWithProfileAndRule, error) {
+func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
 	var usersWithProfiles []domain.UserWithProfileAndRule
+	intSize := int(*pagination.Size)
+	intOffset := int(*pagination.Offset)
 	// 执行连接查询
-	if err := ud.db.WithContext(ctx).
+	err := ud.db.WithContext(ctx).
 		Table("users").
 		Select(`users.id, users.password_hash, users.deleted, users.email, users.phone,
                 profiles.id as profile_id, profiles.user_id, profiles.nick_name, profiles.avatar, profiles.about, profiles.birthday`).
 		Joins("left join profiles on profiles.user_id = users.id").
-		Scan(&usersWithProfiles).Error; err != nil {
+		Limit(intSize).
+		Offset(intOffset).
+		Scan(&usersWithProfiles).Error
+	if err != nil {
 		ud.l.Error("failed to get all users with profiles", zap.Error(err))
 		return nil, err
 	}
@@ -221,7 +226,7 @@ func (ud *userDAO) GetAllUser(ctx context.Context) ([]domain.UserWithProfileAndR
 	for i, user := range usersWithProfiles {
 		roleEmails, err := ud.getUserRoleEmails(ctx, user.ID)
 		if err != nil {
-			ud.l.Error("failed to get role emails for user", zap.Error(err))
+			ud.l.Error("failed to get role emails for user", zap.Int64("userID", user.ID), zap.Error(err))
 			return nil, err
 		}
 		if len(roleEmails) > 0 {
@@ -238,22 +243,28 @@ func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]strin
 	if err != nil {
 		return nil, err
 	}
-	var roleEmails []string
+	roleEmails := make([]string, 0, len(roles))
+	roleIDs := make([]int64, 0, len(roles))
 	for _, roleIDStr := range roles {
 		roleID, er := strconv.ParseInt(roleIDStr, 10, 64)
 		if er != nil {
 			return nil, er
 		}
-		var roleUser struct {
-			Email string
-		}
-		if e := ud.db.WithContext(ctx).
-			Table("users").
-			Select("email").
-			Where("id = ?", roleID).
-			Scan(&roleUser).Error; e != nil {
-			return nil, e
-		}
+		roleIDs = append(roleIDs, roleID)
+	}
+	var roleUsers []struct {
+		Email string
+	}
+	err = ud.db.WithContext(ctx).
+		Table("users").
+		Select("email").
+		Where("id IN (?)", roleIDs).
+		Scan(&roleUsers).Error
+
+	if err != nil {
+		return nil, err
+	}
+	for _, roleUser := range roleUsers {
 		roleEmails = append(roleEmails, roleUser.Email)
 	}
 	return roleEmails, nil
