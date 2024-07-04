@@ -87,7 +87,6 @@ func (ur *userRepository) FindByEmail(ctx context.Context, email string) (domain
 func (ur *userRepository) DeleteUser(ctx context.Context, email string, uid int64) error {
 	err := ur.dao.DeleteUser(ctx, email, uid)
 	if err != nil {
-		ur.l.Error("delete user failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -102,7 +101,6 @@ func (ur *userRepository) GetProfile(ctx context.Context, UserId int64) (domain.
 func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
 	users, err := ur.dao.ListUser(ctx, pagination)
 	if err != nil {
-		ur.l.Error("get all user failed", zap.Error(err))
 		return nil, err
 	}
 	return users, err
@@ -111,7 +109,6 @@ func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagina
 func (ur *userRepository) GetUserCount(ctx context.Context) (int64, error) {
 	count, err := ur.dao.GetUserCount(ctx)
 	if err != nil {
-		ur.l.Error("get user count failed", zap.Error(err))
 		return -1, err
 	}
 	return count, err
