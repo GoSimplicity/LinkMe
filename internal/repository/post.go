@@ -26,6 +26,7 @@ type PostRepository interface {
 	Sync(ctx context.Context, post domain.Post) (int64, error)
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPost(ctx context.Context, id int64) (domain.Post, error)
+	GetPostCount(ctx context.Context) (int64, error)
 }
 
 type postRepository struct {
@@ -236,6 +237,15 @@ func (p *postRepository) GetPost(ctx context.Context, id int64) (domain.Post, er
 		return domain.Post{}, err
 	}
 	return toDomainPost(post), nil
+}
+
+func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
+	count, err := p.dao.GetPostCount(ctx)
+	if err != nil {
+		p.l.Error("get post count failed", zap.Error(err))
+		return -1, err
+	}
+	return count, nil
 }
 
 // 将领域层对象转为dao层对象

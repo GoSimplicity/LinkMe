@@ -35,6 +35,7 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))   // 审核拒绝
 	checkGroup.GET("/list", WrapBody(ch.ListChecks))       // 审核列表
 	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))    // 审核详情
+	checkGroup.GET("/stats", WrapBody(ch.GetCheckCount))   // 管理员使用
 }
 
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
@@ -96,4 +97,14 @@ func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req CheckDetailReq) (Resul
 		Msg:  "success to get check detail",
 		Data: check,
 	}, nil
+}
+
+func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, req GetCheckCount) (Result, error) {
+	count, err := ch.svc.GetCheckCount(ctx)
+	if err != nil {
+		return Result{
+			Code: RequestsERROR,
+			Msg:  "failed to get check count",
+		}, err
+	}
 }

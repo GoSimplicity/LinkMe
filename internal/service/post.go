@@ -24,6 +24,7 @@ type PostService interface {
 	Delete(ctx context.Context, postId int64, uid int64) error
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPost(ctx context.Context, id int64) (domain.Post, error)
+	GetPostCount(ctx context.Context) (int64, error)
 }
 
 type postService struct {
@@ -206,4 +207,13 @@ func (p *postService) GetPost(ctx context.Context, id int64) (domain.Post, error
 		return domain.Post{}, err
 	}
 	return getPost, nil
+}
+
+func (p *postService) GetPostCount(ctx context.Context) (int64, error) {
+	count, err := p.repo.GetPostCount(ctx)
+	if err != nil {
+		p.l.Error("get post count failed", zap.Error(err))
+		return -1, err
+	}
+	return count, nil
 }
