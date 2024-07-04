@@ -31,6 +31,7 @@ type UserDAO interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
+	GetUserCount(ctx context.Context) (int64, error)
 }
 
 type userDAO struct {
@@ -224,10 +225,10 @@ func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) (
 	}
 	// 获取每个用户的角色
 	for i, user := range usersWithProfiles {
-		roleEmails, err := ud.getUserRoleEmails(ctx, user.ID)
-		if err != nil {
+		roleEmails, er := ud.getUserRoleEmails(ctx, user.ID)
+		if er != nil {
 			ud.l.Error("failed to get role emails for user", zap.Int64("userID", user.ID), zap.Error(err))
-			return nil, err
+			return nil, er
 		}
 		if len(roleEmails) > 0 {
 			usersWithProfiles[i].Role = strings.Join(roleEmails, ",")
@@ -268,4 +269,13 @@ func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]strin
 		roleEmails = append(roleEmails, roleUser.Email)
 	}
 	return roleEmails, nil
+}
+
+func (ud *userDAO) GetUserCount(ctx context.Context) (int64, error) {
+	var count int64
+	err := ud.db.WithContext(ctx).Model(&User{}).Count(&count).Error
+	if err != nil {
+		return -1, err
+	}
+	return count, nil
 }

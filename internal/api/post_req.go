@@ -63,3 +63,6 @@ type InteractReq struct {
 	BizId   []int64 `json:"bizId,omitempty"`
 	BizName string  `json:"bizName,omitempty"`
 }
+
+type GetPostCountReq struct {
+}
