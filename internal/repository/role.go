@@ -34,7 +34,6 @@ func NewPermissionRepository(l *zap.Logger, dao dao.PermissionDAO) PermissionRep
 func (r *permissionRepository) GetPermissions(ctx context.Context) ([]domain.Permission, error) {
 	permissions, err := r.dao.GetPermissions(ctx)
 	if err != nil {
-		r.l.Error("获取权限失败", zap.Error(err))
 		return nil, err
 	}
 	return permissions, nil
@@ -43,7 +42,6 @@ func (r *permissionRepository) GetPermissions(ctx context.Context) ([]domain.Per
 // AssignPermission 分配权限给指定用户
 func (r *permissionRepository) AssignPermission(ctx context.Context, userName string, path string, method string) error {
 	if err := r.dao.AssignPermission(ctx, userName, path, method); err != nil {
-		r.l.Error("分配权限失败", zap.Error(err))
 		return err
 	}
 	return nil
@@ -51,7 +49,6 @@ func (r *permissionRepository) AssignPermission(ctx context.Context, userName st
 
 func (r *permissionRepository) AssignRoleToUser(ctx context.Context, userName, roleName string) error {
 	if err := r.dao.AssignRoleToUser(ctx, userName, roleName); err != nil {
-		r.l.Error("分配角色失败", zap.Error(err))
 		return err
 	}
 	return nil
@@ -60,7 +57,6 @@ func (r *permissionRepository) AssignRoleToUser(ctx context.Context, userName, r
 // RemovePermission 移除指定用户的权限
 func (r *permissionRepository) RemovePermission(ctx context.Context, userName string, path string, method string) error {
 	if err := r.dao.RemovePermission(ctx, userName, path, method); err != nil {
-		r.l.Error("移除权限失败", zap.Error(err))
 		return err
 	}
 	return nil
@@ -68,7 +64,6 @@ func (r *permissionRepository) RemovePermission(ctx context.Context, userName st
 
 func (r *permissionRepository) RemoveRoleFromUser(ctx context.Context, userName, roleName string) error {
 	if err := r.dao.RemoveRoleFromUser(ctx, userName, roleName); err != nil {
-		r.l.Error("移除角色失败", zap.Error(err))
 		return err
 	}
 	return nil

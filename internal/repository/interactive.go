@@ -43,7 +43,6 @@ func NewInteractiveRepository(dao dao.InteractiveDAO, l *zap.Logger, cache cache
 
 func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz []string, ids []int64) error {
 	if err := c.dao.BatchIncrReadCnt(ctx, biz, ids); err != nil {
-		c.l.Error("batch incr read count failed", zap.Error(err))
 		return err
 	}
 	// 使用sync.WaitGroup来等待所有缓存更新操作完成
@@ -68,7 +67,6 @@ func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, 
 		BizID:   id,
 		Uid:     uid,
 	}); err != nil {
-		c.l.Error("incr like failed", zap.Error(err))
 		return err
 	}
 	return c.cache.PostReadCountRecord(ctx, biz, id)
@@ -80,7 +78,6 @@ func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, 
 		BizID:   id,
 		Uid:     uid,
 	}); err != nil {
-		c.l.Error("decr like failed", zap.Error(err))
 		return err
 	}
 	return c.cache.DecrLikeCountRecord(ctx, biz, id)
@@ -93,7 +90,6 @@ func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, bi
 		CollectionId: cid,
 		Uid:          uid,
 	}); err != nil {
-		c.l.Error("incr collection item failed", zap.Error(err))
 		return err
 	}
 	return c.cache.PostCollectCountRecord(ctx, biz, id)
@@ -105,7 +101,6 @@ func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, bi
 		CollectionId: cid,
 		Uid:          uid,
 	}); err != nil {
-		c.l.Error("decr collection item failed", zap.Error(err))
 		return err
 	}
 	return c.cache.DecrCollectCountRecord(ctx, biz, id)
@@ -162,7 +157,6 @@ func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string,
 func (c *CachedInteractiveRepository) GetById(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error) {
 	ics, err := c.dao.GetByIds(ctx, biz, ids)
 	if err != nil {
-		c.l.Error("get interactions failed", zap.Error(err))
 		return make([]domain.Interactive, 0), err
 	}
 	result := make([]domain.Interactive, len(ics))
