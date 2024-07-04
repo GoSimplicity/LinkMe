@@ -41,7 +41,6 @@ func NewUserService(repo repository.UserRepository, l *zap.Logger) UserService {
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
-		us.l.Error("password conversion failed")
 		return err
 	}
 	u.Password = string(hash)
@@ -55,13 +54,11 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return domain.User{}, err
 	} else if err != nil {
-		us.l.Error("user not found", zap.Error(err))
 		return domain.User{}, err
 	}
 	// 将密文密码转为明文
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
-		us.l.Error("password conversion failed", zap.Error(err))
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	return u, nil
@@ -73,20 +70,16 @@ func (us *userService) ChangePassword(ctx context.Context, email string, passwor
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return err
 		}
-		us.l.Error("failed to find user", zap.Error(err))
 		return err
 	}
 	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
-		us.l.Error("password verification failed", zap.Error(er))
 		return ErrInvalidUserOrPassword
 	}
 	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		us.l.Error("failed to hash new password", zap.Error(err))
 		return err
 	}
 	if er := us.repo.ChangePassword(ctx, email, string(newHash)); er != nil {
-		us.l.Error("failed to change password", zap.Error(er))
 		return er
 	}
 	return nil
@@ -98,16 +91,13 @@ func (us *userService) DeleteUser(ctx context.Context, email string, password st
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return err
 		}
-		us.l.Error("failed to find user", zap.Error(err))
 		return err
 	}
 	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
-		us.l.Error("password verification failed", zap.Error(er))
 		return ErrInvalidUserOrPassword
 	}
 	err = us.repo.DeleteUser(ctx, email, uid)
 	if err != nil {
-		us.l.Error("failed to delete user", zap.Error(err))
 		return err
 	}
 	return nil
@@ -130,7 +120,6 @@ func (us *userService) ListUser(ctx context.Context, pagination domain.Paginatio
 func (us *userService) GetUserCount(ctx context.Context) (int64, error) {
 	count, err := us.repo.GetUserCount(ctx)
 	if err != nil {
-		us.l.Error("failed to get user count", zap.Error(err))
 		return -1, err
 	}
 	return count, nil
