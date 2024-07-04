@@ -34,7 +34,6 @@ func (p *plateRepository) CreatePlate(ctx context.Context, plate domain.Plate) e
 func (p *plateRepository) ListPlate(ctx context.Context, pagination domain.Pagination) ([]domain.Plate, error) {
 	plates, err := p.dao.ListPlate(ctx, pagination)
 	if err != nil {
-		p.l.Error("failed to list plate", zap.Error(err))
 		return nil, err
 	}
 	return fromDomainSlicePlate(plates), err
