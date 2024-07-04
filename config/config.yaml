@@ -1,15 +1,17 @@
 db:
+#  dsn: "root:root@tcp(45.136.14.21:3306)/linkme" # 公网mysql地址
   dsn: "root:root@tcp(localhost:3306)/linkme"
 redis:
-  addr: "localhost:6379"
+#  addr: "45.136.14.21:6379" # 公网redis地址
+  addr: "localhost:6379" # 公网redis地址
 log:
   filepath: "logs/linkme.json"
 mongodb:
+#  addr: "mongodb://45.136.14.21:27017" # 公网mongodb地址
   addr: "mongodb://localhost:27017"
 kafka:
-#  addr: "100.64.1.1:30885"
-  addr: "localhost:9092"
 #  addr: "45.136.14.21:9092" # 公网kafka地址
+  addr: "localhost:9092"
 sms:
   tencent:
     secretId: ""
