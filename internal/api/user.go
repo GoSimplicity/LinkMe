@@ -61,7 +61,8 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
 	userGroup.GET("/profile", uh.GetProfile)
 	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))
-	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser)) // 管理员使用
+	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser))      // 管理员使用
+	userGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetUserCount)) // 管理员使用
 	// 测试接口
 	userGroup.GET("/hello", func(ctx *gin.Context) {
 		ctx.JSON(200, "hello world!")
@@ -339,5 +340,20 @@ func (uh *UserHandler) ListUser(ctx *gin.Context, req ListUserReq) (Result, erro
 		Code: RequestsOK,
 		Msg:  UserListSuccess,
 		Data: users,
+	}, nil
+}
+
+func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ GetUserCountReq) (Result, error) {
+	count, err := uh.svc.GetUserCount(ctx)
+	if err != nil {
+		return Result{
+			Code: UserGetCountErrorCode,
+			Msg:  UserGetCountError,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserGetCountSuccess,
+		Data: count,
 	}, nil
 }
