@@ -34,7 +34,6 @@ func NewPermissionService(repo repository.PermissionRepository, l *zap.Logger) P
 func (s *permissionService) GetPermissions(ctx context.Context) ([]domain.Permission, error) {
 	permissions, err := s.repo.GetPermissions(ctx)
 	if err != nil {
-		s.l.Error("get permissions failed", zap.Error(err))
 		return nil, err
 	}
 	return permissions, nil
@@ -43,7 +42,6 @@ func (s *permissionService) GetPermissions(ctx context.Context) ([]domain.Permis
 // AssignPermission 分配权限给指定用户
 func (s *permissionService) AssignPermission(ctx context.Context, userName string, path string, method string) error {
 	if err := s.repo.AssignPermission(ctx, userName, path, method); err != nil {
-		s.l.Error("assign permissions failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -51,7 +49,6 @@ func (s *permissionService) AssignPermission(ctx context.Context, userName strin
 
 func (s *permissionService) AssignRoleToUser(ctx context.Context, userName, roleName string) error {
 	if err := s.repo.AssignRoleToUser(ctx, userName, roleName); err != nil {
-		s.l.Error("assign role to user failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -60,7 +57,6 @@ func (s *permissionService) AssignRoleToUser(ctx context.Context, userName, role
 // RemovePermission 移除指定用户的权限
 func (s *permissionService) RemovePermission(ctx context.Context, userName string, path string, method string) error {
 	if err := s.repo.RemovePermission(ctx, userName, path, method); err != nil {
-		s.l.Error("remove permissions failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -68,7 +64,6 @@ func (s *permissionService) RemovePermission(ctx context.Context, userName strin
 
 func (s *permissionService) RemoveRoleFromUser(ctx context.Context, userName, roleName string) error {
 	if err := s.repo.RemoveRoleFromUser(ctx, userName, roleName); err != nil {
-		s.l.Error("remove role from user failed", zap.Error(err))
 		return err
 	}
 	return nil
