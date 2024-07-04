@@ -24,6 +24,7 @@ type UserRepository interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfile(ctx context.Context, UserId int64) (domain.Profile, error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
+	GetUserCount(ctx context.Context) (int64, error)
 }
 
 type userRepository struct {
@@ -105,6 +106,15 @@ func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagina
 		return nil, err
 	}
 	return users, err
+}
+
+func (ur *userRepository) GetUserCount(ctx context.Context) (int64, error) {
+	count, err := ur.dao.GetUserCount(ctx)
+	if err != nil {
+		ur.l.Error("get user count failed", zap.Error(err))
+		return -1, err
+	}
+	return count, err
 }
 
 // 将领域层对象转为dao层对象

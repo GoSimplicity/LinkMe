@@ -31,3 +31,6 @@ type ListCheckReq struct {
 type CheckDetailReq struct {
 	CheckID int64 `json:"checkId" binding:"required"` // 审核ID
 }
+
+type GetCheckCount struct {
+}
