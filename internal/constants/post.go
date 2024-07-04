@@ -1,21 +1,24 @@
 package constants
 
 const (
-	PostServerERRORCode         = 502001                              // 系统错误
-	PostEditERRORCode           = 402002                              // 帖子编辑错误码
-	PostUpdateERRORCode         = 402003                              // 帖子更新错误码
-	PostPublishERRORCode        = 402004                              // 帖子发布错误码
-	PostWithdrawERRORCode       = 402005                              // 帖子撤销错误码
-	PostListPubERRORCode        = 402006                              // 公开帖子列表查询错误码
-	PostListERRORCode           = 402007                              // 个人帖子列表查询错误码
-	PostDeleteERRORCode         = 402008                              // 帖子删除错误码
-	PostGetInteractiveERRORCode = 402009                              // 帖子获取互动信息错误码
-	PostLikedERRORCode          = 402010                              // 帖子点赞错误码
-	PostCollectERRORCode        = 402011                              // 帖子收藏错误码
-	PostGetDetailERRORCode      = 402012                              // 帖子获取个人详情错误码
-	PostGetPubDetailERRORCode   = 402013                              // 帖子获取公开详情错误码
-	PostGetLikedERRORCode       = 402014                              // 帖子获取点赞信息错误码
-	PostGetCollectERRORCode     = 402015                              // 帖子获取收藏信息错误码
+	PostServerERRORCode         = 502001 // 系统错误
+	PostEditERRORCode           = 402002 // 帖子编辑错误码
+	PostUpdateERRORCode         = 402003 // 帖子更新错误码
+	PostPublishERRORCode        = 402004 // 帖子发布错误码
+	PostWithdrawERRORCode       = 402005 // 帖子撤销错误码
+	PostListPubERRORCode        = 402006 // 公开帖子列表查询错误码
+	PostListERRORCode           = 402007 // 个人帖子列表查询错误码
+	PostDeleteERRORCode         = 402008 // 帖子删除错误码
+	PostGetInteractiveERRORCode = 402009 // 帖子获取互动信息错误码
+	PostLikedERRORCode          = 402010 // 帖子点赞错误码
+	PostCollectERRORCode        = 402011 // 帖子收藏错误码
+	PostGetDetailERRORCode      = 402012 // 帖子获取个人详情错误码
+	PostGetPubDetailERRORCode   = 402013 // 帖子获取公开详情错误码
+	PostGetLikedERRORCode       = 402014 // 帖子获取点赞信息错误码
+	PostGetCollectERRORCode     = 402015 // 帖子获取收藏信息错误码
+	PostGetCountERRORCode       = 402016
+	PostGetCountSuccess         = "Post get count successful"
+	PostGetCountERROR           = "Post get count failed"
 	PostEditSuccess             = "Post edit successful"              // 帖子编辑成功
 	PostUpdateSuccess           = "Post update successful"            // 帖子更新成功
 	PostPublishSuccess          = "Post publish successful"           // 帖子发布成功

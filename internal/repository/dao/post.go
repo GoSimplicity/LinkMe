@@ -32,6 +32,7 @@ type PostDAO interface {
 	DeleteById(ctx context.Context, post domain.Post) error
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]Post, error)
 	GetPost(ctx context.Context, id int64) (Post, error)
+	GetPostCount(ctx context.Context) (int64, error)
 }
 
 type postDAO struct {
@@ -294,4 +295,13 @@ func (p *postDAO) GetPost(ctx context.Context, id int64) (Post, error) {
 		return Post{}, err
 	}
 	return post, nil
+}
+
+func (p *postDAO) GetPostCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := p.db.WithContext(ctx).Model(Post{}).Count(&count).Error; err != nil {
+		p.l.Error("failed to get post count", zap.Error(err))
+		return -1, err
+	}
+	return count, nil
 }
