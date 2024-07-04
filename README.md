@@ -87,7 +87,7 @@ chmod +x linux_init.sh && ./linux_init.sh
 ```
 #### 使用 docker-compose 启动中间件(推荐)
 ```bash
-cd docker-compose up -d
+docker-compose up -d
 ```
 #### 使用 Kubernetes YAML 文件 启动中间件
 ```bash
