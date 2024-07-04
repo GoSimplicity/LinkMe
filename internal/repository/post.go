@@ -47,7 +47,6 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (int64, e
 	post.Slug = uuid.New().String()
 	id, err := p.dao.Insert(ctx, fromDomainPost(post))
 	if err != nil {
-		p.l.Error("post insert failed", zap.Error(err))
 		return -1, err
 	}
 	// 删除缓存
@@ -64,7 +63,6 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	}
 	// 更新数据库
 	if err := p.dao.UpdateById(ctx, fromDomainPost(post)); err != nil {
-		p.l.Error("update post failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -79,7 +77,6 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	}
 	// 更新数据库
 	if err := p.dao.UpdateStatus(ctx, fromDomainPost(post)); err != nil {
-		p.l.Error("update post status failed", zap.Error(err))
 		return err
 	}
 	return nil
@@ -88,7 +85,6 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
 	dp, err := p.dao.GetByAuthor(ctx, postId, uid)
 	if err != nil {
-		p.l.Error("get post failed by uid", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return toDomainPost(dp), nil
@@ -97,7 +93,6 @@ func (p *postRepository) GetDraftsByAuthor(ctx context.Context, postId int64, ui
 func (p *postRepository) GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
 	post, err := p.dao.GetById(ctx, postId, uid)
 	if err != nil {
-		p.l.Error("get post failed by id", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return toDomainPost(post), nil
@@ -106,7 +101,6 @@ func (p *postRepository) GetPostById(ctx context.Context, postId int64, uid int6
 func (p *postRepository) GetPublishedPostById(ctx context.Context, postId int64) (domain.Post, error) {
 	dp, err := p.dao.GetPubById(ctx, postId)
 	if err != nil {
-		p.l.Error("get pub post failed by id", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return toDomainPost(dp), nil
@@ -125,7 +119,6 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.List(ctx, pagination)
 	if err != nil {
-		p.l.Error("get pub post failed", zap.Error(err))
 		return nil, err
 	}
 	posts = fromDomainSlicePost(pub)
@@ -156,7 +149,6 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 	// 如果缓存未命中，从数据库中获取数据
 	pub, err := p.dao.ListPub(ctx, pagination)
 	if err != nil {
-		p.l.Error("获取已发布帖子失败", zap.Error(err))
 		return nil, err
 	}
 	posts = fromDomainSlicePost(pub)
@@ -165,8 +157,8 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 		go func() {
 			ctx1, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
-			if err := p.c.SetPubFirstPage(ctx1, pagination.Uid, posts); err != nil {
-				p.l.Warn("设置缓存失败", zap.Error(err))
+			if er := p.c.SetPubFirstPage(ctx1, pagination.Uid, posts); er != nil {
+				p.l.Warn("设置缓存失败", zap.Error(er))
 			}
 		}()
 	}
@@ -176,7 +168,6 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 func (p *postRepository) Delete(ctx context.Context, post domain.Post) error {
 	// 删除缓存
 	if err := p.c.DelFirstPage(ctx, post.ID); err != nil {
-		p.l.Warn("delete cache failed", zap.Error(err))
 		return err
 	}
 	return p.dao.DeleteById(ctx, post)
@@ -191,7 +182,6 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 	// 获取帖子详情，以检查状态是否发生变化
 	mp, err := p.dao.GetById(ctx, post.ID, post.Author.Id)
 	if err != nil {
-		p.l.Error("获取帖子失败", zap.Error(err))
 		return -1, fmt.Errorf("获取帖子失败: %w", err)
 	}
 	// 检查状态是否发生变化，如果发生变化，删除缓存
@@ -210,12 +200,10 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 	// 执行同步操作
 	id, er := p.dao.Sync(ctx, fromDomainPost(post))
 	if er != nil {
-		p.l.Error("帖子同步失败", zap.Error(er))
 		return -1, fmt.Errorf("帖子同步失败: %w", er)
 	}
 	// 同步完成后删除发布缓存
 	if e := p.c.DelPubFirstPage(ctx, post.ID); e != nil {
-		p.l.Warn("删除发布缓存失败", zap.Error(e))
 		return -1, fmt.Errorf("删除发布缓存失败: %w", e)
 	}
 	return id, nil
@@ -224,7 +212,6 @@ func (p *postRepository) Sync(ctx context.Context, post domain.Post) (int64, err
 func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	posts, err := p.dao.ListAllPost(ctx, pagination)
 	if err != nil {
-		p.l.Error("get all post failed", zap.Error(err))
 		return nil, err
 	}
 	return fromDomainSlicePost(posts), nil
@@ -233,7 +220,6 @@ func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagi
 func (p *postRepository) GetPost(ctx context.Context, id int64) (domain.Post, error) {
 	post, err := p.dao.GetPost(ctx, id)
 	if err != nil {
-		p.l.Error("get post failed", zap.Error(err))
 		return domain.Post{}, err
 	}
 	return toDomainPost(post), nil
@@ -242,7 +228,6 @@ func (p *postRepository) GetPost(ctx context.Context, id int64) (domain.Post, er
 func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
 	count, err := p.dao.GetPostCount(ctx)
 	if err != nil {
-		p.l.Error("get post count failed", zap.Error(err))
 		return -1, err
 	}
 	return count, nil

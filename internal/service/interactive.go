@@ -14,7 +14,7 @@ type InteractiveService interface {
 	CancelLike(ctx context.Context, biz string, id int64, uid int64) error                       // 取消点赞
 	Collect(ctx context.Context, biz string, id, cid, uid int64) error                           // 收藏
 	CancelCollect(ctx context.Context, biz string, id, cid, uid int64) error                     // 取消收藏
-	Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error)        // 获取互动信息
+	Get(ctx context.Context, biz string, id int64) (domain.Interactive, error)                   // 获取互动信息
 	GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error) // 批量获取互动信息(热榜算法需要)
 }
 
@@ -55,10 +55,9 @@ func (i *interactiveService) CancelCollect(ctx context.Context, biz string, id, 
 	return i.repo.DecrCollectionItem(ctx, biz, id, cid, uid)
 }
 
-func (i *interactiveService) Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error) {
+func (i *interactiveService) Get(ctx context.Context, biz string, id int64) (domain.Interactive, error) {
 	di, err := i.repo.Get(ctx, biz, id)
 	if err != nil {
-		i.l.Error("get interactive failed", zap.Error(err))
 		return domain.Interactive{}, err
 	}
 	return di, err
@@ -67,7 +66,6 @@ func (i *interactiveService) Get(ctx context.Context, biz string, id int64, uid 
 func (i *interactiveService) GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error) {
 	dis, err := i.repo.GetById(ctx, biz, ids)
 	if err != nil {
-		i.l.Error("get interactions failed", zap.Error(err))
 		return nil, err
 	}
 	resultDis := make(map[int64]domain.Interactive)

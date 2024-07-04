@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"LinkMe/internal/constants"
 	"LinkMe/internal/domain"
 	. "LinkMe/internal/repository/models"
 	"context"
@@ -16,6 +17,7 @@ type CheckDAO interface {
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
 	FindByID(ctx context.Context, checkId int64) (domain.Check, error)
 	FindByPostId(ctx context.Context, postId int64) (domain.Check, error) // 获取审核详情
+	GetCheckCount(ctx context.Context) (int64, error)
 }
 
 type checkDAO struct {
@@ -145,4 +147,13 @@ func (dao *checkDAO) FindByPostId(ctx context.Context, postId int64) (domain.Che
 		Status:  check.Status,
 		Remark:  check.Remark,
 	}, nil
+}
+
+func (dao *checkDAO) GetCheckCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := dao.db.WithContext(ctx).Model(&Check{}).Where("status = ?", constants.PostUnderReview).Count(&count).Error; err != nil {
+		dao.l.Error("failed to get check count", zap.Error(err))
+		return -1, err
+	}
+	return count, nil
 }
