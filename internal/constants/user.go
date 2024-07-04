@@ -1,16 +1,19 @@
 package constants
 
 const (
-	UserInvalidInputCode          = 401001                                                                                              // 用户输入错误
-	UserInvalidOrPasswordCode     = 401002                                                                                              // 用户名或密码错误
-	UserInvalidOrProfileErrorCode = 401003                                                                                              // 用户资料无效
-	UserEmailFormatErrorCode      = 401004                                                                                              // 邮箱格式错误
-	UserPasswordMismatchErrorCode = 401005                                                                                              // 两次输入的密码不一致
-	UserPasswordFormatErrorCode   = 401006                                                                                              // 密码格式错误
-	UserEmailConflictErrorCode    = 401007                                                                                              // 邮箱冲突
-	UserListErrorCode             = 401008                                                                                              // 用户获取失败
-	UserServerErrorCode           = 500001                                                                                              // 用户服务内部错误
-	UserSignUpSuccess             = "User registration successful"                                                                      // 用户注册成功
+	UserInvalidInputCode          = 401001 // 用户输入错误
+	UserInvalidOrPasswordCode     = 401002 // 用户名或密码错误
+	UserInvalidOrProfileErrorCode = 401003 // 用户资料无效
+	UserEmailFormatErrorCode      = 401004 // 邮箱格式错误
+	UserPasswordMismatchErrorCode = 401005 // 两次输入的密码不一致
+	UserPasswordFormatErrorCode   = 401006 // 密码格式错误
+	UserEmailConflictErrorCode    = 401007 // 邮箱冲突
+	UserListErrorCode             = 401008 // 用户获取失败
+	UserServerErrorCode           = 500001 // 用户服务内部错误
+	UserGetCountErrorCode         = 401009
+	UserSignUpSuccess             = "User registration successful" // 用户注册成功
+	UserGetCountError             = "User get count error"
+	UserGetCountSuccess           = "User get count success"
 	UserListError                 = "User list error"                                                                                   // 用户获取失败
 	UserListSuccess               = "User get success"                                                                                  // 用户获取成功
 	UserSignUpFailure             = "User registration failed"                                                                          // 用户注册失败
