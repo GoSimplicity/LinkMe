@@ -56,7 +56,6 @@ func (b *rankingService) GetTopN(ctx context.Context) ([]domain.Post, error) {
 func (b *rankingService) TopN(ctx context.Context) error {
 	posts, err := b.computeTopN(ctx)
 	if err != nil {
-		b.l.Error("compute topN field", zap.Error(err))
 		return err
 	}
 	return b.rankingRepository.ReplaceTopN(ctx, posts)
