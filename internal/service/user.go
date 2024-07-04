@@ -22,6 +22,7 @@ type UserService interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) (err error)
 	GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
+	GetUserCount(ctx context.Context) (int64, error)
 }
 
 type userService struct {
@@ -124,4 +125,13 @@ func (us *userService) ListUser(ctx context.Context, pagination domain.Paginatio
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
 	return us.repo.ListUser(ctx, pagination)
+}
+
+func (us *userService) GetUserCount(ctx context.Context) (int64, error) {
+	count, err := us.repo.GetUserCount(ctx)
+	if err != nil {
+		us.l.Error("failed to get user count", zap.Error(err))
+		return -1, err
+	}
+	return count, nil
 }

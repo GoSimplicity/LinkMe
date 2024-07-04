@@ -43,6 +43,7 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.GET("/detail/:postId", WrapParam(ph.Detail))                                          // 使用参数获取特定帖子详细数据
 	postGroup.GET("/detail_pub/:postId", WrapParam(ph.DetailPub))                                   // 同上
 	postGroup.GET("/detail_post/:postId", casbinMiddleware.CheckCasbin(), WrapParam(ph.DetailPost)) // 管理员使用
+	postGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(ph.GetPostCount))             // 管理员使用
 	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))                                          // 使用 DELETE 方法删除特定帖子
 	postGroup.POST("/like", WrapBody(ph.Like))                                                      // 点赞
 	postGroup.POST("/collect", WrapBody(ph.Collect))                                                // 收藏
@@ -309,5 +310,20 @@ func (ph *PostHandler) DetailPost(ctx *gin.Context, req DetailPostReq) (Result, 
 		Code: RequestsOK,
 		Msg:  PostGetDetailSuccess,
 		Data: post,
+	}, nil
+}
+
+func (ph *PostHandler) GetPostCount(ctx *gin.Context, _ GetPostCountReq) (Result, error) {
+	count, err := ph.svc.GetPostCount(ctx)
+	if err != nil {
+		return Result{
+			Code: PostGetCountERRORCode,
+			Msg:  PostGetCountERROR,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  PostGetCountSuccess,
+		Data: count,
 	}, nil
 }
