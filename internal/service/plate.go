@@ -35,7 +35,6 @@ func (p *plateService) ListPlate(ctx context.Context, pagination domain.Paginati
 	pagination.Offset = &offset
 	plates, err := p.repo.ListPlate(ctx, pagination)
 	if err != nil {
-		p.l.Error("failed to list plate", zap.Error(err))
 		return nil, err
 	}
 	return plates, err
