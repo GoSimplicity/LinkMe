@@ -7,30 +7,34 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
+	"strconv"
+	"time"
 )
 
 type CheckService interface {
 	SubmitCheck(ctx context.Context, check domain.Check) (int64, error)                       // 提交审核
-	ApproveCheck(ctx context.Context, checkID int64, remark string) error                     // 审核通过
-	RejectCheck(ctx context.Context, checkID int64, remark string) error                      // 审核拒绝
+	ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error          // 审核通过
+	RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error           // 审核拒绝
 	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
 	CheckDetail(ctx context.Context, checkID int64) (domain.Check, error)                     // 获取审核详情
 	GetCheckCount(ctx context.Context) (int64, error)
 }
 
 type checkService struct {
-	repo        repository.CheckRepository
-	postRepo    repository.PostRepository
-	historyRepo repository.HistoryRepository
-	l           *zap.Logger
+	repo         repository.CheckRepository
+	ActivityRepo repository.ActivityRepository
+	postRepo     repository.PostRepository
+	historyRepo  repository.HistoryRepository
+	l            *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, l *zap.Logger) CheckService {
+func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
 	return &checkService{
-		repo:        repo,
-		postRepo:    postRepo,
-		historyRepo: historyRepo,
-		l:           l,
+		repo:         repo,
+		postRepo:     postRepo,
+		historyRepo:  historyRepo,
+		l:            l,
+		ActivityRepo: ActivityRepo,
 	}
 }
 
@@ -45,7 +49,7 @@ func (s *checkService) SubmitCheck(ctx context.Context, check domain.Check) (int
 	return id, nil
 }
 
-func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark string) error {
+func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error {
 	// 更新审核状态为通过
 	err := s.repo.UpdateStatus(ctx, domain.Check{
 		ID:     checkID,
@@ -53,36 +57,51 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		Status: constants.PostApproved,
 	})
 	if err != nil {
+		s.l.Error("Failed to update check status", zap.Int64("CheckID", checkID), zap.String("Remark", remark), zap.Error(err))
 		return fmt.Errorf("update check status failed: %w", err)
 	}
 	s.l.Info("Approved check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
+		s.l.Error("Failed to get check detail", zap.Int64("CheckID", checkID), zap.Error(err))
 		return fmt.Errorf("get check detail failed: %w", err)
 	}
 	// 获取相关的帖子
 	post, err := s.postRepo.GetPostById(ctx, check.PostID, check.UserID)
 	if err != nil {
+		s.l.Error("Failed to get post", zap.Int64("PostID", check.PostID), zap.Int64("UserID", check.UserID), zap.Error(err))
 		return fmt.Errorf("get post failed: %w", err)
 	}
 	// 更新帖子状态为已发布并同步
 	post.Status = domain.Published
 	if _, er := s.postRepo.Sync(ctx, post); er != nil {
+		s.l.Error("Failed to sync post", zap.Int64("PostID", post.ID), zap.Error(er))
 		return fmt.Errorf("sync post failed: %w", er)
 	}
 	if er := s.postRepo.UpdateStatus(ctx, post); er != nil {
+		s.l.Error("Failed to update post status", zap.Int64("PostID", post.ID), zap.Error(er))
 		return fmt.Errorf("update post status failed: %w", er)
 	}
 	// 存入历史记录
 	if er := s.historyRepo.SetHistory(ctx, post); er != nil {
-		s.l.Error("Set history failed", zap.Error(er))
+		s.l.Error("Set history failed", zap.Int64("PostID", post.ID), zap.Error(er))
 	}
 	s.l.Info("Post has been published", zap.Int64("PostID", post.ID))
+	go func() {
+		er := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
+			UserID:      uid,
+			Description: "审核通过",
+			Time:        strconv.FormatInt(time.Now().Unix(), 10),
+		})
+		if er != nil {
+			s.l.Error("Failed to set recent activity", zap.Int64("UserID", uid), zap.Error(er))
+		}
+	}()
 	return nil
 }
 
-func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark string) error {
+func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error {
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
@@ -102,6 +121,16 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		return fmt.Errorf("update check status failed: %w", err)
 	}
 	s.l.Info("Rejected check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
+	go func() {
+		er := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
+			UserID:      uid,
+			Description: "审核拒绝",
+			Time:        strconv.FormatInt(time.Now().Unix(), 10),
+		})
+		if er != nil {
+			s.l.Error("Failed to set recent activity", zap.Int64("UserID", uid), zap.Error(er))
+		}
+	}()
 	return nil
 }
 
