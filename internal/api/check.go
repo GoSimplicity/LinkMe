@@ -6,6 +6,7 @@ import (
 	"LinkMe/internal/service"
 	"LinkMe/middleware"
 	. "LinkMe/pkg/ginp"
+	ijwt "LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -39,7 +40,8 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
-	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark)
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
 		return Result{
 			Code: RequestsERROR,
@@ -53,7 +55,8 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Res
 }
 
 func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req RejectCheckReq) (Result, error) {
-	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark)
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
 		return Result{
 			Code: RequestsERROR,
