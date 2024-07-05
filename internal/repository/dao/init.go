@@ -18,5 +18,6 @@ func InitTables(db *gorm.DB) error {
 		&VCodeSmsLog{},
 		&Check{},
 		&Plate{},
+		&RecentActivity{},
 	)
 }
