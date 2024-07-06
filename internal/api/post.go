@@ -32,7 +32,7 @@ func NewPostHandler(svc service.PostService, intSvc service.InteractiveService, 
 
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(ph.ce, ph.l)
-	postGroup := server.Group("/posts")
+	postGroup := server.Group("/api/posts")
 	postGroup.POST("/edit", WrapBody(ph.Edit))                                                      // 编辑帖子
 	postGroup.POST("/update", WrapBody(ph.Update))                                                  // 更新帖子
 	postGroup.POST("/publish", WrapBody(ph.Publish))                                                // 更新帖子状态为发布

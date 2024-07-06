@@ -26,7 +26,7 @@ func NewActivityHandler(svc service.ActivityService, ce *casbin.Enforcer, l *zap
 
 func (ah *ActivityHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(ah.ce, ah.l)
-	historyGroup := server.Group("/activity")
+	historyGroup := server.Group("/api/activity")
 	historyGroup.GET("/recent", casbinMiddleware.CheckCasbin(), WrapQuery(ah.GetRecentActivity)) // 获取最近的活动记录
 }
 
