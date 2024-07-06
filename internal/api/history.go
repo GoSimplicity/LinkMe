@@ -21,7 +21,7 @@ func NewHistoryHandler(svc service.HistoryService) *HistoryHandler {
 }
 
 func (h *HistoryHandler) RegisterRoutes(server *gin.Engine) {
-	historyGroup := server.Group("/history")
+	historyGroup := server.Group("/api/history")
 	historyGroup.GET("/list", WrapBody(h.GetHistory))
 	historyGroup.DELETE("/delete", WrapBody(h.DeleteOneHistory))
 	historyGroup.DELETE("/delete/all", WrapBody(h.DeleteAllHistory))

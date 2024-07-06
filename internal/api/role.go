@@ -26,7 +26,7 @@ func NewPermissionHandler(svc service.PermissionService, l *zap.Logger, ce *casb
 
 func (h *PermissionHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(h.ce, h.l)
-	permissionGroup := server.Group("/permissions")
+	permissionGroup := server.Group("/api/permissions")
 	permissionGroup.Use(casbinMiddleware.CheckCasbin())
 	permissionGroup.GET("/list", WrapQuery(h.GetPermissions))                // 获取权限列表
 	permissionGroup.POST("/assign", WrapBody(h.AssignPermission))            // 分配权限
