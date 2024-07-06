@@ -1,12 +1,12 @@
-linkme:
-	@rm LinkMe || true
-	@go mod tidy
-	@# x86架构
-	@#GOOS=linux GOARCH=arm go build -o LinkMe .
-	@GOOS=linux go build -o LinkMe .
-	@docker rmi -f linkme:v0.0.1 || true
-	@ctr -n k8s.io image remove docker.io/library/linkme:v0.0.1 || true
-	@docker build -t linkme:v0.0.1 .
-	@docker save -o linkme.tar linkme
-	@ctr -n k8s.io image import linkme.tar || true
-	@docker-compose up -d
+IMAGE_NAME=linkme-backend
+build:
+	docker build -t $(IMAGE_NAME) .
+# 启动容器
+run: build
+	docker run -d -p 9999:9999 --name $(IMAGE_NAME) $(IMAGE_NAME)
+# 停止并删除容器
+clean:
+	docker stop $(IMAGE_NAME) || true
+	docker rm $(IMAGE_NAME) || true
+# 重新构建并启动容器
+rebuild: clean build run
