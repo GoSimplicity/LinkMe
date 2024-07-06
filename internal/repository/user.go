@@ -4,7 +4,6 @@ import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/repository/models"
 	"context"
 	"go.uber.org/zap"
 )
@@ -115,8 +114,8 @@ func (ur *userRepository) GetUserCount(ctx context.Context) (int64, error) {
 }
 
 // 将领域层对象转为dao层对象
-func fromDomainUser(u domain.User) models.User {
-	return models.User{
+func fromDomainUser(u domain.User) dao.User {
+	return dao.User{
 		ID:           u.ID,
 		PasswordHash: u.Password,
 		Email:        u.Email,
@@ -126,7 +125,7 @@ func fromDomainUser(u domain.User) models.User {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainUser(u models.User) domain.User {
+func toDomainUser(u dao.User) domain.User {
 	return domain.User{
 		ID:         u.ID,
 		Password:   u.PasswordHash,
