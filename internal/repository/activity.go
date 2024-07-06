@@ -3,7 +3,6 @@ package repository
 import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/repository/models"
 	"context"
 )
 
@@ -39,8 +38,8 @@ func (a *activityRepository) SetRecentActivity(ctx context.Context, dr domain.Re
 }
 
 // 将领域层对象转为dao层对象
-func fromDomainActivity(dr domain.RecentActivity) models.RecentActivity {
-	return models.RecentActivity{
+func fromDomainActivity(dr domain.RecentActivity) dao.RecentActivity {
+	return dao.RecentActivity{
 		ID:          dr.ID,
 		Description: dr.Description,
 		Time:        dr.Time,
@@ -49,7 +48,7 @@ func fromDomainActivity(dr domain.RecentActivity) models.RecentActivity {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainActivity(mr models.RecentActivity) domain.RecentActivity {
+func toDomainActivity(mr dao.RecentActivity) domain.RecentActivity {
 	return domain.RecentActivity{
 		ID:          mr.ID,
 		Description: mr.Description,
