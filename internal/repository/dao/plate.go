@@ -2,7 +2,6 @@ package dao
 
 import (
 	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/models"
 	"context"
 	"errors"
 	"go.uber.org/zap"
@@ -12,7 +11,7 @@ import (
 
 type PlateDAO interface {
 	CreatePlate(ctx context.Context, plate domain.Plate) error
-	ListPlate(ctx context.Context, pagination domain.Pagination) ([]models.Plate, error)
+	ListPlate(ctx context.Context, pagination domain.Pagination) ([]Plate, error)
 	UpdatePlate(ctx context.Context, plate domain.Plate) error
 	DeletePlate(ctx context.Context, plateId int64, uid int64) error
 }
@@ -20,6 +19,18 @@ type PlateDAO interface {
 type plateDAO struct {
 	l  *zap.Logger
 	db *gorm.DB
+}
+
+type Plate struct {
+	ID          int64  `gorm:"primaryKey;autoIncrement"`      // 板块ID
+	Name        string `gorm:"size:255;not null;uniqueIndex"` // 板块名称
+	Description string `gorm:"type:text"`                     // 板块描述
+	CreateTime  int64  `gorm:"column:created_at;type:bigint"` // 创建时间
+	UpdatedTime int64  `gorm:"column:updated_at;type:bigint"` // 更新时间
+	DeletedTime int64  `gorm:"column:deleted_at;type:bigint"` // 删除时间
+	Deleted     bool   `gorm:"column:deleted;default:false"`  // 是否删除
+	Uid         int64  `gorm:"index"`                         // 板主id
+	Posts       []Post `gorm:"foreignKey:PlateID"`            // 帖子关系
 }
 
 func NewPlateDAO(l *zap.Logger, db *gorm.DB) PlateDAO {
@@ -30,7 +41,7 @@ func NewPlateDAO(l *zap.Logger, db *gorm.DB) PlateDAO {
 }
 
 func (p *plateDAO) CreatePlate(ctx context.Context, plate domain.Plate) error {
-	var existingPlate models.Plate
+	var existingPlate Plate
 	err := p.db.WithContext(ctx).Where("name = ? AND uid = ?", plate.Name, plate.Uid).First(&existingPlate).Error
 	if err == nil {
 		p.l.Warn("Plate already exists", zap.String("name", plate.Name), zap.Int64("uid", plate.Uid))
@@ -40,7 +51,7 @@ func (p *plateDAO) CreatePlate(ctx context.Context, plate domain.Plate) error {
 		return err
 	}
 	now := time.Now().UnixMilli()
-	newPlate := &models.Plate{
+	newPlate := &Plate{
 		Name:        plate.Name,
 		Description: plate.Description,
 		Uid:         plate.Uid,
@@ -54,8 +65,8 @@ func (p *plateDAO) CreatePlate(ctx context.Context, plate domain.Plate) error {
 	return nil
 }
 
-func (p *plateDAO) ListPlate(ctx context.Context, pagination domain.Pagination) ([]models.Plate, error) {
-	var plates []models.Plate
+func (p *plateDAO) ListPlate(ctx context.Context, pagination domain.Pagination) ([]Plate, error) {
+	var plates []Plate
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
 	err := p.db.WithContext(ctx).
@@ -71,7 +82,7 @@ func (p *plateDAO) ListPlate(ctx context.Context, pagination domain.Pagination) 
 
 func (p *plateDAO) UpdatePlate(ctx context.Context, plate domain.Plate) error {
 	// 查询当前的 plate
-	var existingPlate models.Plate
+	var existingPlate Plate
 	if err := p.db.WithContext(ctx).Where("id = ? AND uid = ?", plate.ID, plate.Uid).First(&existingPlate).Error; err != nil {
 		p.l.Error("Failed to find plate", zap.Int64("id", plate.ID), zap.Error(err))
 		return err
@@ -88,7 +99,7 @@ func (p *plateDAO) UpdatePlate(ctx context.Context, plate domain.Plate) error {
 		"description": plate.Description,
 		"updated_at":  now,
 	}
-	if err := p.db.WithContext(ctx).Model(&models.Plate{}).
+	if err := p.db.WithContext(ctx).Model(&Plate{}).
 		Where("id = ? AND uid = ?", plate.ID, plate.Uid).
 		Updates(updateData).Error; err != nil {
 		p.l.Error("Failed to update plate", zap.Error(err))
@@ -98,7 +109,7 @@ func (p *plateDAO) UpdatePlate(ctx context.Context, plate domain.Plate) error {
 }
 
 func (p *plateDAO) DeletePlate(ctx context.Context, plateId int64, uid int64) error {
-	var existingPlate models.Plate
+	var existingPlate Plate
 	if err := p.db.WithContext(ctx).Where("id = ? AND uid = ?", plateId, uid).First(&existingPlate).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			p.l.Warn("Plate not found", zap.Int64("id", plateId), zap.Int64("uid", uid))
@@ -120,7 +131,7 @@ func (p *plateDAO) DeletePlate(ctx context.Context, plateId int64, uid int64) er
 		"deleted_at": now,
 		"updated_at": now,
 	}
-	if err := p.db.WithContext(ctx).Model(&models.Plate{}).
+	if err := p.db.WithContext(ctx).Model(&Plate{}).
 		Where("id = ? AND uid = ?", plateId, uid).
 		Updates(updateData).Error; err != nil {
 		p.l.Error("Failed to soft delete plate", zap.Error(err))
