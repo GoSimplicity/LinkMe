@@ -4,7 +4,6 @@ import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/repository/models"
 	"context"
 	"fmt"
 	"time"
@@ -234,8 +233,8 @@ func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
 }
 
 // 将领域层对象转为dao层对象
-func fromDomainPost(p domain.Post) models.Post {
-	return models.Post{
+func fromDomainPost(p domain.Post) dao.Post {
+	return dao.Post{
 		ID:           p.ID,
 		Title:        p.Title,
 		Content:      p.Content,
@@ -252,7 +251,7 @@ func fromDomainPost(p domain.Post) models.Post {
 }
 
 // 将dao层对象转为领域层对象
-func fromDomainSlicePost(post []models.Post) []domain.Post {
+func fromDomainSlicePost(post []dao.Post) []domain.Post {
 	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
 	for i, repoPost := range post {
 		domainPosts[i] = domain.Post{
@@ -273,7 +272,7 @@ func fromDomainSlicePost(post []models.Post) []domain.Post {
 }
 
 // 将dao层转化为领域层
-func toDomainPost(post models.Post) domain.Post {
+func toDomainPost(post dao.Post) domain.Post {
 	return domain.Post{
 		ID:           post.ID,
 		Title:        post.Title,
