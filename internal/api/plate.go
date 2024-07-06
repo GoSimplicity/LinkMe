@@ -28,7 +28,7 @@ func NewPlateHandler(svc service.PlateService, l *zap.Logger, ce *casbin.Enforce
 
 func (h *PlateHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(h.ce, h.l)
-	permissionGroup := server.Group("/plate")
+	permissionGroup := server.Group("/api/plate")
 	permissionGroup.Use(casbinMiddleware.CheckCasbin())
 	permissionGroup.POST("/create", WrapBody(h.CreatePlate))
 	permissionGroup.PUT("/update", WrapBody(h.UpdatePlate))
