@@ -30,7 +30,7 @@ func NewCheckHandler(svc service.CheckService, l *zap.Logger, ce *casbin.Enforce
 
 func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce, ch.l)
-	checkGroup := server.Group("/checks")
+	checkGroup := server.Group("/api/checks")
 	checkGroup.Use(casbinMiddleware.CheckCasbin())
 	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck)) // 审核通过
 	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))   // 审核拒绝
