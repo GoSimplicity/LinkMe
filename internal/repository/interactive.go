@@ -5,7 +5,6 @@ import (
 	"LinkMe/internal/domain"
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/repository/models"
 	"context"
 	"errors"
 	"sync"
@@ -62,7 +61,7 @@ func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz 
 }
 
 func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, id int64, uid int64) error {
-	if err := c.dao.InsertLikeInfo(ctx, models.UserLikeBiz{
+	if err := c.dao.InsertLikeInfo(ctx, dao.UserLikeBiz{
 		BizName: biz,
 		BizID:   id,
 		Uid:     uid,
@@ -73,7 +72,7 @@ func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, 
 }
 
 func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, id int64, uid int64) error {
-	if err := c.dao.DeleteLikeInfo(ctx, models.UserLikeBiz{
+	if err := c.dao.DeleteLikeInfo(ctx, dao.UserLikeBiz{
 		BizName: biz,
 		BizID:   id,
 		Uid:     uid,
@@ -84,7 +83,7 @@ func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, 
 }
 
 func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, biz string, id int64, cid int64, uid int64) error {
-	if err := c.dao.InsertCollectionBiz(ctx, models.UserCollectionBiz{
+	if err := c.dao.InsertCollectionBiz(ctx, dao.UserCollectionBiz{
 		BizName:      biz,
 		BizID:        id,
 		CollectionId: cid,
@@ -95,7 +94,7 @@ func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, bi
 	return c.cache.PostCollectCountRecord(ctx, biz, id)
 }
 func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, biz string, id int64, cid int64, uid int64) error {
-	if err := c.dao.DeleteCollectionBiz(ctx, models.UserCollectionBiz{
+	if err := c.dao.DeleteCollectionBiz(ctx, dao.UserCollectionBiz{
 		BizName:      biz,
 		BizID:        id,
 		CollectionId: cid,
@@ -179,7 +178,7 @@ func (c *CachedInteractiveRepository) retryUpdateCache(ctx context.Context, biz 
 	return errors.New("failed to update cache after retries")
 }
 
-func toDomain(ic models.Interactive) domain.Interactive {
+func toDomain(ic dao.Interactive) domain.Interactive {
 	return domain.Interactive{
 		BizID:        ic.BizID,
 		ReadCount:    ic.ReadCount,

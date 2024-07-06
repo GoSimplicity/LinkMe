@@ -2,7 +2,6 @@ package dao
 
 import (
 	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/models"
 	"context"
 	"fmt"
 	"github.com/casbin/casbin/v2"
@@ -144,8 +143,8 @@ func (d *permissionDAO) RemoveRoleFromUser(ctx context.Context, userName, roleNa
 
 // getUserIDByEmail 根据用户的邮箱获取用户ID
 func (d *permissionDAO) getUserIDByEmail(ctx context.Context, email string) (int64, error) {
-	var user models.User
-	if err := d.db.WithContext(ctx).Model(&models.User{}).Where("email = ?", email).Select("id").First(&user).Error; err != nil {
+	var user User
+	if err := d.db.WithContext(ctx).Model(&User{}).Where("email = ?", email).Select("id").First(&user).Error; err != nil {
 		d.l.Error("failed to get user by email", zap.Error(err))
 		return 0, err
 	}
