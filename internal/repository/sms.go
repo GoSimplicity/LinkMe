@@ -3,7 +3,6 @@ package repository
 import (
 	"LinkMe/internal/repository/cache"
 	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/repository/models"
 	"LinkMe/pkg/sms"
 	"LinkMe/utils"
 	"context"
@@ -21,7 +20,7 @@ const locked = "sms_locked"
 // SmsRepository 接口定义了异步 SMS 记录操作的相关方法
 type SmsRepository interface {
 	CheckCode(ctx context.Context, smsID, number, vCode string) (bool, error)
-	AddUserOperationLog(ctx context.Context, log models.VCodeSmsLog) error
+	AddUserOperationLog(ctx context.Context, log dao.VCodeSmsLog) error
 	SetNX(ctx context.Context, number string, value interface{}, expiration time.Duration) (*redis.BoolCmd, error)
 	StoreVCode(ctx context.Context, smsID, number string, vCode string) error
 	Exist(ctx context.Context, number string) bool
@@ -62,7 +61,7 @@ func (s *smsRepository) CheckCode(ctx context.Context, smsID, number, vCode stri
 }
 
 // AddUserOperationLog 添加用户验证码行为日志
-func (s *smsRepository) AddUserOperationLog(ctx context.Context, log models.VCodeSmsLog) error {
+func (s *smsRepository) AddUserOperationLog(ctx context.Context, log dao.VCodeSmsLog) error {
 	return s.dao.Insert(ctx, log)
 }
 
@@ -105,7 +104,7 @@ func (s *smsRepository) SendCode(ctx context.Context, number string) error {
 	//todo: sms商无缝切换
 	smsID, driver, err := s.client.Send(ctx, []string{vCode}, []string{number}...)
 	id, _ := strconv.ParseInt(smsID, 10, 64)
-	log := models.VCodeSmsLog{
+	log := dao.VCodeSmsLog{
 		SmsId:       id,
 		SmsType:     "vCode", //todo
 		Mobile:      number,

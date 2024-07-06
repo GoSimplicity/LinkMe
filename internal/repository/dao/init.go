@@ -1,8 +1,6 @@
 package dao
 
 import (
-	. "LinkMe/internal/repository/models"
-
 	"gorm.io/gorm"
 )
 
