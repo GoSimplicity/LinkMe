@@ -49,7 +49,7 @@ func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsP
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce, uh.l)
-	userGroup := server.Group("/users")
+	userGroup := server.Group("/api/users")
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	userGroup.POST("/login", WrapBody(uh.Login))
 	userGroup.POST("/login_sms", WrapBody(uh.LoginSMS))
