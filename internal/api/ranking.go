@@ -19,7 +19,7 @@ func NewRakingHandler(svc service.RankingService) *RankingHandler {
 }
 
 func (rh *RankingHandler) RegisterRoutes(server *gin.Engine) {
-	postGroup := server.Group("/raking")
+	postGroup := server.Group("/api/raking")
 	postGroup.GET("/topN", rh.GetRanking)
 }
 
