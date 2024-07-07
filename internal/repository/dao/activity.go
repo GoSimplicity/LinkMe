@@ -7,7 +7,7 @@ import (
 )
 
 type ActivityDAO interface {
-	GetRecentActivity(ctx context.Context) (RecentActivity, error)
+	GetRecentActivity(ctx context.Context) ([]RecentActivity, error)
 	SetRecentActivity(ctx context.Context, mr RecentActivity) error
 }
 
@@ -30,11 +30,17 @@ func NewActivityDAO(db *gorm.DB, l *zap.Logger) ActivityDAO {
 	}
 }
 
-func (a *activityDAO) GetRecentActivity(ctx context.Context) (RecentActivity, error) {
-	var mr RecentActivity
-	if err := a.db.WithContext(ctx).Model(RecentActivity{}).Find(&mr).Error; err != nil {
-		a.l.Error("get recent activity failed", zap.Error(err))
-		return RecentActivity{}, err
+func (a *activityDAO) GetRecentActivity(ctx context.Context) ([]RecentActivity, error) {
+	var mr []RecentActivity
+	// 使用事务和上下文
+	tx := a.db.WithContext(ctx).Model(&RecentActivity{})
+	// 执行查询
+	if err := tx.Find(&mr).Error; err != nil {
+		a.l.Error("failed to get recent activity",
+			zap.Error(err),
+			zap.String("method", "GetRecentActivity"),
+			zap.Any("context", ctx))
+		return nil, err
 	}
 	return mr, nil
 }
