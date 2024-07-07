@@ -174,9 +174,15 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 			Id: uid,
 		},
 	}
-	if _, er := p.repo.Sync(ctx, res); er != nil {
-		return er
+	// 尝试获取公开的帖子
+	_, err = p.repo.GetPublishedPostById(ctx, postId)
+	if err == nil {
+		// 如果查到了公开的帖子，则执行同步操作
+		if _, er := p.repo.Sync(ctx, res); er != nil {
+			return er
+		}
 	}
+	// 最后执行删除操作
 	return p.repo.Delete(ctx, res)
 }
 
