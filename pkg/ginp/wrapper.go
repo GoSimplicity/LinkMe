@@ -48,7 +48,7 @@ func WrapParam[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) g
 			// 记录错误（在生产环境中建议使用结构化日志）
 			log.Printf("执行业务逻辑时发生错误: %v", err)
 			// 根据应用需求自定义错误响应
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "服务器内部错误"})
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})
 			return
 		}
 
