@@ -33,7 +33,7 @@ CREATE TABLE `casbin_rule` (
   `v5` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_casbin_rule` (`ptype`,`v0`,`v1`,`v2`,`v3`,`v4`,`v5`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `casbin_rule` (
 
 LOCK TABLES `casbin_rule` WRITE;
 /*!40000 ALTER TABLE `casbin_rule` DISABLE KEYS */;
-INSERT INTO `casbin_rule` VALUES (25,'p','10308038636343296','/api/activity/recent','GET','','',''),(2,'p','10308038636343296','/api/checks/approve','POST','','',''),(4,'p','10308038636343296','/api/checks/detail','GET','','',''),(1,'p','10308038636343296','/api/checks/list','POST','','',''),(3,'p','10308038636343296','/api/checks/reject','POST','','',''),(24,'p','10308038636343296','/api/checks/stats','GET','','',''),(5,'p','10308038636343296','/api/permissions/assign','POST','','',''),(13,'p','10308038636343296','/api/permissions/assign_role','POST','','',''),(6,'p','10308038636343296','/api/permissions/list','GET','','',''),(7,'p','10308038636343296','/api/permissions/remove','DELETE','','',''),(16,'p','10308038636343296','/api/permissions/remove_role','DELETE','','',''),(8,'p','10308038636343296','/api/plate/create','POST','','',''),(10,'p','10308038636343296','/api/plate/delete','DELETE','','',''),(9,'p','10308038636343296','/api/plate/list','GET','','',''),(21,'p','10308038636343296','/api/posts/detail_post/:postId','GET','','',''),(19,'p','10308038636343296','/api/posts/list_post','POST','','',''),(23,'p','10308038636343296','/api/posts/stats','GET','','',''),(11,'p','10308038636343296','/api/users/list','POST','','',''),(22,'p','10308038636343296','/api/users/stats','GET','','','');
+INSERT INTO `casbin_rule` VALUES (25,'p','10308038636343296','/api/activity/recent','GET','','',''),(2,'p','10308038636343296','/api/checks/approve','POST','','',''),(4,'p','10308038636343296','/api/checks/detail','GET','','',''),(1,'p','10308038636343296','/api/checks/list','POST','','',''),(3,'p','10308038636343296','/api/checks/reject','POST','','',''),(24,'p','10308038636343296','/api/checks/stats','GET','','',''),(5,'p','10308038636343296','/api/permissions/assign','POST','','',''),(13,'p','10308038636343296','/api/permissions/assign_role','POST','','',''),(6,'p','10308038636343296','/api/permissions/list','GET','','',''),(7,'p','10308038636343296','/api/permissions/remove','DELETE','','',''),(16,'p','10308038636343296','/api/permissions/remove_role','DELETE','','',''),(8,'p','10308038636343296','/api/plate/create','POST','','',''),(10,'p','10308038636343296','/api/plate/delete/:plateId','DELETE','','',''),(9,'p','10308038636343296','/api/plate/list','POST','','',''),(26,'p','10308038636343296','/api/plate/update','POST','','',''),(21,'p','10308038636343296','/api/posts/detail_post/:postId','GET','','',''),(19,'p','10308038636343296','/api/posts/list_post','POST','','',''),(23,'p','10308038636343296','/api/posts/stats','GET','','',''),(11,'p','10308038636343296','/api/users/list','POST','','',''),(22,'p','10308038636343296','/api/users/stats','GET','','','');
 /*!40000 ALTER TABLE `casbin_rule` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -128,7 +128,7 @@ CREATE TABLE `plates` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_plates_name` (`name`),
   KEY `idx_plates_uid` (`uid`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -137,7 +137,7 @@ CREATE TABLE `plates` (
 
 LOCK TABLES `plates` WRITE;
 /*!40000 ALTER TABLE `plates` DISABLE KEYS */;
-INSERT INTO `plates` VALUES (1,'golang板块','golang学习...',1719917266377,1719917266377,0,0,10308038636343296);
+INSERT INTO `plates` VALUES (1,'golang板块','golang学习...',1719917266377,1719917266377,0,0,10308038636343296),(2,'123','123',1720351398637,1720352037362,1720352037362,1,10308038636343296),(3,'1234','1234',1720352217856,1720352229176,1720352229176,1,10308038636343296),(4,'java板块123','java学习...',1720352234187,1720352666400,0,0,10308038636343296);
 /*!40000 ALTER TABLE `plates` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -383,4 +383,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-07-07 15:51:07
+-- Dump completed on 2024-07-07 19:46:58
