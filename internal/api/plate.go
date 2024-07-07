@@ -31,9 +31,9 @@ func (h *PlateHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup := server.Group("/api/plate")
 	permissionGroup.Use(casbinMiddleware.CheckCasbin())
 	permissionGroup.POST("/create", WrapBody(h.CreatePlate))
-	permissionGroup.PUT("/update", WrapBody(h.UpdatePlate))
-	permissionGroup.DELETE("/delete", WrapBody(h.DeletePlate))
-	permissionGroup.GET("/list", WrapBody(h.ListPlate))
+	permissionGroup.POST("/update", WrapBody(h.UpdatePlate))
+	permissionGroup.DELETE("/delete/:plateId", WrapParam(h.DeletePlate))
+	permissionGroup.POST("/list", WrapBody(h.ListPlate))
 }
 
 func (h *PlateHandler) CreatePlate(ctx *gin.Context, req CreatePlateReq) (Result, error) {
@@ -75,7 +75,7 @@ func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req UpdatePlateReq) (Result
 
 func (h *PlateHandler) DeletePlate(ctx *gin.Context, req DeletePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	err := h.svc.DeletePlate(ctx, req.ID, uc.Uid)
+	err := h.svc.DeletePlate(ctx, req.PlateID, uc.Uid)
 	if err != nil {
 		return Result{
 			Code: RequestsERROR,
