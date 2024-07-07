@@ -7,7 +7,7 @@ redis:
 log:
   filepath: "logs/linkme.json"
 mongodb:
-  addr: "mongodb://root:root@45.136.14.21:27017" # 公网mongodb地址
+  addr: "mongodb://root:root@123.56.122.183:27017" # 公网mongodb地址
 #  addr: "mongodb://localhost:27017"
 kafka:
   addr: "45.136.14.21:9092" # 公网kafka地址
