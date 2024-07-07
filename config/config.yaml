@@ -1,6 +1,6 @@
 db:
-  #dsn: "root:root@tcp(123.56.122.183:3306)/linkme" # 公网mysql地址
-  dsn: "root:root@tcp(localhost:3306)/linkme"
+  dsn: "root:root@tcp(123.56.122.183:3306)/linkme" # 公网mysql地址
+  #dsn: "root:root@tcp(localhost:3306)/linkme"
 redis:
 #  addr: "45.136.14.21:6379" # 公网redis地址
   addr: "localhost:6379" # 公网redis地址
