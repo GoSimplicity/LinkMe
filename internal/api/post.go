@@ -44,7 +44,7 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.GET("/detail_pub/:postId", WrapParam(ph.DetailPub))                                   // 同上
 	postGroup.GET("/detail_post/:postId", casbinMiddleware.CheckCasbin(), WrapParam(ph.DetailPost)) // 管理员使用
 	postGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(ph.GetPostCount))             // 管理员使用
-	postGroup.DELETE("/:postId", WrapParam(ph.DeletePost))                                          // 使用 DELETE 方法删除特定帖子
+	postGroup.DELETE("/delete/:postId", WrapParam(ph.DeletePost))                                   // 使用 DELETE 方法删除特定帖子
 	postGroup.POST("/like", WrapBody(ph.Like))                                                      // 点赞
 	postGroup.POST("/collect", WrapBody(ph.Collect))                                                // 收藏
 	postGroup.GET("/hello", func(ctx *gin.Context) {
