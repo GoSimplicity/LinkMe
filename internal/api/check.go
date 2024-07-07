@@ -34,7 +34,7 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	checkGroup.Use(casbinMiddleware.CheckCasbin())
 	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck)) // 审核通过
 	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))   // 审核拒绝
-	checkGroup.GET("/list", WrapBody(ch.ListChecks))       // 审核列表
+	checkGroup.POST("/list", WrapBody(ch.ListChecks))      // 审核列表
 	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))    // 审核详情
 	checkGroup.GET("/stats", WrapQuery(ch.GetCheckCount))  // 管理员使用
 }

@@ -50,8 +50,15 @@ func (s *checkService) SubmitCheck(ctx context.Context, check domain.Check) (int
 }
 
 func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error {
+	check, err := s.repo.FindByID(ctx, checkID)
+	if err != nil {
+		return fmt.Errorf("get check detail failed: %w", err)
+	}
+	if check.Status == constants.PostUnApproved || check.Status == constants.PostApproved {
+		return fmt.Errorf("请勿重复提交：%v", checkID)
+	}
 	// 更新审核状态为通过
-	err := s.repo.UpdateStatus(ctx, domain.Check{
+	err = s.repo.UpdateStatus(ctx, domain.Check{
 		ID:     checkID,
 		Remark: remark,
 		Status: constants.PostApproved,
@@ -62,7 +69,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	}
 	s.l.Info("Approved check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
 	// 获取审核详情
-	check, err := s.repo.FindByID(ctx, checkID)
+	check, err = s.repo.FindByID(ctx, checkID)
 	if err != nil {
 		s.l.Error("Failed to get check detail", zap.Int64("CheckID", checkID), zap.Error(err))
 		return fmt.Errorf("get check detail failed: %w", err)
@@ -107,8 +114,8 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	if err != nil {
 		return fmt.Errorf("get check detail failed: %w", err)
 	}
-	// 检查是否已拒绝
-	if check.Status == constants.PostUnApproved {
+	// 检查状态
+	if check.Status == constants.PostUnApproved || check.Status == constants.PostApproved {
 		return fmt.Errorf("请勿重复提交：%v", checkID)
 	}
 	// 更新审核状态为拒绝
