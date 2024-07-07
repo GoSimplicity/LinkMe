@@ -7,7 +7,7 @@ import (
 )
 
 type ActivityService interface {
-	GetRecentActivity(ctx context.Context) (domain.RecentActivity, error)
+	GetRecentActivity(ctx context.Context) ([]domain.RecentActivity, error)
 }
 
 type activityService struct {
@@ -20,10 +20,10 @@ func NewActivityService(repo repository.ActivityRepository) ActivityService {
 	}
 }
 
-func (a *activityService) GetRecentActivity(ctx context.Context) (domain.RecentActivity, error) {
+func (a *activityService) GetRecentActivity(ctx context.Context) ([]domain.RecentActivity, error) {
 	activity, err := a.repo.GetRecentActivity(ctx)
 	if err != nil {
-		return domain.RecentActivity{}, err
+		return nil, err
 	}
 	return activity, nil
 }
