@@ -7,7 +7,7 @@ import (
 )
 
 type ActivityRepository interface {
-	GetRecentActivity(ctx context.Context) (domain.RecentActivity, error)
+	GetRecentActivity(ctx context.Context) ([]domain.RecentActivity, error)
 	SetRecentActivity(ctx context.Context, dr domain.RecentActivity) error
 }
 
@@ -21,12 +21,12 @@ func NewActivityRepository(dao dao.ActivityDAO) ActivityRepository {
 	}
 }
 
-func (a *activityRepository) GetRecentActivity(ctx context.Context) (domain.RecentActivity, error) {
+func (a *activityRepository) GetRecentActivity(ctx context.Context) ([]domain.RecentActivity, error) {
 	activity, err := a.dao.GetRecentActivity(ctx)
 	if err != nil {
-		return domain.RecentActivity{}, err
+		return nil, err
 	}
-	return toDomainActivity(activity), nil
+	return toDomainActivities(activity), nil
 }
 
 func (a *activityRepository) SetRecentActivity(ctx context.Context, dr domain.RecentActivity) error {
@@ -48,11 +48,15 @@ func fromDomainActivity(dr domain.RecentActivity) dao.RecentActivity {
 }
 
 // 将dao层对象转为领域层对象
-func toDomainActivity(mr dao.RecentActivity) domain.RecentActivity {
-	return domain.RecentActivity{
-		ID:          mr.ID,
-		Description: mr.Description,
-		Time:        mr.Time,
-		UserID:      mr.UserID,
+func toDomainActivities(mrList []dao.RecentActivity) []domain.RecentActivity {
+	domainList := make([]domain.RecentActivity, len(mrList))
+	for i, mr := range mrList {
+		domainList[i] = domain.RecentActivity{
+			ID:          mr.ID,
+			Description: mr.Description,
+			Time:        mr.Time,
+			UserID:      mr.UserID,
+		}
 	}
+	return domainList
 }
