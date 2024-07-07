@@ -70,6 +70,7 @@ func (p *plateDAO) ListPlate(ctx context.Context, pagination domain.Pagination) 
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
 	err := p.db.WithContext(ctx).
+		Where("deleted = ?", false).
 		Limit(intSize).
 		Offset(intOffset).
 		Find(&plates).Error
