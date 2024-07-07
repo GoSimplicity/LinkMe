@@ -29,7 +29,7 @@ services:
     volumes:
       - ./init:/docker-entrypoint-initdb.d/
   redis:
-    image: bitnami/redis:latest
+    image: redis:latest
     container_name: linkme-redis
     restart: always
     ports:
