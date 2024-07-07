@@ -15,6 +15,7 @@ import (
 func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
+			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 			AllowCredentials: true,
 			AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"},
 			ExposeHeaders:    []string{"x-jwt-token", "x-refresh-token"},
