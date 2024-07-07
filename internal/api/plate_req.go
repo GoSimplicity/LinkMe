@@ -6,11 +6,11 @@ type CreatePlateReq struct {
 }
 
 type DeletePlateReq struct {
-	ID int64 `uri:"id"`
+	PlateID int64 `uri:"plateId"`
 }
 
 type UpdatePlateReq struct {
-	ID          int64  `uri:"id"`
+	ID          int64  `json:"plateId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
