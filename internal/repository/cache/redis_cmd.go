@@ -17,13 +17,13 @@ var (
 	script string
 )
 
-type RedisCmd interface {
+type RedisEXCmd interface {
 	AddCommand(args ...string) //添加redis命令
 	Exec() error               //执行具有修改性的redis命令，失败自动回滚
 	Rollback()                 //可调用完成回滚
 }
 
-type redisCmd struct {
+type redisEXCmd struct {
 	cmd         redis.Cmdable
 	commandsTab []interface{} //存储命令
 	rollbackTab []interface{} //存储回滚命令
@@ -38,14 +38,14 @@ func init() {
 		script = string(t)
 	}
 }
-func NewRedisCmd(cmd redis.Cmdable) RedisCmd {
+func NewRedisCmd(cmd redis.Cmdable) RedisEXCmd {
 
-	return &redisCmd{
+	return &redisEXCmd{
 		cmd: cmd,
 	}
 }
 
-func (rc *redisCmd) AddCommand(args ...string) {
+func (rc *redisEXCmd) AddCommand(args ...string) {
 	var v []interface{}
 	for _, arg := range args {
 		v = append(v, arg)
@@ -55,7 +55,7 @@ func (rc *redisCmd) AddCommand(args ...string) {
 }
 
 // Exec 执行脚本
-func (rc *redisCmd) Exec() error {
+func (rc *redisEXCmd) Exec() error {
 	//fmt.Println(rc.commandsTab[:rc.commandsCnt])
 	cmd, _ := json.Marshal(rc.commandsTab[:rc.commandsCnt])
 	//标记清除存储的命令
@@ -89,7 +89,7 @@ func (rc *redisCmd) Exec() error {
 	return nil
 }
 
-func (rc *redisCmd) Rollback() {
+func (rc *redisEXCmd) Rollback() {
 	//fmt.Println(rc.rollbackTab)
 	luaScript := `
 	local cmds = cjson.decode(ARGV[1])	

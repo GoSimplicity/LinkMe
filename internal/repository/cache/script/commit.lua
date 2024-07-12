@@ -159,7 +159,7 @@ for _, args in ipairs(cmds) do
 		-- return { 0, "执行命令失败: <\"" .. table.concat(args," ") .. "\">:" .. ok.err, rollbackTab }
 		return { "执行命令失败: <\"" .. table.concat(args," ") .. "\">:" .. ok.err}
 	end
-    if cmd == "LPOP" and ok  then
+    if cmd == "LPOP" and ok then
         table.insert(rollbackTab,{"LPUSH",key,ok})
     elseif cmd == "RPOP" and ok then
         table.insert(rollbackTab,{"RPUSH",key,ok})
