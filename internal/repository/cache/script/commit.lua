@@ -1,5 +1,5 @@
--- date: 2024-7-6
--- version: 1.0
+-- date: 2024-7-11
+-- version: 1.1
 local function rollback(rollbackTab)
 	--回滚已经执行的命令 先进后出(后续优化同命令执行)
 	local n = #rollbackTab
@@ -159,11 +159,12 @@ for _, args in ipairs(cmds) do
 		-- return { 0, "执行命令失败: <\"" .. table.concat(args," ") .. "\">:" .. ok.err, rollbackTab }
 		return { "执行命令失败: <\"" .. table.concat(args," ") .. "\">:" .. ok.err}
 	end
-    if cmd == "LPOP" then
+    if cmd == "LPOP" and ok then
         table.insert(rollbackTab,{"LPUSH",key,ok})
-    elseif cmd == "RPOP" then
+    elseif cmd == "RPOP" and ok then
         table.insert(rollbackTab,{"RPUSH",key,ok})
     end
 end
 -- return { 1, "OK", rollbackTab }
-return { "OK" }
+
+return { "OK", rollbackTab }
