@@ -9,6 +9,9 @@ LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供
 http://www.simplecloud.top/
 超级管理员：admin/admin
 
+## 微服务项目地址
+https://github.com/GoSimplicity/LinkMe-microservices
+
 ## 前端项目地址
 https://github.com/GoSimplicity/LinkMe-web
 
