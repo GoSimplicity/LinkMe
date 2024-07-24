@@ -6,7 +6,7 @@
 LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供一个简洁、高效、可扩展的在线交流平台。本项目使用DDD领域设计理念，采用模块化的设计，使得添加新功能或进行定制化修改变得非常容易。LinkMe 支持多种数据库后端，并且可以通过 Kubernetes 进行部署。
 
 ## 在线地址
-http://www.simplecloud.top/
+http://www.simplecloud.top/（前端重构中...暂时停用）
 超级管理员：admin/admin
 
 ## 微服务项目地址
