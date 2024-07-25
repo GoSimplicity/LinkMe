@@ -6,8 +6,11 @@
 LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供一个简洁、高效、可扩展的在线交流平台。本项目使用DDD领域设计理念，采用模块化的设计，使得添加新功能或进行定制化修改变得非常容易。LinkMe 支持多种数据库后端，并且可以通过 Kubernetes 进行部署。
 
 ## 在线地址
-http://www.simplecloud.top/
+http://www.simplecloud.top/（前端重构中...暂时停用）
 超级管理员：admin/admin
+
+## 微服务项目地址
+https://github.com/GoSimplicity/LinkMe-microservices
 
 ## 前端项目地址
 https://github.com/GoSimplicity/LinkMe-web
@@ -119,6 +122,7 @@ admin/admin
 本项目使用 MIT 许可证，详情请见 [LICENSE](./LICENSE) 文件。
 ## 联系方式
 - Email: [wzijian62@gmail.com](mailto:wzijian62@gmail.com)
+- 为了方便交流，可以加我vx：GoSimplicity 我拉你进微信群
 ## 致谢
 感谢所有为本项目做出贡献的人！
 ---
