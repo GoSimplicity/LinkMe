@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	Key1 = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d1")
+	Key1 = []byte("ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l")
 	Key2 = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2")
+	k    = "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
 )
 
 type Handler interface {
@@ -72,6 +73,7 @@ func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
+			Issuer:    k,
 		},
 	}
 	token := jwt.NewWithClaims(h.signingMethod, uc)
