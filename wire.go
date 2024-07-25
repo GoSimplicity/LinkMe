@@ -13,6 +13,7 @@ import (
 	"LinkMe/internal/service"
 	"LinkMe/ioc"
 	ijwt "LinkMe/utils/jwt"
+
 	"github.com/google/wire"
 	_ "github.com/google/wire"
 )
@@ -83,6 +84,7 @@ func InitWebServer() *Cmd {
 		sms.NewSaramaSyncProducer,
 		email.NewEmailConsumer,
 		email.NewSaramaSyncProducer,
+		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)
 	return new(Cmd)
