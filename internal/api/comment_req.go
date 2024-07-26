@@ -6,9 +6,14 @@ type CreateCommentReq struct {
 }
 
 type ListCommentsReq struct {
+	biz    string
+	bizId  int64
+	min_id int64
+	limit  int64
 }
 
 type DeleteCommentReq struct {
+	CommentId int64 `json:"commentId" binding:"required"`
 }
 
 type GetMoreCommentReplyReq struct {
