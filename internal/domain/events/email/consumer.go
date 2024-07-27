@@ -1,12 +1,12 @@
 package email
 
 import (
-	"LinkMe/internal/repository"
 	"context"
 	"encoding/json"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"time"
 
-	"LinkMe/pkg/samarap"
+	"github.com/GoSimplicity/LinkMe/pkg/samarap"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )

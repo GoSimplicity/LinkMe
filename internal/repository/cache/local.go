@@ -1,9 +1,9 @@
 package cache
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"log"
 	"sync"
 	"time"

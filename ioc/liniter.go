@@ -1,7 +1,7 @@
 package ioc
 
 import (
-	. "LinkMe/pkg/limiterp"
+	. "github.com/GoSimplicity/LinkMe/pkg/limiterp"
 	"time"
 
 	"github.com/redis/go-redis/v9"

@@ -1,9 +1,9 @@
 package repository
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/dao"
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 )
 
 type ActivityRepository interface {

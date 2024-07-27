@@ -1,9 +1,9 @@
 package ioc
 
 import (
-	"LinkMe/internal/service"
-	"LinkMe/job"
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	"github.com/GoSimplicity/LinkMe/job"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 	"time"

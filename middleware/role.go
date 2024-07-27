@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	ijwt "LinkMe/utils/jwt"
+	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"net/http"
 	"strconv"
 

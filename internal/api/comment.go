@@ -1,10 +1,10 @@
 package api
 
 import (
-	. "LinkMe/internal/constants"
-	"LinkMe/internal/domain"
-	"LinkMe/internal/service"
-	. "LinkMe/pkg/ginp"
+	. "github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
 
 	"github.com/gin-gonic/gin"
 )
