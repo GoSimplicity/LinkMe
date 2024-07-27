@@ -1,12 +1,12 @@
 package repository_test
 
 import (
-	"LinkMe/internal/repository"
-	"LinkMe/internal/repository/cache"
-	"LinkMe/internal/repository/dao"
-	"LinkMe/ioc"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
+	"github.com/GoSimplicity/LinkMe/ioc"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"testing"

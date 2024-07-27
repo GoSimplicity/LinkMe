@@ -1,7 +1,7 @@
 package main
 
 import (
-	"LinkMe/internal/domain/events"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 )

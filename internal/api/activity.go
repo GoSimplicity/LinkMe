@@ -1,10 +1,10 @@
 package api
 
 import (
-	"LinkMe/internal/constants"
-	"LinkMe/internal/service"
-	"LinkMe/middleware"
-	. "LinkMe/pkg/ginp"
+	"github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	"github.com/GoSimplicity/LinkMe/middleware"
+	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

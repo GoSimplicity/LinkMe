@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"LinkMe/internal/repository/cache"
-	qqEmail "LinkMe/pkg/email"
-	"LinkMe/utils"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	qqEmail "github.com/GoSimplicity/LinkMe/pkg/email"
+	"github.com/GoSimplicity/LinkMe/utils"
 	"go.uber.org/zap"
 )
 

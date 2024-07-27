@@ -1,10 +1,10 @@
 package service
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )

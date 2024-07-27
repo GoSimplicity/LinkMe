@@ -1,13 +1,13 @@
 package service
 
 import (
-	"LinkMe/internal/constants"
-	"LinkMe/internal/domain"
-	"LinkMe/internal/domain/events/post"
-	"LinkMe/internal/repository"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
 )
 
