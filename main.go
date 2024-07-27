@@ -1,8 +1,8 @@
 package main
 
 import (
-	"LinkMe/config"
 	"context"
+	"github.com/GoSimplicity/LinkMe/config"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )

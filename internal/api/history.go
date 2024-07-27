@@ -1,11 +1,11 @@
 package api
 
 import (
-	. "LinkMe/internal/constants"
-	"LinkMe/internal/domain"
-	"LinkMe/internal/service"
-	. "LinkMe/pkg/ginp"
-	ijwt "LinkMe/utils/jwt"
+	. "github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )

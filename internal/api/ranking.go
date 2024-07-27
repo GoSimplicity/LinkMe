@@ -1,8 +1,8 @@
 package api
 
 import (
-	"LinkMe/internal/constants"
-	"LinkMe/internal/service"
+	"github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,7 +1,7 @@
 package ioc
 
 import (
-	"LinkMe/pkg/sms"
+	"github.com/GoSimplicity/LinkMe/pkg/sms"
 	"github.com/spf13/viper"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
