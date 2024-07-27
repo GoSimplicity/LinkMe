@@ -1,8 +1,8 @@
 package job
 
 import (
-	"LinkMe/internal/service"
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/service"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"time"

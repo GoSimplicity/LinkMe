@@ -1,7 +1,7 @@
 package ioc
 
 import (
-	"LinkMe/internal/api"
+	"github.com/GoSimplicity/LinkMe/internal/api"
 	"github.com/gin-gonic/gin"
 )
 

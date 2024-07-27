@@ -1,10 +1,10 @@
 package dao
 
 import (
-	"LinkMe/internal/constants"
-	"LinkMe/internal/domain"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"time"

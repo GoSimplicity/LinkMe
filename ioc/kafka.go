@@ -1,10 +1,10 @@
 package ioc
 
 import (
-	"LinkMe/internal/domain/events"
-	"LinkMe/internal/domain/events/email"
-	"LinkMe/internal/domain/events/post"
-	"LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/IBM/sarama"
 	"github.com/spf13/viper"
 )

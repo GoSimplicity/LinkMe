@@ -1,9 +1,9 @@
 package cache
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/bsm/redislock"
 	"github.com/redis/go-redis/v9"
 	"strconv"

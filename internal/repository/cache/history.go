@@ -1,11 +1,11 @@
 package cache
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"time"

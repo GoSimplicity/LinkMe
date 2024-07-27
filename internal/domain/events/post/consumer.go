@@ -1,9 +1,9 @@
 package post
 
 import (
-	"LinkMe/internal/repository"
-	"LinkMe/pkg/samarap"
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/pkg/samarap"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 	"time"

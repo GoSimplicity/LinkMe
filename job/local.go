@@ -1,9 +1,9 @@
 package job
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"sync"
 )
 

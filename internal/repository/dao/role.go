@@ -1,9 +1,9 @@
 package dao
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"

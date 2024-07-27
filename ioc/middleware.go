@@ -1,8 +1,8 @@
 package ioc
 
 import (
-	"LinkMe/middleware"
-	ijwt "LinkMe/utils/jwt"
+	"github.com/GoSimplicity/LinkMe/middleware"
+	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

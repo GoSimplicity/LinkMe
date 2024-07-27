@@ -1,9 +1,9 @@
 package dao
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
