@@ -1,4 +1,4 @@
-module LinkMe
+module github.com/GoSimplicity/LinkMe
 
 go 1.22.3
 

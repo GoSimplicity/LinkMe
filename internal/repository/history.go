@@ -1,9 +1,9 @@
 package repository
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/cache"
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"go.uber.org/zap"
 )
 

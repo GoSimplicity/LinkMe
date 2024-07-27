@@ -1,10 +1,10 @@
 package repository
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/cache"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"log"
 	"sync"
 )

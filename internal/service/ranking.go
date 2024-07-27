@@ -1,11 +1,11 @@
 package service
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository"
-	"LinkMe/pkg/priorityqueue"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/pkg/priorityqueue"
 	"go.uber.org/zap"
 	"math"
 	"time"

@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/cache"
-	"LinkMe/internal/repository/dao"
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"time"
 
 	"github.com/google/uuid"

@@ -7,16 +7,16 @@
 package main
 
 import (
-	"LinkMe/internal/api"
-	"LinkMe/internal/domain/events/email"
-	"LinkMe/internal/domain/events/post"
-	"LinkMe/internal/domain/events/sms"
-	"LinkMe/internal/repository"
-	"LinkMe/internal/repository/cache"
-	"LinkMe/internal/repository/dao"
-	"LinkMe/internal/service"
-	"LinkMe/ioc"
-	"LinkMe/utils/jwt"
+	"github.com/GoSimplicity/LinkMe/internal/api"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
 
 import (

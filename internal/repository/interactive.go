@@ -1,12 +1,12 @@
 package repository
 
 import (
-	. "LinkMe/internal/constants"
-	"LinkMe/internal/domain"
-	"LinkMe/internal/repository/cache"
-	"LinkMe/internal/repository/dao"
 	"context"
 	"errors"
+	. "github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"sync"
 	"time"
 

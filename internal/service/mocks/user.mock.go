@@ -10,7 +10,7 @@
 package mocks
 
 import (
-	domain "LinkMe/internal/domain"
+	domain "github.com/GoSimplicity/LinkMe/internal/domain"
 	context "context"
 	reflect "reflect"
 

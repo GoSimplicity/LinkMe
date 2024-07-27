@@ -1,9 +1,9 @@
 package dao
 
 import (
-	"LinkMe/internal/domain"
 	"context"
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	sf "github.com/bwmarrin/snowflake"
 	"github.com/casbin/casbin/v2"
 	"github.com/go-sql-driver/mysql"

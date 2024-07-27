@@ -1,13 +1,13 @@
 package repository
 
 import (
-	"LinkMe/internal/repository/cache"
-	"LinkMe/internal/repository/dao"
-	"LinkMe/pkg/sms"
-	"LinkMe/utils"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
+	"github.com/GoSimplicity/LinkMe/pkg/sms"
+	"github.com/GoSimplicity/LinkMe/utils"
 	"github.com/redis/go-redis/v9"
 	tencenterros "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	"go.uber.org/zap"
