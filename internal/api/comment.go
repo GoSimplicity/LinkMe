@@ -26,18 +26,12 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 	commentsGroup := server.Group("/api/comments")
 	commentsGroup.POST("/create", WrapBody(ch.CreateComment))
 	commentsGroup.POST("/list", WrapBody(ch.ListComments))
-	commentsGroup.DELETE("/delete", WrapBody(ch.DeleteComment))
+	commentsGroup.DELETE("/delete/:commentId", WrapParam(ch.DeleteComment))
 	commentsGroup.POST("/get_more", WrapBody(ch.GetMoreCommentReply))
 }
 
 // CreateComment 创建评论处理器方法
 func (ch *CommentHandler) CreateComment(ctx *gin.Context, req CreateCommentReq) (Result, error) {
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return Result{
-			Code: CreateCommentErrorCode,
-			Msg:  "Invalid request",
-		}, err
-	}
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	comment := domain.Comment{
 		Content: req.Content,
