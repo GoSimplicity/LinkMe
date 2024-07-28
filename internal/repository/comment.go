@@ -16,7 +16,7 @@ type commentRepository struct {
 	dao dao.CommentDAO
 }
 
-// 评论仓库接口
+// CommentRepository 评论仓库接口
 type CommentRepository interface {
 	CreateComment(ctx context.Context, comment domain.Comment) error
 	DeleteComment(ctx context.Context, commentId int64) error
@@ -24,30 +24,30 @@ type CommentRepository interface {
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
 }
 
-// 创建新的评论服务
+// NewCommentService 创建新的评论服务
 func NewCommentService(dao dao.CommentDAO) CommentRepository {
 	return &commentRepository{
 		dao: dao,
 	}
 }
 
-// 创建评论
+// CreateComment 创建评论
 func (c *commentRepository) CreateComment(ctx context.Context, comment domain.Comment) error {
 	return c.dao.CreateComment(ctx, c.toDAOComment(comment))
 }
 
-// 删除评论
+// DeleteComment 删除评论
 func (c *commentRepository) DeleteComment(ctx context.Context, commentId int64) error {
 	return c.dao.DeleteCommentById(ctx, commentId)
 }
 
-// 获取更多评论回复（未实现）
+// GetMoreCommentsReply 获取更多评论回复
 func (c *commentRepository) GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error) {
 	comments, err := c.dao.GetMoreCommentsReply(ctx, rootId, maxId, limit)
 	return c.toDomainSliceComments(comments), err
 }
 
-// 列出评论
+// ListComments 列出评论
 func (c *commentRepository) ListComments(ctx context.Context, postId int64, minId, limit int64) ([]domain.Comment, error) {
 	// 从DAO层获取评论列表
 	daoComments, err := c.dao.FindCommentsByPostId(ctx, postId, minId, limit)
@@ -63,7 +63,6 @@ func (c *commentRepository) ListComments(ctx context.Context, postId int64, minI
 		// 将当前评论转换为领域模型评论
 		domainComment := c.toDomainComment(daoComment)
 		domainComments = append(domainComments, domainComment)
-
 		// 并发获取子评论
 		errGroup.Go(func(dc dao.Comment, dcm *domain.Comment) func() error {
 			return func() error {
