@@ -5,23 +5,23 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
-
+	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
-// 评论处理器结构体
+// CommentHandler 评论处理器结构体
 type CommentHandler struct {
 	svc service.CommentService
 }
 
-// 创建新的评论处理器
+// NewCommentHandler 创建新的评论处理器
 func NewCommentHandler(svc service.CommentService) *CommentHandler {
 	return &CommentHandler{
 		svc: svc,
 	}
 }
 
-// 注册路由
+// RegisterRoutes 注册路由
 func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 	commentsGroup := server.Group("/api/comments")
 	commentsGroup.POST("/create", WrapBody(ch.CreateComment))
@@ -30,12 +30,29 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 	commentsGroup.POST("/get_more", WrapBody(ch.GetMoreCommentReply))
 }
 
-// 创建评论处理器方法
+// CreateComment 创建评论处理器方法
 func (ch *CommentHandler) CreateComment(ctx *gin.Context, req CreateCommentReq) (Result, error) {
-	err := ch.svc.CreateComment(ctx, domain.Comment{
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return Result{
+			Code: CreateCommentErrorCode,
+			Msg:  "Invalid request",
+		}, err
+	}
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	comment := domain.Comment{
 		Content: req.Content,
 		PostId:  req.PostId,
-	})
+		UserId:  uc.Uid,
+		Biz:     "comment",
+		BizId:   req.PostId,
+	}
+	if req.RootId != nil {
+		comment.RootComment = &domain.Comment{Id: *req.RootId}
+	}
+	if req.PID != nil {
+		comment.ParentComment = &domain.Comment{Id: *req.PID}
+	}
+	err := ch.svc.CreateComment(ctx, comment)
 	if err != nil {
 		return Result{
 			Code: CreateCommentErrorCode,
@@ -48,9 +65,9 @@ func (ch *CommentHandler) CreateComment(ctx *gin.Context, req CreateCommentReq) 
 	}, nil
 }
 
-// 列出评论处理器方法
+// ListComments 列出评论处理器方法
 func (ch *CommentHandler) ListComments(ctx *gin.Context, req ListCommentsReq) (Result, error) {
-	comments, err := ch.svc.ListComments(ctx, req.biz, req.bizId, req.min_id, req.limit)
+	comments, err := ch.svc.ListComments(ctx, req.PostId, req.MinId, req.Limit)
 	if err != nil {
 		return Result{
 			Code: ListCommentErrorCode,
@@ -64,7 +81,7 @@ func (ch *CommentHandler) ListComments(ctx *gin.Context, req ListCommentsReq) (R
 	}, nil
 }
 
-// 删除评论处理器方法
+// DeleteComment 删除评论处理器方法
 func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req DeleteCommentReq) (Result, error) {
 	err := ch.svc.DeleteComment(ctx, req.CommentId)
 	if err != nil {
@@ -79,8 +96,18 @@ func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req DeleteCommentReq) 
 	}, nil
 }
 
-// 获取更多评论回复处理器方法
+// GetMoreCommentReply 获取更多评论回复处理器方法
 func (ch *CommentHandler) GetMoreCommentReply(ctx *gin.Context, req GetMoreCommentReplyReq) (Result, error) {
-	// 由于方法未实现，返回空结果
-	return Result{}, nil
+	comments, err := ch.svc.GetMoreCommentsReply(ctx, req.RootId, req.MaxId, req.Limit)
+	if err != nil {
+		return Result{
+			Code: GetMoreCommentReplyErrorCode,
+			Msg:  GetMoreCommentReplyErrorMsg,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  GetMoreCommentReplySuccessMsg,
+		Data: comments,
+	}, nil
 }

@@ -6,7 +6,7 @@ import (
 )
 
 // InitWebServer 初始化web服务
-func InitWebServer(userHdl *api.UserHandler, postHdl *api.PostHandler, historyHdl *api.HistoryHandler, checkHdl *api.CheckHandler, m []gin.HandlerFunc, permHdl *api.PermissionHandler, rankingHdl *api.RankingHandler, plateHdl *api.PlateHandler, activityHdl *api.ActivityHandler) *gin.Engine {
+func InitWebServer(userHdl *api.UserHandler, postHdl *api.PostHandler, historyHdl *api.HistoryHandler, checkHdl *api.CheckHandler, m []gin.HandlerFunc, permHdl *api.PermissionHandler, rankingHdl *api.RankingHandler, plateHdl *api.PlateHandler, activityHdl *api.ActivityHandler, commentHdl *api.CommentHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(m...)
 	userHdl.RegisterRoutes(server)
@@ -17,5 +17,6 @@ func InitWebServer(userHdl *api.UserHandler, postHdl *api.PostHandler, historyHd
 	rankingHdl.RegisterRoutes(server)
 	plateHdl.RegisterRoutes(server)
 	activityHdl.RegisterRoutes(server)
+	commentHdl.RegisterRoutes(server)
 	return server
 }

@@ -3,13 +3,12 @@ package dao
 import (
 	"context"
 	"database/sql"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-// 错误：数据未找到
+// ErrDataNotFound 错误：数据未找到
 var ErrDataNotFound = gorm.ErrRecordNotFound
 
 // 评论数据访问对象
@@ -18,7 +17,7 @@ type commentDAO struct {
 	l  *zap.Logger
 }
 
-// 评论模型定义
+// Comment 评论模型定义
 type Comment struct {
 	Id            int64         `gorm:"autoIncrement;primaryKey"`                                            // 评论ID
 	UserId        int64         `gorm:"index:idx_user_id"`                                                   // 发表评论的用户ID
@@ -33,16 +32,17 @@ type Comment struct {
 	UpdatedAt     int64         `gorm:"autoUpdateTime"`                                                      // 更新时间
 }
 
-// 评论数据访问接口
+// CommentDAO 评论数据访问接口
 type CommentDAO interface {
 	CreateComment(ctx context.Context, comment Comment) error
 	DeleteCommentById(ctx context.Context, commentId int64) error
-	FindCommentsByBiz(ctx context.Context, biz string, bizId, minID, limit int64) ([]Comment, error)
-	GetMoreCommentReply(ctx context.Context, commentId int64, pagination domain.Pagination, Id int64) ([]domain.Comment, error)
+	FindCommentsByBiz(ctx context.Context, biz string, bizId, minId, limit int64) ([]Comment, error)
+	FindCommentsByPostId(ctx context.Context, postId int64, minId, limit int64) ([]Comment, error)
+	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]Comment, error)
 	FindRepliesByRid(ctx context.Context, rid int64, id int64, limit int64) ([]Comment, error)
 }
 
-// 创建新的评论服务
+// NewCommentService 创建新的评论服务
 func NewCommentService(db *gorm.DB, l *zap.Logger) CommentDAO {
 	return &commentDAO{
 		db: db,
@@ -50,7 +50,7 @@ func NewCommentService(db *gorm.DB, l *zap.Logger) CommentDAO {
 	}
 }
 
-// 创建评论
+// CreateComment 创建评论
 func (c *commentDAO) CreateComment(ctx context.Context, comment Comment) error {
 	if err := c.db.WithContext(ctx).Create(&comment).Error; err != nil {
 		c.l.Error("create comment failed", zap.Error(err))
@@ -59,7 +59,7 @@ func (c *commentDAO) CreateComment(ctx context.Context, comment Comment) error {
 	return nil
 }
 
-// 根据ID删除评论
+// DeleteCommentById 根据ID删除评论
 func (c *commentDAO) DeleteCommentById(ctx context.Context, commentId int64) error {
 	if err := c.db.WithContext(ctx).Delete(&Comment{
 		Id: commentId,
@@ -70,16 +70,21 @@ func (c *commentDAO) DeleteCommentById(ctx context.Context, commentId int64) err
 	return nil
 }
 
-// 获取更多评论回复
-func (c *commentDAO) GetMoreCommentReply(ctx context.Context, commentId int64, pagination domain.Pagination, Id int64) ([]domain.Comment, error) {
-	panic("unimplemented")
+// GetMoreCommentsReply 获取更多评论回复
+func (c *commentDAO) GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]Comment, error) {
+	var comments []Comment
+	err := c.db.WithContext(ctx).
+		Where("root_id = ? AND id > ?", rootId, maxId).
+		Order("id ASC").
+		Limit(int(limit)).Find(&comments).Error
+	return comments, err
 }
 
-// 根据业务类型和业务ID查找评论
-func (c *commentDAO) FindCommentsByBiz(ctx context.Context, biz string, bizId, minID, limit int64) ([]Comment, error) {
+// FindCommentsByBiz 根据业务类型和业务ID查找评论
+func (c *commentDAO) FindCommentsByBiz(ctx context.Context, biz string, bizId, minId, limit int64) ([]Comment, error) {
 	var comments []Comment
 	if err := c.db.WithContext(ctx).
-		Where("biz = ? AND biz_id = ? AND id < ? AND pid IS NULL", biz, bizId, minID).
+		Where("biz = ? AND biz_id = ? AND id < ? AND pid IS NULL", biz, bizId, minId).
 		Limit(int(limit)).Find(&comments).Error; err != nil {
 		c.l.Error("list comments failed", zap.Error(err))
 		return nil, err
@@ -87,12 +92,30 @@ func (c *commentDAO) FindCommentsByBiz(ctx context.Context, biz string, bizId, m
 	return comments, nil
 }
 
-// 根据根评论ID查找回复
+// FindCommentsByPostId 根据postID查找评论
+func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, minId, limit int64) ([]Comment, error) {
+	var comments []Comment
+	query := c.db.WithContext(ctx).Where("post_id = ? AND pid IS NULL", postId)
+	// 如果minId > 0，添加id < minId的条件
+	if minId > 0 {
+		query = query.Where("id < ?", minId)
+	}
+	if err := query.Limit(int(limit)).Find(&comments).Error; err != nil {
+		c.l.Error("list comments failed", zap.Error(err))
+		return nil, err
+	}
+	return comments, nil
+}
+
+// FindRepliesByRid 根据根评论ID查找回复
 func (c *commentDAO) FindRepliesByRid(ctx context.Context, rid int64, id int64, limit int64) ([]Comment, error) {
 	var res []Comment
-	err := c.db.WithContext(ctx).
+	if err := c.db.WithContext(ctx).
 		Where("root_id = ? AND id > ?", rid, id).
 		Order("id ASC").
-		Limit(int(limit)).Find(&res).Error
-	return res, err
+		Limit(int(limit)).Find(&res).Error; err != nil {
+		c.l.Error("list comments failed", zap.Error(err))
+		return nil, err
+	}
+	return res, nil
 }
