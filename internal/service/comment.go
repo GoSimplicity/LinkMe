@@ -12,7 +12,7 @@ type commentService struct {
 	repo repository.CommentRepository
 }
 
-// 评论服务接口
+// CommentService 评论服务接口
 type CommentService interface {
 	CreateComment(ctx context.Context, comment domain.Comment) error
 	DeleteComment(ctx context.Context, commentId int64) error
@@ -20,7 +20,7 @@ type CommentService interface {
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
 }
 
-// 创建新的评论服务
+// NewCommentService 创建新的评论服务
 func NewCommentService(repo repository.CommentRepository) CommentService {
 	return &commentService{
 		repo: repo,
