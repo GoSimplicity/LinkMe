@@ -51,7 +51,6 @@ func WrapParam[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) g
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})
 			return
 		}
-
 		// 成功处理，返回结果
 		ctx.JSON(http.StatusOK, res)
 	}
