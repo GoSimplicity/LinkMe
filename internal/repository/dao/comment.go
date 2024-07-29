@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrDataNotFound 错误：数据未找到
 var ErrDataNotFound = gorm.ErrRecordNotFound
 
 // 评论数据访问对象
