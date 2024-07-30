@@ -11,6 +11,8 @@ type RelationService interface {
 	GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error)
 	FollowUser(ctx context.Context, followerID, followeeID int64) error
 	CancelFollowUser(ctx context.Context, followerID, followeeID int64) error
+	GetFolloweeCount(ctx context.Context, UserID int64) (int64, error)
+	GetFollowerCount(ctx context.Context, UserID int64) (int64, error)
 }
 
 type relationService struct {
@@ -25,24 +27,31 @@ func NewRelationService(repo repository.RelationRepository) RelationService {
 
 // ListRelations 列出所有关注关系
 func (r *relationService) ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error) {
-	// TODO 实现方法
-	panic("implement me")
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return r.repo.ListRelations(ctx, followerID, pagination)
 }
 
 // GetRelationInfo 获取特定的关注关系信息
 func (r *relationService) GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error) {
-	// TODO 实现方法
-	panic("implement me")
+	return r.repo.GetRelationInfo(ctx, followerID, followeeID)
 }
 
 // FollowUser 关注用户
 func (r *relationService) FollowUser(ctx context.Context, followerID, followeeID int64) error {
-	// TODO 实现方法
-	panic("implement me")
+	return r.repo.FollowUser(ctx, followerID, followeeID)
 }
 
 // CancelFollowUser 取消关注用户
 func (r *relationService) CancelFollowUser(ctx context.Context, followerID, followeeID int64) error {
-	// TODO 实现方法
-	panic("implement me")
+	return r.repo.CancelFollowUser(ctx, followerID, followeeID)
+}
+
+func (r *relationService) GetFolloweeCount(ctx context.Context, UserID int64) (int64, error) {
+	return r.repo.GetFolloweeCount(ctx, UserID)
+}
+
+func (r *relationService) GetFollowerCount(ctx context.Context, UserID int64) (int64, error) {
+	return r.repo.GetFollowerCount(ctx, UserID)
 }
