@@ -24,8 +24,8 @@ type CommentRepository interface {
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
 }
 
-// NewCommentService 创建新的评论服务
-func NewCommentService(dao dao.CommentDAO) CommentRepository {
+// NewCommentRepository 创建新的评论服务
+func NewCommentRepository(dao dao.CommentDAO) CommentRepository {
 	return &commentRepository{
 		dao: dao,
 	}
