@@ -8,6 +8,8 @@ mongodb:
   addr: "mongodb://localhost:27017"
 kafka:
   addr: "localhost:9092"
+es:
+  addr: "localhost:9200"
 sms:
   tencent:
     secretId: ""
