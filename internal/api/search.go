@@ -24,31 +24,31 @@ func (s *SearchHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 func (s *SearchHandler) SearchUser(ctx *gin.Context, req SearchReq) (Result, error) {
-	users, err := s.svc.SearchUsers(ctx, req.userID, req.expression)
+	users, err := s.svc.SearchUsers(ctx, req.Expression)
 	if err != nil {
 		return Result{
-			Code: 500,
-			Msg:  err.Error(),
+			Code: SearchUserERRORCode,
+			Msg:  SearchUserERROR,
 		}, nil
 	}
 	return Result{
 		Code: RequestsOK,
-		Msg:  "Success",
+		Msg:  SearchUserSuccess,
 		Data: users,
 	}, nil
 }
 
 func (s *SearchHandler) SearchPost(ctx *gin.Context, req SearchReq) (Result, error) {
-	posts, err := s.svc.SearchPosts(ctx, req.userID, req.expression)
+	posts, err := s.svc.SearchPosts(ctx, req.Expression)
 	if err != nil {
 		return Result{
-			Code: 500,
-			Msg:  err.Error(),
+			Code: SearchPostERRORCode,
+			Msg:  SearchPostERROR,
 		}, nil
 	}
 	return Result{
 		Code: RequestsOK,
-		Msg:  "Success",
+		Msg:  SearchPostSuccess,
 		Data: posts,
 	}, nil
 }

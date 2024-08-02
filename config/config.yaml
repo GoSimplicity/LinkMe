@@ -9,7 +9,7 @@ mongodb:
 kafka:
   addr: "localhost:9092"
 es:
-  addr: "localhost:9200"
+  addr: "http://192.168.1.11:9200"
 sms:
   tencent:
     secretId: ""

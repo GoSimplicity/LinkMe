@@ -6,14 +6,14 @@ import (
 )
 
 // InitES 初始化elasticsearch
-func InitES() *elasticsearch.Client {
+func InitES() *elasticsearch.TypedClient {
 	addr := viper.GetString("es.addr")
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			addr,
 		},
 	}
-	client, err := elasticsearch.NewClient(cfg)
+	client, err := elasticsearch.NewTypedClient(cfg)
 	if err != nil {
 		panic(err)
 	}
