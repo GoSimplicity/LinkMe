@@ -25,16 +25,18 @@ type checkService struct {
 	ActivityRepo repository.ActivityRepository
 	postRepo     repository.PostRepository
 	historyRepo  repository.HistoryRepository
+	searchRepo   repository.SearchRepository
 	l            *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
+func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
 	return &checkService{
 		repo:         repo,
 		postRepo:     postRepo,
 		historyRepo:  historyRepo,
-		l:            l,
 		ActivityRepo: ActivityRepo,
+		searchRepo:   searchRepo,
+		l:            l,
 	}
 }
 
@@ -95,6 +97,16 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		s.l.Error("Set history failed", zap.Int64("PostID", post.ID), zap.Error(er))
 	}
 	s.l.Info("Post has been published", zap.Int64("PostID", post.ID))
+	// 添加搜索索引
+	err = s.searchRepo.InputPost(ctx, domain.PostSearch{
+		Id:      post.ID,
+		Title:   post.Title,
+		Content: post.Content,
+		Status:  post.Status,
+	})
+	if err != nil {
+		s.l.Error("Add search index failed", zap.Int64("PostID", post.ID), zap.Error(err))
+	}
 	go func() {
 		er := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
 			UserID:      uid,

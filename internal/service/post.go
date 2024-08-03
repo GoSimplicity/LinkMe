@@ -34,10 +34,11 @@ type postService struct {
 	checkSvc    CheckService
 	checkRepo   repository.CheckRepository
 	producer    post.Producer
+	searchRepo  repository.SearchRepository
 	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository, searchRepo repository.SearchRepository) PostService {
 	return &postService{
 		repo:        repo,
 		l:           l,
@@ -46,6 +47,7 @@ func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc Intera
 		producer:    p,
 		historyRepo: historyRepo,
 		checkRepo:   checkRepo,
+		searchRepo:  searchRepo,
 	}
 }
 
@@ -107,6 +109,10 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	// 撤回帖子时执行同步操作,从线上库(mongodb)中移除帖子
 	if _, err := p.repo.Sync(ctx, post); err != nil {
 		return err
+	}
+	err := p.searchRepo.DeletePostIndex(ctx, post.ID)
+	if err != nil {
+		p.l.Error("delete post index failed", zap.Error(err))
 	}
 	return p.repo.UpdateStatus(ctx, post)
 }
@@ -181,6 +187,10 @@ func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error
 		if _, er := p.repo.Sync(ctx, res); er != nil {
 			return er
 		}
+	}
+	err = p.searchRepo.DeletePostIndex(ctx, postId)
+	if err != nil {
+		p.l.Error("delete post index failed", zap.Error(err))
 	}
 	// 最后执行删除操作
 	return p.repo.Delete(ctx, res)
