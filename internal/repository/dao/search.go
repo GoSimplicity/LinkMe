@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"go.uber.org/zap"
@@ -22,6 +23,8 @@ type SearchDAO interface {
 	SearchUsers(ctx context.Context, keywords []string) ([]UserSearch, error)
 	InputUser(ctx context.Context, user UserSearch) error
 	InputPost(ctx context.Context, post PostSearch) error
+	DeleteUserIndex(ctx context.Context, userId int64) error
+	DeletePostIndex(ctx context.Context, postId int64) error
 }
 
 type searchDAO struct {
@@ -54,66 +57,53 @@ func NewSearchDAO(db *gorm.DB, client *elasticsearch.TypedClient, l *zap.Logger)
 }
 
 func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostSearch, error) {
-	// 将关键词数组拼接成一个字符串
 	queryString := strings.Join(keywords, " ")
-	// 构建查询 JSON
 	query := map[string]interface{}{
-		"bool": map[string]interface{}{
-			"must": []interface{}{
-				map[string]interface{}{
-					"term": map[string]interface{}{
-						"status": "Published", // 状态为已发布
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []interface{}{
+					map[string]interface{}{
+						"term": map[string]interface{}{
+							"status.keyword": "Published", // 使用 .keyword 来匹配未分词的字段值
+						},
 					},
-				},
-				map[string]interface{}{
-					"bool": map[string]interface{}{
-						"should": []interface{}{
-							map[string]interface{}{
-								"match": map[string]interface{}{
-									"title": queryString, // 标题匹配查询
-								},
-							},
-							map[string]interface{}{
-								"match": map[string]interface{}{
-									"content": queryString, // 内容匹配查询
-								},
-							},
-							//map[string]interface{}{
-							//	"terms": map[string]interface{}{
-							//		"id":    PostIds, // 标签匹配查询
-							//		"boost": 2.0,
-							//	},
-							//},
+					map[string]interface{}{
+						"multi_match": map[string]interface{}{
+							"query":  queryString,
+							"fields": []string{"title", "content"},
 						},
 					},
 				},
 			},
 		},
 	}
-	// 将查询 JSON 序列化为字节数组
 	queryBytes, err := json.Marshal(query)
 	if err != nil {
 		s.l.Error("Failed to serialize search query", zap.Error(err))
 		return nil, err
 	}
-	// 创建搜索请求
 	req := esapi.SearchRequest{
-		Index: []string{PostIndex}, // 索引名称
+		Index: []string{PostIndex},
 		Body:  strings.NewReader(string(queryBytes)),
 	}
-	// 执行搜索请求
 	resp, err := req.Do(ctx, s.client)
 	if err != nil {
 		s.l.Error("Search request failed", zap.Error(err))
 		return nil, err
 	}
 	defer resp.Body.Close()
-	// 检查响应是否包含错误
 	if resp.IsError() {
-		s.l.Error("Elasticsearch returned an error response", zap.Error(err))
-		return nil, err
+		var errMsg map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errMsg); err == nil {
+			s.l.Error("Elasticsearch returned an error response",
+				zap.String("status", resp.Status()),
+				zap.Any("error", errMsg))
+			return nil, fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
+		}
+		s.l.Error("Elasticsearch returned an error response",
+			zap.String("status", resp.Status()))
+		return nil, fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
 	}
-	// 解析响应结果
 	var searchResult struct {
 		Hits struct {
 			Hits []struct {
@@ -121,23 +111,21 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 			} `json:"hits"`
 		} `json:"hits"`
 	}
-
-	if er := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		s.l.Error("Failed to decode search response", zap.Error(er))
-		return nil, er
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		s.l.Error("Failed to decode search response", zap.Error(err))
+		return nil, err
 	}
-	// 初始化结果切片
+	s.l.Info("Decoded search response", zap.Int("numHits", len(searchResult.Hits.Hits)))
 	res := make([]PostSearch, 0, len(searchResult.Hits.Hits))
-	// 遍历查询结果，将每个命中的文档反序列化为 PostSearch 对象
 	for _, hit := range searchResult.Hits.Hits {
 		var post PostSearch
-		if er := json.Unmarshal(hit.Source, &post); er != nil {
-			s.l.Error("Failed to unmarshal search hit", zap.Error(er))
+		if err := json.Unmarshal(hit.Source, &post); err != nil {
+			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
 			return nil, err
 		}
 		res = append(res, post)
 	}
-	// 返回查询结果
+	s.l.Info("Successfully completed SearchPosts", zap.Int("resultCount", len(res)))
 	return res, nil
 }
 
@@ -146,26 +134,22 @@ func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserS
 	queryString := strings.Join(keywords, " ")
 	// 构建查询 JSON
 	query := map[string]interface{}{
-		"bool": map[string]interface{}{
-			"must": []interface{}{
-				map[string]interface{}{
-					"bool": map[string]interface{}{
-						"should": []interface{}{
-							map[string]interface{}{
-								"match": map[string]interface{}{
-									"email": queryString, // 邮箱匹配查询
-								},
-							},
-							map[string]interface{}{
-								"match": map[string]interface{}{
-									"nickname": queryString, // 昵称匹配查询
-								},
-							},
-							map[string]interface{}{
-								"match": map[string]interface{}{
-									"phone": queryString, // 电话匹配查询
-								},
-							},
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"should": []interface{}{
+					map[string]interface{}{
+						"match": map[string]interface{}{
+							"email": queryString, // 邮箱匹配查询
+						},
+					},
+					map[string]interface{}{
+						"match": map[string]interface{}{
+							"nickname": queryString, // 昵称匹配查询
+						},
+					},
+					map[string]interface{}{
+						"match": map[string]interface{}{
+							"phone": queryString, // 电话匹配查询
 						},
 					},
 				},
@@ -192,8 +176,16 @@ func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserS
 	defer resp.Body.Close()
 	// 检查响应是否包含错误
 	if resp.IsError() {
-		s.l.Error("Elasticsearch returned an error response", zap.Error(err))
-		return nil, err
+		var errMsg map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errMsg); err == nil {
+			s.l.Error("Elasticsearch returned an error response",
+				zap.String("status", resp.Status()),
+				zap.Any("error", errMsg))
+			return nil, fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
+		}
+		s.l.Error("Elasticsearch returned an error response",
+			zap.String("status", resp.Status()))
+		return nil, fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
 	}
 	// 解析响应结果
 	var searchResult struct {
@@ -203,22 +195,21 @@ func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserS
 			} `json:"hits"`
 		} `json:"hits"`
 	}
-	if er := json.NewDecoder(resp.Body).Decode(&searchResult); er != nil {
-		s.l.Error("Failed to decode search response", zap.Error(er))
-		return nil, er
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		s.l.Error("Failed to decode search response", zap.Error(err))
+		return nil, err
 	}
 	// 初始化结果切片
 	res := make([]UserSearch, 0, len(searchResult.Hits.Hits))
 	// 遍历查询结果，将每个命中的文档反序列化为 UserSearch 对象
 	for _, hit := range searchResult.Hits.Hits {
 		var user UserSearch
-		if er := json.Unmarshal(hit.Source, &user); er != nil {
-			s.l.Error("Failed to unmarshal search hit", zap.Error(er))
-			return nil, er
+		if err := json.Unmarshal(hit.Source, &user); err != nil {
+			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
+			return nil, err
 		}
 		res = append(res, user)
 	}
-	// 返回查询结果
 	return res, nil
 }
 
@@ -236,6 +227,42 @@ func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
 	if err != nil {
 		s.l.Error("create post index failed", zap.Error(err))
 		return err
+	}
+	return nil
+}
+
+func (s *searchDAO) DeleteUserIndex(ctx context.Context, userId int64) error {
+	req := esapi.DeleteRequest{
+		Index:      UserIndex,
+		DocumentID: strconv.FormatInt(userId, 10),
+	}
+	res, err := req.Do(ctx, s.client)
+	if err != nil {
+		s.l.Error("delete user index failed", zap.Error(err))
+		return err
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		s.l.Error("delete user index response error", zap.String("status", res.Status()))
+		return fmt.Errorf("error deleting user index: %s", res.Status())
+	}
+	return nil
+}
+
+func (s *searchDAO) DeletePostIndex(ctx context.Context, postId int64) error {
+	req := esapi.DeleteRequest{
+		Index:      PostIndex,
+		DocumentID: strconv.FormatInt(postId, 10),
+	}
+	res, err := req.Do(ctx, s.client)
+	if err != nil {
+		s.l.Error("delete post index failed", zap.Error(err))
+		return err
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		s.l.Error("delete post index response error", zap.String("status", res.Status()))
+		return fmt.Errorf("error deleting post index: %s", res.Status())
 	}
 	return nil
 }
