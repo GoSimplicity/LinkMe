@@ -26,14 +26,16 @@ type UserService interface {
 }
 
 type userService struct {
-	repo repository.UserRepository
-	l    *zap.Logger
+	repo       repository.UserRepository
+	l          *zap.Logger
+	searchRepo repository.SearchRepository
 }
 
-func NewUserService(repo repository.UserRepository, l *zap.Logger) UserService {
+func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo repository.SearchRepository) UserService {
 	return &userService{
-		repo: repo,
-		l:    l,
+		repo:       repo,
+		searchRepo: searchRepo,
+		l:          l,
 	}
 }
 
@@ -44,6 +46,15 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 		return err
 	}
 	u.Password = string(hash)
+	err = us.searchRepo.InputUser(ctx, domain.UserSearch{
+		Email:    u.Email,
+		Id:       u.ID,
+		Nickname: u.Profile.NickName,
+		Phone:    *u.Phone,
+	})
+	if err != nil {
+		us.l.Error("failed to input user to search repo", zap.Error(err))
+	}
 	return us.repo.CreateUser(ctx, u)
 }
 
@@ -100,9 +111,23 @@ func (us *userService) DeleteUser(ctx context.Context, email string, password st
 	if err != nil {
 		return err
 	}
+	err = us.searchRepo.DeleteUserIndex(ctx, uid)
+	if err != nil {
+		us.l.Error("failed to input user to search repo", zap.Error(err))
+	}
 	return nil
 }
 func (us *userService) UpdateProfile(ctx context.Context, profile domain.Profile) (err error) {
+	user, _ := us.repo.FindByID(ctx, profile.UserID)
+	if user.Profile.NickName != profile.NickName {
+		err = us.searchRepo.InputUser(ctx, domain.UserSearch{
+			Id:       profile.UserID,
+			Nickname: profile.NickName,
+		})
+		if err != nil {
+			us.l.Error("failed to input user to search repo", zap.Error(err))
+		}
+	}
 	return us.repo.UpdateProfile(ctx, profile)
 }
 
