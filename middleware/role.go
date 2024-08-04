@@ -7,18 +7,15 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type CasbinMiddleware struct {
 	enforcer *casbin.Enforcer
-	logger   *zap.Logger
 }
 
-func NewCasbinMiddleware(enforcer *casbin.Enforcer, logger *zap.Logger) *CasbinMiddleware {
+func NewCasbinMiddleware(enforcer *casbin.Enforcer) *CasbinMiddleware {
 	return &CasbinMiddleware{
 		enforcer: enforcer,
-		logger:   logger,
 	}
 }
 
@@ -51,13 +48,11 @@ func (cm *CasbinMiddleware) CheckCasbin() gin.HandlerFunc {
 		// 使用 Casbin 检查权限
 		ok, err := cm.enforcer.Enforce(userIDStr, obj, act)
 		if err != nil {
-			cm.logger.Error("Error occurred when enforcing policy", zap.Error(err), zap.String("userID", userIDStr), zap.String("path", obj), zap.String("method", act))
 			c.JSON(http.StatusInternalServerError, gin.H{"message": "Error occurred when enforcing policy"})
 			c.Abort()
 			return
 		}
 		if !ok {
-			cm.logger.Warn("Access denied", zap.String("userID", userIDStr), zap.String("path", obj), zap.String("method", act))
 			c.JSON(http.StatusForbidden, gin.H{"message": "You don't have permission to access this resource"})
 			c.Abort()
 			return

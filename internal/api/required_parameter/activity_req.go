@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type GetRecentActivityReq struct {
 }

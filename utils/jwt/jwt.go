@@ -13,14 +13,14 @@ import (
 )
 
 var (
-	Key1 = []byte("ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l")
-	Key2 = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2")
-	k    = "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
+	Key1   = []byte("ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l")
+	Key2   = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2")
+	IssUer = "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
 )
 
 type Handler interface {
-	SetLoginToken(ctx *gin.Context, uid int64) error
-	SetJWTToken(ctx *gin.Context, uid int64, ssid string) error
+	SetLoginToken(ctx *gin.Context, uid int64) (string, error)
+	SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 	ExtractToken(ctx *gin.Context) string
 	CheckSession(ctx *gin.Context, ssid string) error
 	ClearToken(ctx *gin.Context) error
@@ -56,16 +56,16 @@ func NewJWTHandler(c redis.Cmdable) Handler {
 }
 
 // SetLoginToken 设置长短Token
-func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) error {
+func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, error) {
 	ssid := uuid.New().String()
 	if err := h.setRefreshToken(ctx, uid, ssid); err != nil {
-		return err
+		return "", err
 	}
 	return h.SetJWTToken(ctx, uid, ssid)
 }
 
 // SetJWTToken 设置短Token
-func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
+func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error) {
 	uc := UserClaims{
 		Uid:         uid,
 		Ssid:        ssid,
@@ -73,17 +73,16 @@ func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-			Issuer:    k,
+			Issuer:    IssUer,
 		},
 	}
 	token := jwt.NewWithClaims(h.signingMethod, uc)
 	// 进行签名
 	signedString, err := token.SignedString(Key1)
 	if err != nil {
-		return err
+		return "", err
 	}
-	ctx.Header("X-JWT-Token", signedString)
-	return nil
+	return signedString, nil
 }
 
 // setRefreshToken 设置长Token
@@ -135,10 +134,8 @@ func (h *handler) CheckSession(ctx *gin.Context, ssid string) error {
 // ClearToken 清空token
 func (h *handler) ClearToken(ctx *gin.Context) error {
 	ctx.Header("X-Refresh-Token", "")
-	ctx.Header("X-JWT-Token", "")
 	uc := ctx.MustGet("user").(UserClaims)
 	// 获取 refresh token
-	//refreshTokenString := h.ExtractToken(ctx)
 	refreshTokenString := ctx.GetHeader("X-Refresh-Token")
 	if refreshTokenString == "" {
 		return errors.New("missing refresh token")

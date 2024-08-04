@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -9,29 +10,26 @@ import (
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type PostHandler struct {
 	svc    service.PostService
 	intSvc service.InteractiveService
 	ce     *casbin.Enforcer
-	l      *zap.Logger
 	biz    string
 }
 
-func NewPostHandler(svc service.PostService, intSvc service.InteractiveService, ce *casbin.Enforcer, l *zap.Logger) *PostHandler {
+func NewPostHandler(svc service.PostService, intSvc service.InteractiveService, ce *casbin.Enforcer) *PostHandler {
 	return &PostHandler{
 		svc:    svc,
 		intSvc: intSvc,
 		ce:     ce,
-		l:      l,
 		biz:    "post",
 	}
 }
 
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
-	casbinMiddleware := middleware.NewCasbinMiddleware(ph.ce, ph.l)
+	casbinMiddleware := middleware.NewCasbinMiddleware(ph.ce)
 	postGroup := server.Group("/api/posts")
 	postGroup.POST("/edit", WrapBody(ph.Edit))                                                      // 编辑帖子
 	postGroup.POST("/update", WrapBody(ph.Update))                                                  // 更新帖子
@@ -52,7 +50,7 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	})
 }
 
-func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
+func (ph *PostHandler) Edit(ctx *gin.Context, req required_parameter.EditReq) (Result, error) {
 	// 获取当前登陆的用户信息
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	id, err := ph.svc.Create(ctx, domain.Post{
@@ -77,7 +75,7 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req EditReq) (Result, error) {
 	}, nil
 }
 
-func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
+func (ph *PostHandler) Update(ctx *gin.Context, req required_parameter.UpdateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Update(ctx, domain.Post{
 		ID:      req.PostId,
@@ -99,7 +97,7 @@ func (ph *PostHandler) Update(ctx *gin.Context, req UpdateReq) (Result, error) {
 	}, nil
 }
 
-func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error) {
+func (ph *PostHandler) Publish(ctx *gin.Context, req required_parameter.PublishReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Publish(ctx, domain.Post{
 		ID: req.PostId,
@@ -119,7 +117,7 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req PublishReq) (Result, error)
 	}, nil
 }
 
-func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, error) {
+func (ph *PostHandler) Withdraw(ctx *gin.Context, req required_parameter.WithDrawReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Withdraw(ctx, domain.Post{
 		ID: req.PostId,
@@ -139,7 +137,7 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context, req WithDrawReq) (Result, erro
 	}, nil
 }
 
-func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
+func (ph *PostHandler) List(ctx *gin.Context, req required_parameter.ListReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	du, err := ph.svc.ListPosts(ctx, domain.Pagination{
 		Page: req.Page,
@@ -159,7 +157,7 @@ func (ph *PostHandler) List(ctx *gin.Context, req ListReq) (Result, error) {
 	}, nil
 }
 
-func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error) {
+func (ph *PostHandler) ListPub(ctx *gin.Context, req required_parameter.ListPubReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	du, err := ph.svc.ListPublishedPosts(ctx, domain.Pagination{
 		Page: req.Page,
@@ -179,7 +177,7 @@ func (ph *PostHandler) ListPub(ctx *gin.Context, req ListPubReq) (Result, error)
 	}, nil
 }
 
-func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
+func (ph *PostHandler) Detail(ctx *gin.Context, req required_parameter.DetailReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	post, err := ph.svc.GetDraftsByAuthor(ctx, req.PostId, uc.Uid)
 	if err != nil {
@@ -201,7 +199,7 @@ func (ph *PostHandler) Detail(ctx *gin.Context, req DetailReq) (Result, error) {
 	}, nil
 }
 
-func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error) {
+func (ph *PostHandler) DetailPub(ctx *gin.Context, req required_parameter.DetailReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	post, err := ph.svc.GetPublishedPostById(ctx, req.PostId, uc.Uid)
 	if err != nil {
@@ -217,7 +215,7 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context, req DetailReq) (Result, error
 	}, nil
 }
 
-func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, error) {
+func (ph *PostHandler) DeletePost(ctx *gin.Context, req required_parameter.DeleteReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Delete(ctx, req.PostId, uc.Uid); err != nil {
 		return Result{
@@ -232,7 +230,7 @@ func (ph *PostHandler) DeletePost(ctx *gin.Context, req DeleteReq) (Result, erro
 	}, nil
 }
 
-func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
+func (ph *PostHandler) Like(ctx *gin.Context, req required_parameter.LikeReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Liked {
 		if err := ph.intSvc.Like(ctx, ph.biz, req.PostId, uc.Uid); err != nil {
@@ -256,7 +254,7 @@ func (ph *PostHandler) Like(ctx *gin.Context, req LikeReq) (Result, error) {
 	}, nil
 }
 
-func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error) {
+func (ph *PostHandler) Collect(ctx *gin.Context, req required_parameter.CollectReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.Collectd {
 		if err := ph.intSvc.Collect(ctx, ph.biz, req.PostId, req.CollectId, uc.Uid); err != nil {
@@ -280,7 +278,7 @@ func (ph *PostHandler) Collect(ctx *gin.Context, req CollectReq) (Result, error)
 	}, nil
 }
 
-func (ph *PostHandler) ListPost(ctx *gin.Context, req ListPostReq) (Result, error) {
+func (ph *PostHandler) ListPost(ctx *gin.Context, req required_parameter.ListPostReq) (Result, error) {
 	du, err := ph.svc.ListAllPost(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -298,7 +296,7 @@ func (ph *PostHandler) ListPost(ctx *gin.Context, req ListPostReq) (Result, erro
 	}, nil
 }
 
-func (ph *PostHandler) DetailPost(ctx *gin.Context, req DetailPostReq) (Result, error) {
+func (ph *PostHandler) DetailPost(ctx *gin.Context, req required_parameter.DetailPostReq) (Result, error) {
 	post, err := ph.svc.GetPost(ctx, req.PostId)
 	if err != nil {
 		return Result{
@@ -313,7 +311,7 @@ func (ph *PostHandler) DetailPost(ctx *gin.Context, req DetailPostReq) (Result, 
 	}, nil
 }
 
-func (ph *PostHandler) GetPostCount(ctx *gin.Context, _ GetPostCountReq) (Result, error) {
+func (ph *PostHandler) GetPostCount(ctx *gin.Context, _ required_parameter.GetPostCountReq) (Result, error) {
 	count, err := ph.svc.GetPostCount(ctx)
 	if err != nil {
 		return Result{
