@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type SignUpReq struct {
 	Email           string `json:"email"`
@@ -47,4 +47,13 @@ type ListUserReq struct {
 }
 
 type GetUserCountReq struct {
+}
+
+type LogoutReq struct {
+}
+
+type RefreshTokenReq struct {
+}
+
+type GetProfileReq struct {
 }

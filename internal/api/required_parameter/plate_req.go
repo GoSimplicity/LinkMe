@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type CreatePlateReq struct {
 	Name        string `json:"name"`

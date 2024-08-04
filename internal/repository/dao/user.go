@@ -15,21 +15,35 @@ import (
 )
 
 var (
+	// ErrCodeDuplicateEmailNumber 表示邮箱重复的错误码
 	ErrCodeDuplicateEmailNumber uint16 = 1062
-	ErrDuplicateEmail                  = errors.New("duplicate email")
-	ErrUserNotFound                    = errors.New("user not found")
+	// ErrDuplicateEmail 表示邮箱重复错误
+	ErrDuplicateEmail = errors.New("duplicate email")
+	// ErrUserNotFound 表示用户未找到错误
+	ErrUserNotFound = errors.New("user not found")
 )
 
+// UserDAO 定义用户数据访问对象接口
 type UserDAO interface {
+	// CreateUser 创建用户
 	CreateUser(ctx context.Context, u User) error
+	// FindByID 根据用户ID查找用户
 	FindByID(ctx context.Context, id int64) (User, error)
+	// FindByEmail 根据邮箱查找用户
 	FindByEmail(ctx context.Context, email string) (User, error)
+	// FindByPhone 根据手机号查找用户
 	FindByPhone(ctx context.Context, phone string) (User, error)
+	// UpdatePasswordByEmail 根据邮箱更新密码
 	UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error
+	// DeleteUser 删除用户
 	DeleteUser(ctx context.Context, email string, uid int64) error
+	// UpdateProfile 更新用户资料
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
+	// GetProfileByUserID 根据用户ID获取用户资料
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
+	// ListUser 获取用户列表
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
+	// GetUserCount 获取用户总数
 	GetUserCount(ctx context.Context) (int64, error)
 }
 
@@ -157,29 +171,20 @@ func (ud *userDAO) FindByPhone(ctx context.Context, phone string) (User, error) 
 	return user, nil
 }
 
+// UpdatePasswordByEmail 根据邮箱更新密码
 func (ud *userDAO) UpdatePasswordByEmail(ctx context.Context, email string, newPassword string) error {
-	tx := ud.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		ud.l.Error("failed to begin transaction", zap.Error(tx.Error))
-		return tx.Error
-	}
-	// 更新密码
-	if err := tx.Model(&User{}).Where("email = ? AND deleted = ?", email, false).Update("password_hash", newPassword).Error; err != nil {
-		ud.l.Error("update password failed", zap.String("email", email), zap.Error(err))
-		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
-			ud.l.Error("failed to rollback transaction", zap.Error(rollbackErr))
+	// 使用事务更新密码
+	return ud.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 更新密码
+		if err := tx.Model(&User{}).Where("email = ? AND deleted = ?", email, false).Update("password_hash", newPassword).Error; err != nil {
+			ud.l.Error("update password failed", zap.String("email", email), zap.Error(err))
+			return err
 		}
-		return err
-	}
-	// 提交事务
-	if err := tx.Commit().Error; err != nil {
-		ud.l.Error("failed to commit transaction", zap.Error(err))
-		return err
-	}
-	ud.l.Info("password updated successfully", zap.String("email", email))
-	return nil
+		return nil
+	})
 }
 
+// DeleteUser 删除用户
 func (ud *userDAO) DeleteUser(ctx context.Context, email string, uid int64) error {
 	tx := ud.db.WithContext(ctx).Begin()
 	defer func() {
@@ -188,16 +193,17 @@ func (ud *userDAO) DeleteUser(ctx context.Context, email string, uid int64) erro
 			panic(r)
 		}
 	}()
+	// 将用户标记为已删除
 	if err := tx.Model(&User{}).Where("email = ? AND deleted = ? AND id = ?", email, false, uid).Update("deleted", true).Error; err != nil {
 		tx.Rollback()
 		ud.l.Error("failed to mark user as deleted", zap.String("email", email), zap.Error(err))
 		return err
 	}
+	// 提交事务
 	if err := tx.Commit().Error; err != nil {
 		ud.l.Error("failed to commit transaction", zap.String("email", email), zap.Error(err))
 		return err
 	}
-	ud.l.Info("user marked as deleted", zap.String("email", email))
 	return nil
 }
 
@@ -219,6 +225,7 @@ func (ud *userDAO) UpdateProfile(ctx context.Context, profile domain.Profile) er
 	return nil
 }
 
+// GetProfileByUserID 根据用户ID获取用户资料
 func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error) {
 	var profile domain.Profile
 	if err := ud.db.WithContext(ctx).Where("user_id = ?", userId).First(&profile).Error; err != nil {
@@ -228,6 +235,7 @@ func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain
 	return profile, nil
 }
 
+// ListUser 获取用户列表
 func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
 	var usersWithProfiles []domain.UserWithProfileAndRule
 	intSize := int(*pagination.Size)
@@ -259,6 +267,16 @@ func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) (
 	return usersWithProfiles, nil
 }
 
+// GetUserCount 获取用户总数
+func (ud *userDAO) GetUserCount(ctx context.Context) (int64, error) {
+	var count int64
+	err := ud.db.WithContext(ctx).Model(&User{}).Count(&count).Error
+	if err != nil {
+		return -1, err
+	}
+	return count, nil
+}
+
 // getUserRoleEmails 获取给定用户ID的角色电子邮件
 func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]string, error) {
 	userIDStr := strconv.FormatInt(userID, 10)
@@ -283,7 +301,6 @@ func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]strin
 		Select("email").
 		Where("id IN (?)", roleIDs).
 		Scan(&roleUsers).Error
-
 	if err != nil {
 		return nil, err
 	}
@@ -291,13 +308,4 @@ func (ud *userDAO) getUserRoleEmails(ctx context.Context, userID int64) ([]strin
 		roleEmails = append(roleEmails, roleUser.Email)
 	}
 	return roleEmails, nil
-}
-
-func (ud *userDAO) GetUserCount(ctx context.Context) (int64, error) {
-	var count int64
-	err := ud.db.WithContext(ctx).Model(&User{}).Count(&count).Error
-	if err != nil {
-		return -1, err
-	}
-	return count, nil
 }

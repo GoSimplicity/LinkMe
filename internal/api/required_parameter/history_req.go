@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type ListHistoryReq struct {
 	Page int    `json:"page,omitempty"` // 当前页码

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -9,27 +10,24 @@ import (
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type CheckHandler struct {
 	svc service.CheckService
-	l   *zap.Logger
 	ce  *casbin.Enforcer
 	biz string
 }
 
-func NewCheckHandler(svc service.CheckService, l *zap.Logger, ce *casbin.Enforcer) *CheckHandler {
+func NewCheckHandler(svc service.CheckService, ce *casbin.Enforcer) *CheckHandler {
 	return &CheckHandler{
 		svc: svc,
-		l:   l,
 		ce:  ce,
 		biz: "check",
 	}
 }
 
 func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
-	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce, ch.l)
+	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce)
 	checkGroup := server.Group("/api/checks")
 	checkGroup.Use(casbinMiddleware.CheckCasbin())
 	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck)) // 审核通过
@@ -39,7 +37,7 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	checkGroup.GET("/stats", WrapQuery(ch.GetCheckCount))  // 管理员使用
 }
 
-func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Result, error) {
+func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req required_parameter.ApproveCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -54,7 +52,7 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req ApproveCheckReq) (Res
 	}, nil
 }
 
-func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req RejectCheckReq) (Result, error) {
+func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req required_parameter.RejectCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -69,7 +67,7 @@ func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req RejectCheckReq) (Resul
 	}, nil
 }
 
-func (ch *CheckHandler) ListChecks(ctx *gin.Context, req ListCheckReq) (Result, error) {
+func (ch *CheckHandler) ListChecks(ctx *gin.Context, req required_parameter.ListCheckReq) (Result, error) {
 	checks, err := ch.svc.ListChecks(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -87,7 +85,7 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context, req ListCheckReq) (Result, 
 	}, nil
 }
 
-func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req CheckDetailReq) (Result, error) {
+func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req required_parameter.CheckDetailReq) (Result, error) {
 	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
 	if err != nil {
 		return Result{
@@ -102,7 +100,7 @@ func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req CheckDetailReq) (Resul
 	}, nil
 }
 
-func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, _ GetCheckCount) (Result, error) {
+func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, _ required_parameter.GetCheckCount) (Result, error) {
 	count, err := ch.svc.GetCheckCount(ctx)
 	if err != nil {
 		return Result{
