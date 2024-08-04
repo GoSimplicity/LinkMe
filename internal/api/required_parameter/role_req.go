@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 // ListPermissionsReq 是获取权限列表的请求
 type ListPermissionsReq struct {

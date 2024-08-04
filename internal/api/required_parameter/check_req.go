@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 // SubmitCheckReq 定义了提交审核请求的结构体
 type SubmitCheckReq struct {
