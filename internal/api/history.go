@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -27,7 +28,7 @@ func (h *HistoryHandler) RegisterRoutes(server *gin.Engine) {
 	historyGroup.DELETE("/delete/all", WrapBody(h.DeleteAllHistory))
 }
 
-func (h *HistoryHandler) GetHistory(ctx *gin.Context, req ListHistoryReq) (Result, error) {
+func (h *HistoryHandler) GetHistory(ctx *gin.Context, req required_parameter.ListHistoryReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	history, err := h.svc.GetHistory(ctx, domain.Pagination{
 		Page: req.Page,
@@ -47,7 +48,7 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context, req ListHistoryReq) (Resul
 	}, err
 }
 
-func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req DeleteHistoryReq) (Result, error) {
+func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req required_parameter.DeleteHistoryReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.DeleteOneHistory(ctx, req.PostId, uc.Uid); err != nil {
 		return Result{
@@ -61,7 +62,7 @@ func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req DeleteHistoryReq
 	}, nil
 }
 
-func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req DeleteHistoryAllReq) (Result, error) {
+func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req required_parameter.DeleteHistoryAllReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if req.IsDeleteAll == true {
 		if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {

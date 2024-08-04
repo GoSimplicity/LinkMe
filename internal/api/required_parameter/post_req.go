@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type EditReq struct {
 	PostId  int64  `json:"postId,omitempty"`

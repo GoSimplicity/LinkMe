@@ -1,4 +1,4 @@
-package api
+package required_parameter
 
 type ListRelationsReq struct {
 	FollowerID int64  `json:"followerId"`

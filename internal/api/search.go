@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
@@ -23,7 +24,7 @@ func (s *SearchHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup.POST("/search_post", WrapBody(s.SearchPost))
 }
 
-func (s *SearchHandler) SearchUser(ctx *gin.Context, req SearchReq) (Result, error) {
+func (s *SearchHandler) SearchUser(ctx *gin.Context, req required_parameter.SearchReq) (Result, error) {
 	users, err := s.svc.SearchUsers(ctx, req.Expression)
 	if err != nil {
 		return Result{
@@ -38,7 +39,7 @@ func (s *SearchHandler) SearchUser(ctx *gin.Context, req SearchReq) (Result, err
 	}, nil
 }
 
-func (s *SearchHandler) SearchPost(ctx *gin.Context, req SearchReq) (Result, error) {
+func (s *SearchHandler) SearchPost(ctx *gin.Context, req required_parameter.SearchReq) (Result, error) {
 	posts, err := s.svc.SearchPosts(ctx, req.Expression)
 	if err != nil {
 		return Result{
