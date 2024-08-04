@@ -4,7 +4,7 @@ FROM golang:1.22.3 AS build-stage
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /app
-COPY . .
+COPY .. .
 RUN go mod tidy
 # 静态编译可执行文件
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .

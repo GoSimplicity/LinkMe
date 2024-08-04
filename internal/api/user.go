@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
@@ -15,7 +16,6 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"go.uber.org/zap"
 )
 
 const (
@@ -28,49 +28,59 @@ type UserHandler struct {
 	PassWord      *regexp.Regexp
 	svc           service.UserService
 	ijwt          ijwt.Handler
-	l             *zap.Logger
 	ce            *casbin.Enforcer
 	smsProducer   sms.Producer
 	emailProducer email.Producer
 }
 
-func NewUserHandler(svc service.UserService, j ijwt.Handler, l *zap.Logger, smsProducer sms.Producer, emailProducer email.Producer, ce *casbin.Enforcer) *UserHandler {
+func NewUserHandler(svc service.UserService, j ijwt.Handler, smsProducer sms.Producer, emailProducer email.Producer, ce *casbin.Enforcer) *UserHandler {
 	return &UserHandler{
 		Email:         regexp.MustCompile(emailRegexPattern, regexp.None),
 		PassWord:      regexp.MustCompile(passwordRegexPattern, regexp.None),
 		svc:           svc,
 		ijwt:          j,
-		l:             l,
 		ce:            ce,
 		smsProducer:   smsProducer,
 		emailProducer: emailProducer,
 	}
 }
 
+// RegisterRoutes 注册用户相关路由
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
-	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce, uh.l)
+	// 初始化Casbin中间件
+	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce)
+	// 创建用户组路由
 	userGroup := server.Group("/api/users")
+	// 用户注册
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
+	// 用户登录
 	userGroup.POST("/login", WrapBody(uh.Login))
+	// 短信登录
 	userGroup.POST("/login_sms", WrapBody(uh.LoginSMS))
+	// 发送短信验证码
 	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))
+	// 发送邮件验证码
 	userGroup.POST("/send_email", WrapBody(uh.SendEmail))
-	userGroup.POST("/logout", uh.Logout)
-	userGroup.POST("/refresh_token", uh.RefreshToken)
+	// 用户登出
+	userGroup.POST("/logout", WrapBody(uh.Logout))
+	// 刷新令牌
+	userGroup.POST("/refresh_token", WrapBody(uh.RefreshToken))
+	// 修改密码
 	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))
+	// 注销用户
 	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))
-	userGroup.GET("/profile", uh.GetProfile)
+	// 获取用户资料
+	userGroup.GET("/profile", WrapQuery(uh.GetProfile))
+	// 更新用户资料
 	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))
-	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser))      // 管理员使用
-	userGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetUserCount)) // 管理员使用
-	// 测试接口
-	userGroup.GET("/hello", func(ctx *gin.Context) {
-		ctx.JSON(200, "hello world!")
-	})
+	// 获取用户列表（管理员使用）
+	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser))
+	// 获取用户统计（管理员使用）
+	userGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetUserCount))
 }
 
 // SignUp 用户注册
-func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
+func (uh *UserHandler) SignUp(ctx *gin.Context, req required_parameter.SignUpReq) (Result, error) {
 	// 验证邮箱格式
 	emailValid, err := uh.Email.MatchString(req.Email)
 	if err != nil {
@@ -132,39 +142,51 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req SignUpReq) (Result, error) {
 }
 
 // Login 登陆
-func (uh *UserHandler) Login(ctx *gin.Context, req LoginReq) (Result, error) {
+func (uh *UserHandler) Login(ctx *gin.Context, req required_parameter.LoginReq) (Result, error) {
 	du, err := uh.svc.Login(ctx, req.Email, req.Password)
-	if err == nil {
-		err = uh.ijwt.SetLoginToken(ctx, du.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserOrPassword) {
+			return Result{
+				Code: UserInvalidOrPasswordCode,
+				Msg:  UserLoginFailure,
+			}, nil
+		}
 		return Result{
-			Code: RequestsOK,
-			Msg:  UserLoginSuccess,
-		}, nil
-	} else if errors.Is(err, service.ErrInvalidUserOrPassword) {
-		return Result{
-			Code: UserInvalidOrPasswordCode,
+			Code: UserServerErrorCode,
 			Msg:  UserLoginFailure,
-		}, nil
+		}, err
+	}
+	token, er := uh.ijwt.SetLoginToken(ctx, du.ID)
+	if er != nil {
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserLoginFailure,
+		}, er
 	}
 	return Result{
-		Code: UserServerErrorCode,
-	}, err
+		Code: RequestsOK,
+		Msg:  UserLoginSuccess,
+		Data: token,
+	}, nil
 }
 
 // Logout 登出
-func (uh *UserHandler) Logout(ctx *gin.Context) {
+func (uh *UserHandler) Logout(ctx *gin.Context, _ required_parameter.LogoutReq) (Result, error) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		ctx.JSON(ServerERROR, gin.H{"error": UserLogoutFailure})
-		return
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserLogoutFailure,
+		}, err
 	}
-	ctx.JSON(RequestsOK, gin.H{"message": UserLogoutSuccess})
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserLogoutSuccess,
+	}, nil
 }
 
 // RefreshToken 刷新令牌
-func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
-	// 该方法需配合前端使用，前端在Authorization中携带长token
-	// 长token只用于刷新短token，短token用于身份验证
+func (uh *UserHandler) RefreshToken(ctx *gin.Context, _ required_parameter.RefreshTokenReq) (Result, error) {
 	var rc ijwt.RefreshClaims
 	// 从前端的Authorization中取出token
 	tokenString := uh.ijwt.ExtractToken(ctx)
@@ -172,40 +194,45 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
 	token, err := jwt.ParseWithClaims(tokenString, &rc, func(token *jwt.Token) (interface{}, error) {
 		return ijwt.Key2, nil
 	})
-	if err != nil {
-		ctx.AbortWithStatus(ServerERROR)
-		return
-	}
-	if token == nil || !token.Valid {
-		ctx.AbortWithStatus(ServerERROR)
-		return
+	if err != nil || token == nil || !token.Valid {
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserRefreshTokenFailure,
+		}, err
 	}
 	// 检查会话状态是否异常
 	if err = uh.ijwt.CheckSession(ctx, rc.Ssid); err != nil {
-		ctx.AbortWithStatus(ServerERROR)
-		return
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserRefreshTokenFailure,
+		}, err
 	}
 	// 刷新短token
-	if err = uh.ijwt.SetJWTToken(ctx, rc.Uid, rc.Ssid); err != nil {
-		ctx.AbortWithStatus(ServerERROR)
-		return
+	tokenStr, er := uh.ijwt.SetJWTToken(ctx, rc.Uid, rc.Ssid)
+	if er != nil {
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserRefreshTokenFailure,
+		}, er
 	}
-	ctx.JSON(RequestsOK, gin.H{
-		"message": UserRefreshTokenSuccess,
-	})
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserRefreshTokenSuccess,
+		Data: tokenStr,
+	}, nil
 }
 
-func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
-	valid := utils.IsValidNumber(req.Number)
-	if !valid {
-		uh.l.Error("电话号码无效", zap.String("number: ", req.Number))
+// SendSMS 发送短信验证码
+func (uh *UserHandler) SendSMS(ctx *gin.Context, req required_parameter.SMSReq) (Result, error) {
+	// 验证手机号码格式
+	if !utils.IsValidNumber(req.Number) {
 		return Result{
 			Code: SMSNumberErr,
 			Msg:  InvalidNumber,
 		}, nil
 	}
+	// 发送短信验证码
 	if err := uh.smsProducer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
-		uh.l.Error("kafka produce sms failed", zap.Error(err))
 		return Result{}, err
 	}
 	return Result{
@@ -214,7 +241,8 @@ func (uh *UserHandler) SendSMS(ctx *gin.Context, req SMSReq) (Result, error) {
 	}, nil
 }
 
-func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, error) {
+// ChangePassword 修改密码
+func (uh *UserHandler) ChangePassword(ctx *gin.Context, req required_parameter.ChangeReq) (Result, error) {
 	// 检查新密码和确认密码是否匹配
 	if req.NewPassword != req.ConfirmPassword {
 		return Result{
@@ -222,15 +250,14 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 			Msg:  UserPasswordMismatchError,
 		}, nil
 	}
-	err := uh.svc.ChangePassword(ctx.Request.Context(), req.Email, req.Password, req.NewPassword, req.ConfirmPassword)
-	if err != nil {
+	// 修改密码
+	if err := uh.svc.ChangePassword(ctx.Request.Context(), req.Email, req.Password, req.NewPassword, req.ConfirmPassword); err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
 				Code: UserInvalidOrPasswordCode,
 				Msg:  UserLoginFailure,
 			}, nil
 		}
-		uh.l.Error("change password failed", zap.Error(err))
 		return Result{
 			Code: UserServerErrorCode,
 			Msg:  UserPasswordChangeFailure,
@@ -241,18 +268,20 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req ChangeReq) (Result, 
 		Msg:  UserPasswordChangeSuccess,
 	}, nil
 }
-func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error) {
-	emailValid, err := uh.Email.MatchString(req.Email)
-	if err != nil {
+
+// SendEmail 发送邮件
+func (uh *UserHandler) SendEmail(ctx *gin.Context, req required_parameter.EmailReq) (Result, error) {
+	// 验证邮箱格式
+	if emailValid, err := uh.Email.MatchString(req.Email); err != nil {
 		return Result{}, err
-	}
-	if !emailValid {
+	} else if !emailValid {
 		return Result{
 			Code: UserInvalidInputCode,
 			Msg:  UserEmailFormatError,
 		}, nil
 	}
-	if err = uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Email}); err != nil {
+	// 发送邮件
+	if err := uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Email}); err != nil {
 		return Result{}, err
 	}
 	return Result{
@@ -261,23 +290,24 @@ func (uh *UserHandler) SendEmail(ctx *gin.Context, req EmailReq) (Result, error)
 	}, nil
 }
 
-func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, error) {
+// WriteOff 注销用户
+func (uh *UserHandler) WriteOff(ctx *gin.Context, req required_parameter.DeleteUserReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid)
-	if err != nil {
+	// 删除用户
+	if err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid); err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
 				Code: UserInvalidOrPasswordCode,
 				Msg:  UserLoginFailure,
 			}, nil
 		}
-		uh.l.Error("write off failed", zap.Error(err))
 		return Result{
 			Code: UserServerErrorCode,
 			Msg:  UserDeletedFailure,
 		}, err
 	}
-	if err = uh.ijwt.ClearToken(ctx); err != nil {
+	// 清除JWT令牌
+	if err := uh.ijwt.ClearToken(ctx); err != nil {
 		return Result{}, err
 	}
 	return Result{
@@ -286,22 +316,28 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req DeleteUserReq) (Result, er
 	}, nil
 }
 
-func (uh *UserHandler) GetProfile(ctx *gin.Context) {
+// GetProfile 获取用户资料
+func (uh *UserHandler) GetProfile(ctx *gin.Context, _ required_parameter.GetProfileReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	// 获取用户资料
 	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
 	if err != nil {
-		ctx.JSON(RequestsOK, gin.H{
-			"data": profile,
-		})
-		return
+		return Result{
+			Code: UserServerErrorCode,
+			Msg:  UserProfileGetFailure,
+		}, err
 	}
-	ctx.JSON(RequestsOK, gin.H{
-		"data": profile,
-	})
+	return Result{
+		Code: RequestsOK,
+		Msg:  UserProfileGetSuccess,
+		Data: profile,
+	}, nil
 }
 
-func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq) (Result, error) {
+// UpdateProfileByID 更新用户资料
+func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req required_parameter.UpdateProfileReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	// 更新用户资料
 	err := uh.svc.UpdateProfile(ctx, domain.Profile{
 		NickName: req.NickName,
 		Avatar:   req.Avatar,
@@ -315,17 +351,22 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req UpdateProfileReq)
 			Msg:  UserProfileUpdateFailure,
 		}, err
 	}
+
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserProfileUpdateSuccess,
 	}, nil
 }
 
-func (uh *UserHandler) LoginSMS(ctx *gin.Context, req LoginSMSReq) (Result, error) {
+// LoginSMS 短信登录
+func (uh *UserHandler) LoginSMS(ctx *gin.Context, req required_parameter.LoginSMSReq) (Result, error) {
+	// 此处可以添加短信登录逻辑
 	return Result{}, nil
 }
 
-func (uh *UserHandler) ListUser(ctx *gin.Context, req ListUserReq) (Result, error) {
+// ListUser 获取用户列表（管理员使用）
+func (uh *UserHandler) ListUser(ctx *gin.Context, req required_parameter.ListUserReq) (Result, error) {
+	// 分页查询用户列表
 	users, err := uh.svc.ListUser(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -343,7 +384,9 @@ func (uh *UserHandler) ListUser(ctx *gin.Context, req ListUserReq) (Result, erro
 	}, nil
 }
 
-func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ GetUserCountReq) (Result, error) {
+// GetUserCount 获取用户统计（管理员使用）
+func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ required_parameter.GetUserCountReq) (Result, error) {
+	// 获取用户总数
 	count, err := uh.svc.GetUserCount(ctx)
 	if err != nil {
 		return Result{

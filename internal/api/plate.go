@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -9,25 +10,22 @@ import (
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type PlateHandler struct {
 	svc service.PlateService
-	l   *zap.Logger
 	ce  *casbin.Enforcer
 }
 
-func NewPlateHandler(svc service.PlateService, l *zap.Logger, ce *casbin.Enforcer) *PlateHandler {
+func NewPlateHandler(svc service.PlateService, ce *casbin.Enforcer) *PlateHandler {
 	return &PlateHandler{
 		svc: svc,
-		l:   l,
 		ce:  ce,
 	}
 }
 
 func (h *PlateHandler) RegisterRoutes(server *gin.Engine) {
-	casbinMiddleware := middleware.NewCasbinMiddleware(h.ce, h.l)
+	casbinMiddleware := middleware.NewCasbinMiddleware(h.ce)
 	permissionGroup := server.Group("/api/plate")
 	permissionGroup.Use(casbinMiddleware.CheckCasbin())
 	permissionGroup.POST("/create", WrapBody(h.CreatePlate))
@@ -36,7 +34,7 @@ func (h *PlateHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup.POST("/list", WrapBody(h.ListPlate))
 }
 
-func (h *PlateHandler) CreatePlate(ctx *gin.Context, req CreatePlateReq) (Result, error) {
+func (h *PlateHandler) CreatePlate(ctx *gin.Context, req required_parameter.CreatePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.CreatePlate(ctx, domain.Plate{
 		Name:        req.Name,
@@ -54,7 +52,7 @@ func (h *PlateHandler) CreatePlate(ctx *gin.Context, req CreatePlateReq) (Result
 	}, nil
 }
 
-func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req UpdatePlateReq) (Result, error) {
+func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req required_parameter.UpdatePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.UpdatePlate(ctx, domain.Plate{
 		ID:          req.ID,
@@ -73,7 +71,7 @@ func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req UpdatePlateReq) (Result
 	}, nil
 }
 
-func (h *PlateHandler) DeletePlate(ctx *gin.Context, req DeletePlateReq) (Result, error) {
+func (h *PlateHandler) DeletePlate(ctx *gin.Context, req required_parameter.DeletePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := h.svc.DeletePlate(ctx, req.PlateID, uc.Uid)
 	if err != nil {
@@ -88,7 +86,7 @@ func (h *PlateHandler) DeletePlate(ctx *gin.Context, req DeletePlateReq) (Result
 	}, nil
 }
 
-func (h *PlateHandler) ListPlate(ctx *gin.Context, req ListPlateReq) (Result, error) {
+func (h *PlateHandler) ListPlate(ctx *gin.Context, req required_parameter.ListPlateReq) (Result, error) {
 	plates, err := h.svc.ListPlate(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,

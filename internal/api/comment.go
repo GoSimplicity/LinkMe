@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -31,7 +32,7 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 // CreateComment 创建评论处理器方法
-func (ch *CommentHandler) CreateComment(ctx *gin.Context, req CreateCommentReq) (Result, error) {
+func (ch *CommentHandler) CreateComment(ctx *gin.Context, req required_parameter.CreateCommentReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	comment := domain.Comment{
 		Content: req.Content,
@@ -60,7 +61,7 @@ func (ch *CommentHandler) CreateComment(ctx *gin.Context, req CreateCommentReq) 
 }
 
 // ListComments 列出评论处理器方法
-func (ch *CommentHandler) ListComments(ctx *gin.Context, req ListCommentsReq) (Result, error) {
+func (ch *CommentHandler) ListComments(ctx *gin.Context, req required_parameter.ListCommentsReq) (Result, error) {
 	comments, err := ch.svc.ListComments(ctx, req.PostId, req.MinId, req.Limit)
 	if err != nil {
 		return Result{
@@ -76,7 +77,7 @@ func (ch *CommentHandler) ListComments(ctx *gin.Context, req ListCommentsReq) (R
 }
 
 // DeleteComment 删除评论处理器方法
-func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req DeleteCommentReq) (Result, error) {
+func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req required_parameter.DeleteCommentReq) (Result, error) {
 	err := ch.svc.DeleteComment(ctx, req.CommentId)
 	if err != nil {
 		return Result{
@@ -91,7 +92,7 @@ func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req DeleteCommentReq) 
 }
 
 // GetMoreCommentReply 获取更多评论回复处理器方法
-func (ch *CommentHandler) GetMoreCommentReply(ctx *gin.Context, req GetMoreCommentReplyReq) (Result, error) {
+func (ch *CommentHandler) GetMoreCommentReply(ctx *gin.Context, req required_parameter.GetMoreCommentReplyReq) (Result, error) {
 	comments, err := ch.svc.GetMoreCommentsReply(ctx, req.RootId, req.MaxId, req.Limit)
 	if err != nil {
 		return Result{
