@@ -165,7 +165,7 @@ func (p *postDAO) GetById(ctx context.Context, postId uint, uid int64) (Post, er
 			return Post{}, ErrPostNotFound
 		}
 		p.l.Error("failed to get post", zap.Error(err))
-		return P一套ost{}, err
+		return Post{}, err
 	}
 	return post, nil
 }
