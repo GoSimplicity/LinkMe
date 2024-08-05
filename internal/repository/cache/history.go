@@ -132,6 +132,7 @@ func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int6
 			h.l.Error("反序列化历史记录失败", zap.Error(er))
 			continue
 		}
+
 		if history.PostID == postId {
 			if er := h.client.ZRem(ctx, key, v).Err(); er != nil {
 				h.l.Error("删除历史记录失败", zap.Error(er))
