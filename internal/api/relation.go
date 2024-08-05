@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -30,7 +30,7 @@ func NewRelationHandler(svc service.RelationService) *RelationHandler {
 }
 
 // ListRelations 处理列出关注关系的请求
-func (r *RelationHandler) ListRelations(ctx *gin.Context, req required_parameter.ListRelationsReq) (Result, error) {
+func (r *RelationHandler) ListRelations(ctx *gin.Context, req req.ListRelationsReq) (Result, error) {
 	relations, err := r.svc.ListRelations(ctx, req.FollowerID, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -49,7 +49,7 @@ func (r *RelationHandler) ListRelations(ctx *gin.Context, req required_parameter
 }
 
 // GetRelationInfo 处理获取关注关系信息的请求
-func (r *RelationHandler) GetRelationInfo(ctx *gin.Context, req required_parameter.GetRelationInfoReq) (Result, error) {
+func (r *RelationHandler) GetRelationInfo(ctx *gin.Context, req req.GetRelationInfoReq) (Result, error) {
 	relation, err := r.svc.GetRelationInfo(ctx, req.FollowerID, req.FolloweeID)
 	if err != nil {
 		return Result{
@@ -65,7 +65,7 @@ func (r *RelationHandler) GetRelationInfo(ctx *gin.Context, req required_paramet
 }
 
 // FollowUser 处理关注用户的请求
-func (r *RelationHandler) FollowUser(ctx *gin.Context, req required_parameter.FollowUserReq) (Result, error) {
+func (r *RelationHandler) FollowUser(ctx *gin.Context, req req.FollowUserReq) (Result, error) {
 	if err := r.svc.FollowUser(ctx, req.FollowerID, req.FolloweeID); err != nil {
 		return Result{
 			Code: FollowUserERRORCode,
@@ -78,7 +78,7 @@ func (r *RelationHandler) FollowUser(ctx *gin.Context, req required_parameter.Fo
 	}, nil
 }
 
-func (r *RelationHandler) CancelFollowUser(ctx *gin.Context, req required_parameter.CancelFollowUserReq) (Result, error) {
+func (r *RelationHandler) CancelFollowUser(ctx *gin.Context, req req.CancelFollowUserReq) (Result, error) {
 	if err := r.svc.CancelFollowUser(ctx, req.FollowerID, req.FolloweeID); err != nil {
 		return Result{
 			Code: CancelFollowUserERRORCode,
@@ -92,7 +92,7 @@ func (r *RelationHandler) CancelFollowUser(ctx *gin.Context, req required_parame
 }
 
 // GetFolloweeCount 获取关注者的数量
-func (r *RelationHandler) GetFolloweeCount(ctx *gin.Context, req required_parameter.GetFolloweeCountReq) (Result, error) {
+func (r *RelationHandler) GetFolloweeCount(ctx *gin.Context, req req.GetFolloweeCountReq) (Result, error) {
 	count, err := r.svc.GetFolloweeCount(ctx, req.UserID)
 	if err != nil {
 		return Result{
@@ -108,7 +108,7 @@ func (r *RelationHandler) GetFolloweeCount(ctx *gin.Context, req required_parame
 }
 
 // GetFollowerCount 获取粉丝的数量
-func (r *RelationHandler) GetFollowerCount(ctx *gin.Context, req required_parameter.GetFollowerCountReq) (Result, error) {
+func (r *RelationHandler) GetFollowerCount(ctx *gin.Context, req req.GetFollowerCountReq) (Result, error) {
 	count, err := r.svc.GetFollowerCount(ctx, req.UserID)
 	if err != nil {
 		return Result{

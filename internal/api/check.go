@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -37,7 +37,7 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	checkGroup.GET("/stats", WrapQuery(ch.GetCheckCount))  // 管理员使用
 }
 
-func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req required_parameter.ApproveCheckReq) (Result, error) {
+func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req req.ApproveCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -52,7 +52,7 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req required_parameter.Ap
 	}, nil
 }
 
-func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req required_parameter.RejectCheckReq) (Result, error) {
+func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req req.RejectCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -67,7 +67,7 @@ func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req required_parameter.Rej
 	}, nil
 }
 
-func (ch *CheckHandler) ListChecks(ctx *gin.Context, req required_parameter.ListCheckReq) (Result, error) {
+func (ch *CheckHandler) ListChecks(ctx *gin.Context, req req.ListCheckReq) (Result, error) {
 	checks, err := ch.svc.ListChecks(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -85,7 +85,7 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context, req required_parameter.List
 	}, nil
 }
 
-func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req required_parameter.CheckDetailReq) (Result, error) {
+func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req req.CheckDetailReq) (Result, error) {
 	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
 	if err != nil {
 		return Result{
@@ -100,7 +100,7 @@ func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req required_parameter.Che
 	}, nil
 }
 
-func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, _ required_parameter.GetCheckCount) (Result, error) {
+func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, _ req.GetCheckCount) (Result, error) {
 	count, err := ch.svc.GetCheckCount(ctx)
 	if err != nil {
 		return Result{

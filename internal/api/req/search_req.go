@@ -1,4 +1,4 @@
-package required_parameter
+package req
 
 type SearchReq struct {
 	Expression string `json:"expression"`

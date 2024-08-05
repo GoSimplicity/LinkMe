@@ -41,9 +41,6 @@ func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRe
 }
 
 func (s *checkService) SubmitCheck(ctx context.Context, check domain.Check) (int64, error) {
-	// 设置状态为审核中
-	check.Status = constants.PostUnderReview
-	s.l.Info("Submitting check", zap.Int64("PostID", check.PostID), zap.Int64("UserID", check.UserID))
 	id, err := s.repo.Create(ctx, check)
 	if err != nil {
 		return -1, err
@@ -79,24 +76,24 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	// 获取相关的帖子
 	post, err := s.postRepo.GetPostById(ctx, check.PostID, check.UserID)
 	if err != nil {
-		s.l.Error("Failed to get post", zap.Int64("PostID", check.PostID), zap.Int64("UserID", check.UserID), zap.Error(err))
+		s.l.Error("Failed to get post", zap.Uint("PostID", check.PostID), zap.Int64("UserID", check.UserID), zap.Error(err))
 		return fmt.Errorf("get post failed: %w", err)
 	}
 	// 更新帖子状态为已发布并同步
 	post.Status = domain.Published
 	if _, er := s.postRepo.Sync(ctx, post); er != nil {
-		s.l.Error("Failed to sync post", zap.Int64("PostID", post.ID), zap.Error(er))
+		s.l.Error("Failed to sync post", zap.Uint("PostID", post.ID), zap.Error(er))
 		return fmt.Errorf("sync post failed: %w", er)
 	}
 	if er := s.postRepo.UpdateStatus(ctx, post); er != nil {
-		s.l.Error("Failed to update post status", zap.Int64("PostID", post.ID), zap.Error(er))
+		s.l.Error("Failed to update post status", zap.Uint("PostID", post.ID), zap.Error(er))
 		return fmt.Errorf("update post status failed: %w", er)
 	}
 	// 存入历史记录
 	if er := s.historyRepo.SetHistory(ctx, post); er != nil {
-		s.l.Error("Set history failed", zap.Int64("PostID", post.ID), zap.Error(er))
+		s.l.Error("Set history failed", zap.Uint("PostID", post.ID), zap.Error(er))
 	}
-	s.l.Info("Post has been published", zap.Int64("PostID", post.ID))
+	s.l.Info("Post has been published", zap.Uint("PostID", post.ID))
 	// 添加搜索索引
 	err = s.searchRepo.InputPost(ctx, domain.PostSearch{
 		Id:      post.ID,
@@ -105,7 +102,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		Status:  post.Status,
 	})
 	if err != nil {
-		s.l.Error("Add search index failed", zap.Int64("PostID", post.ID), zap.Error(err))
+		s.l.Error("Add search index failed", zap.Uint("PostID", post.ID), zap.Error(err))
 	}
 	go func() {
 		er := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{

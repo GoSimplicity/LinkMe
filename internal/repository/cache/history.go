@@ -14,7 +14,7 @@ import (
 type HistoryCache interface {
 	SetCache(ctx context.Context, history domain.History) error
 	GetCache(ctx context.Context, pagination domain.Pagination) ([]domain.History, error)
-	DeleteOneCache(ctx context.Context, postId int64, uid int64) error
+	DeleteOneCache(ctx context.Context, postId uint, uid int64) error
 	DeleteAllHistory(ctx context.Context, uid int64) error
 }
 
@@ -91,7 +91,7 @@ func (h *historyCache) SetCache(ctx context.Context, history domain.History) err
 			continue
 		}
 		if existingHistory.PostID == history.PostID {
-			h.l.Info("历史记录已存在", zap.Int64("postId", history.PostID))
+			h.l.Info("历史记录已存在", zap.Uint("postId", history.PostID))
 			return nil
 		}
 	}
@@ -110,7 +110,7 @@ func (h *historyCache) SetCache(ctx context.Context, history domain.History) err
 }
 
 // DeleteOneCache 删除缓存中的一条历史记录，前提是post被标记为删除
-func (h *historyCache) DeleteOneCache(ctx context.Context, postId int64, uid int64) error {
+func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int64) error {
 	key := fmt.Sprintf("linkme:post:history:%d", uid)
 	lockKey := key + ":lock"
 	lockTimeout := 5 * time.Second
@@ -207,7 +207,7 @@ func (h *historyCache) deleteKeyWithLock(ctx context.Context, key string) error 
 }
 
 // filterHistory 过滤掉与指定postID匹配的历史记录
-func filterHistory(values []string, postID int64, logger *zap.Logger) []string {
+func filterHistory(values []string, postID uint, logger *zap.Logger) []string {
 	var newValues []string
 	for _, value := range values {
 		var history domain.History
