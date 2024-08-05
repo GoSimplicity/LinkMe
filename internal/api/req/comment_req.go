@@ -1,4 +1,4 @@
-package required_parameter
+package req
 
 type CreateCommentReq struct {
 	PostId  int64  `json:"postId" binding:"required"`

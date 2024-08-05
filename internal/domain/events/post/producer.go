@@ -12,12 +12,12 @@ type Producer interface {
 }
 
 type ReadEvent struct {
-	PostId int64
+	PostId uint
 	Uid    int64
 }
 
 type BatchReadEvent struct {
-	PostId []int64
+	PostId []uint
 	Uid    []int64
 }
 

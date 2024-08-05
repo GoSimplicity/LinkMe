@@ -9,57 +9,55 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type PostService interface {
-	Create(ctx context.Context, post domain.Post) (int64, error)                                 // 用于创建新帖子
-	Update(ctx context.Context, post domain.Post) error                                          // 用于更新现有帖子
-	Publish(ctx context.Context, post domain.Post) error                                         // 用于发布帖子
-	Withdraw(ctx context.Context, post domain.Post) error                                        // 用于撤回帖子
-	GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error)         // 获取作者的草稿
-	GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error)               // 获取特定ID的帖子
-	GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error)            // 获取特定ID的已发布帖子
-	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) // 获取已发布的帖子列表，支持分页
-	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)          // 获取个人帖子列表，支持分页
-	Delete(ctx context.Context, postId int64, uid int64) error
+	Create(ctx context.Context, post domain.Post) (uint, error)
+	Update(ctx context.Context, post domain.Post) error
+	Publish(ctx context.Context, post domain.Post) error
+	Withdraw(ctx context.Context, post domain.Post) error
+	GetDraftsByAuthor(ctx context.Context, postId uint, uid int64) (domain.Post, error)
+	GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error)
+	GetPublishedPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error)
+	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	Delete(ctx context.Context, postId uint, uid int64) error
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
-	GetPost(ctx context.Context, id int64) (domain.Post, error)
+	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 	GetPostCount(ctx context.Context) (int64, error)
 }
 
 type postService struct {
 	repo        repository.PostRepository
-	historyRepo repository.HistoryRepository
-	intSvc      InteractiveService
-	checkSvc    CheckService
+	historyRepo repository.HistoryRepository // 历史记录
 	checkRepo   repository.CheckRepository
 	producer    post.Producer
 	searchRepo  repository.SearchRepository
 	l           *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, intSvc InteractiveService, checkSvc CheckService, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository, searchRepo repository.SearchRepository) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository, searchRepo repository.SearchRepository) PostService {
 	return &postService{
 		repo:        repo,
-		l:           l,
-		intSvc:      intSvc,
-		checkSvc:    checkSvc,
-		producer:    p,
 		historyRepo: historyRepo,
 		checkRepo:   checkRepo,
 		searchRepo:  searchRepo,
+		l:           l,
+		producer:    p,
 	}
 }
 
-func (p *postService) Create(ctx context.Context, post domain.Post) (int64, error) {
+// Create 创建帖子，默认状态为草稿
+func (p *postService) Create(ctx context.Context, post domain.Post) (uint, error) {
 	post.Status = domain.Draft
 	// 执行创建操作后默认将帖子状态设置为草稿状态
 	return p.repo.Create(ctx, post)
 }
 
+// Update 更新帖子，默认状态为草稿
 func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Draft
-	// 执行更新操作后默认将帖子状态设置为草稿状态,需手动执行发布操作
 	if _, err := p.repo.Sync(ctx, post); err != nil {
 		return err
 	}
@@ -69,9 +67,9 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 // Publish 发布帖子到审核
 func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	// 检查帖子是否存在
-	po, err := p.checkRepo.FindByID(ctx, post.ID)
+	po, err := p.checkRepo.FindByPostId(ctx, post.ID)
 	if err != nil {
-		return fmt.Errorf("无法找到帖子ID为 %d 的帖子: %w", post.ID, err)
+		return fmt.Errorf("cannot find post with ID %d: %w", post.ID, err)
 	}
 	// 检查帖子状态是否允许重新提交审核
 	if po.Status == constants.PostUnApproved {
@@ -92,132 +90,134 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		Title:   dp.Title,
 		UserID:  dp.Author.Id,
 	}
-	checkId, err := p.checkSvc.SubmitCheck(ctx, check)
+	checkId, err := p.checkRepo.Create(ctx, check)
 	if err != nil {
 		return fmt.Errorf("push check failed: %w", err)
 	}
 	// 确保 checkId 有效
 	if checkId == 0 {
-		p.l.Error("push check failed，checkId 无效", zap.Int64("postID", post.ID))
-		return errors.New("push check failed，checkId 无效")
+		p.l.Error("push check failed, invalid checkId", zap.Uint("postID", post.ID))
+		return errors.New("push check failed, invalid checkId")
 	}
 	return nil
 }
 
+// Withdraw 撤回帖子，移除线上数据库中的帖子
 func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Withdrawn
-	// 撤回帖子时执行同步操作,从线上库(mongodb)中移除帖子
 	if _, err := p.repo.Sync(ctx, post); err != nil {
 		return err
 	}
-	err := p.searchRepo.DeletePostIndex(ctx, post.ID)
-	if err != nil {
+	if err := p.searchRepo.DeletePostIndex(ctx, post.ID); err != nil {
 		p.l.Error("delete post index failed", zap.Error(err))
 	}
 	return p.repo.UpdateStatus(ctx, post)
 }
 
-func (p *postService) GetDraftsByAuthor(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
-	dp, err := p.repo.GetDraftsByAuthor(ctx, postId, uid)
-	if err != nil {
-		return domain.Post{}, err
-	}
-	return dp, nil
+// GetDraftsByAuthor 获取作者的草稿帖子
+func (p *postService) GetDraftsByAuthor(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
+	return p.repo.GetDraftsByAuthor(ctx, postId, uid)
 }
 
-func (p *postService) GetPostById(ctx context.Context, postId int64, uid int64) (domain.Post, error) {
-	dp, err := p.repo.GetPostById(ctx, postId, uid)
-	if err != nil {
-		return domain.Post{}, err
-	}
-	return dp, err
+// GetPostById 获取帖子详细信息
+func (p *postService) GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
+	return p.repo.GetPostById(ctx, postId, uid)
 }
 
-func (p *postService) GetPublishedPostById(ctx context.Context, postId, uid int64) (domain.Post, error) {
+// GetPublishedPostById 获取已发布的帖子详细信息
+func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetPublishedPostById(ctx, postId)
 	if err != nil {
-		return domain.Post{}, err // 直接返回错误
+		return domain.Post{}, err
 	}
-	// 存入历史记录
-	if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
-		p.l.Error("set history failed", zap.Error(er))
-	}
-	// 异步处理读取事件
-	go func() {
-		// 生成读取事件
-		if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
-			p.l.Error("produce read event failed", zap.Error(er))
+	// 使用 errgroup 管理并发操作
+	eg, ctx := errgroup.WithContext(ctx)
+	// 异步存入历史记录
+	eg.Go(func() error {
+		if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
+			return fmt.Errorf("set history failed: %w", er)
 		}
-
-	}()
+		return nil
+	})
+	// 异步处理读取事件
+	eg.Go(func() error {
+		if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
+			return fmt.Errorf("produce read event failed: %w", er)
+		}
+		return nil
+	})
+	// 等待所有并发操作完成
+	if er := eg.Wait(); er != nil {
+		p.l.Error("concurrent operations failed", zap.Error(er))
+		return domain.Post{}, er
+	}
 	return dp, nil
 }
 
+// ListPosts 列出帖子
 func (p *postService) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
 	return p.repo.ListPosts(ctx, pagination)
 }
 
+// ListPublishedPosts 列出已发布的帖子
 func (p *postService) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
 	return p.repo.ListPublishedPosts(ctx, pagination)
 }
 
-func (p *postService) Delete(ctx context.Context, postId int64, uid int64) error {
-	pd, err := p.repo.GetPostById(ctx, postId, uid)
-	// 避免帖子被重复删除
-	if err != nil || pd.Deleted != false {
+// Delete 删除帖子
+func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error {
+	_, err := p.repo.GetPostById(ctx, postId, uid)
+	if err != nil {
 		return err
 	}
 	res := domain.Post{
 		ID:     postId,
 		Status: domain.Deleted,
-		Author: domain.Author{
-			Id: uid,
-		},
+		Author: domain.Author{Id: uid},
 	}
-	// 尝试获取公开的帖子
-	_, err = p.repo.GetPublishedPostById(ctx, postId)
-	if err == nil {
-		// 如果查到了公开的帖子，则执行同步操作
-		if _, er := p.repo.Sync(ctx, res); er != nil {
-			return er
+	// 使用 errgroup 管理并发操作
+	eg, ctx := errgroup.WithContext(ctx)
+	// 查看删除的是否是已发布的帖子，并同步删除线上数据库中的帖子
+	eg.Go(func() error {
+		if _, er := p.repo.GetPublishedPostById(ctx, postId); er == nil {
+			if _, er := p.repo.Sync(ctx, res); er != nil {
+				return fmt.Errorf("sync post failed: %w", er)
+			}
 		}
+		return nil
+	})
+	// 删除帖子索引
+	eg.Go(func() error {
+		if er := p.searchRepo.DeletePostIndex(ctx, postId); er != nil {
+			return fmt.Errorf("delete post index failed: %w", er)
+		}
+		return nil
+	})
+	// 等待所有并发操作完成
+	if er := eg.Wait(); er != nil {
+		p.l.Error("concurrent operations failed", zap.Error(er))
+		return er
 	}
-	err = p.searchRepo.DeletePostIndex(ctx, postId)
-	if err != nil {
-		p.l.Error("delete post index failed", zap.Error(err))
-	}
-	// 最后执行删除操作
 	return p.repo.Delete(ctx, res)
 }
 
+// ListAllPost 列出所有帖子
 func (p *postService) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
-	allPost, err := p.repo.ListAllPost(ctx, pagination)
-	if err != nil {
-		return nil, err
-	}
-	return allPost, nil
+	return p.repo.ListAllPost(ctx, pagination)
 }
 
-func (p *postService) GetPost(ctx context.Context, id int64) (domain.Post, error) {
-	getPost, err := p.repo.GetPost(ctx, id)
-	if err != nil {
-		return domain.Post{}, err
-	}
-	return getPost, nil
+// GetPost 获取帖子
+func (p *postService) GetPost(ctx context.Context, postId uint) (domain.Post, error) {
+	return p.repo.GetPost(ctx, postId)
 }
 
+// GetPostCount 获取帖子数量
 func (p *postService) GetPostCount(ctx context.Context) (int64, error) {
-	count, err := p.repo.GetPostCount(ctx)
-	if err != nil {
-		return -1, err
-	}
-	return count, nil
+	return p.repo.GetPostCount(ctx)
 }

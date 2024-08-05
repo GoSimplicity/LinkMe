@@ -63,7 +63,6 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 		Email:    u.Email,
 		Id:       u.ID,
 		Nickname: u.Profile.NickName,
-		Phone:    *u.Phone,
 	})
 	if err != nil {
 		us.l.Error("failed to input user to search repo", zap.Error(err))
