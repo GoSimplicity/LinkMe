@@ -57,7 +57,7 @@ func (h *historyCache) GetCache(ctx context.Context, pagination domain.Paginatio
 	return histories, nil
 }
 
-// SetCache 将帖子设置在redis缓存中，并设置7天的过期时间
+// SetCache 将帖子设置在redis缓存中 并设置7天的过期时间
 func (h *historyCache) SetCache(ctx context.Context, history domain.History) error {
 	key := fmt.Sprintf("linkme:post:history:%d", history.AuthorID)
 	value, err := json.Marshal(history)
@@ -132,7 +132,6 @@ func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int6
 			h.l.Error("反序列化历史记录失败", zap.Error(er))
 			continue
 		}
-
 		if history.PostID == postId {
 			if er := h.client.ZRem(ctx, key, v).Err(); er != nil {
 				h.l.Error("删除历史记录失败", zap.Error(er))
