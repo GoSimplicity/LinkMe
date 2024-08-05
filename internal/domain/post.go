@@ -1,6 +1,10 @@
 package domain
 
-import "sync/atomic"
+import (
+	"database/sql"
+	"sync/atomic"
+	"time"
+)
 
 const (
 	Draft     = "Draft"     // 草稿状态
@@ -15,13 +19,12 @@ type Author struct {
 }
 
 type Post struct {
-	ID           int64
+	ID           uint
 	Title        string
 	Content      string
-	CreateTime   int64
-	UpdatedTime  int64
-	DeletedTime  int64
-	Deleted      bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    sql.NullTime
 	Author       Author
 	Status       string
 	Visibility   string
@@ -33,7 +36,7 @@ type Post struct {
 }
 
 type Interactive struct {
-	BizID        int64
+	BizID        uint
 	ReadCount    int64
 	LikeCount    int64
 	CollectCount int64

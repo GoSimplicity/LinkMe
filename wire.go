@@ -12,6 +12,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/GoSimplicity/LinkMe/pkg/cachebloom"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 
 	"github.com/google/wire"
@@ -93,6 +94,7 @@ func InitWebServer() *Cmd {
 		sms.NewSaramaSyncProducer,
 		email.NewEmailConsumer,
 		email.NewSaramaSyncProducer,
+		cachebloom.NewCacheBloom,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)

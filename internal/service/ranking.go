@@ -75,7 +75,7 @@ func (b *rankingService) computeTopN(ctx context.Context) ([]domain.Post, error)
 		// 分页处理
 		posts, err := b.fetchPosts(ctx, offset)
 		if err != nil {
-			b.l.Error("fetch posts field", zap.Error(err))
+			b.l.Error("fetch posts failed", zap.Error(err))
 			return nil, err
 		}
 		// 如果没有更多帖子，跳出循环
@@ -85,16 +85,16 @@ func (b *rankingService) computeTopN(ctx context.Context) ([]domain.Post, error)
 		// 获取每个帖子的交互数据
 		interactions, err := b.fetchInteractions(ctx, posts)
 		if err != nil {
-			b.l.Error("fetch interactions field", zap.Error(err))
+			b.l.Error("fetch interactions failed", zap.Error(err))
 			return nil, err
 		}
 		// 计算每个帖子的分数并加入优先队列
 		for _, post := range posts {
 			// 检查是否存在交互数据
 			if interaction, ok := interactions[post.ID]; ok {
-				b.l.Info("compute score", zap.Int64("postID", post.ID), zap.Int64("likeCount", interaction.LikeCount), zap.Time("updatedTime", time.UnixMilli(post.UpdatedTime)))
+				b.l.Info("compute score", zap.Uint("postID", post.ID), zap.Int64("likeCount", interaction.LikeCount), zap.Time("updatedTime", post.UpdatedAt))
 				// 使用 scoreFunc 计算分数
-				score := b.scoreFunc(interaction.LikeCount, time.UnixMilli(post.UpdatedTime))
+				score := b.scoreFunc(interaction.LikeCount, post.UpdatedAt)
 				element := Score{
 					value: score,
 					post:  post,
@@ -106,7 +106,7 @@ func (b *rankingService) computeTopN(ctx context.Context) ([]domain.Post, error)
 		// 更新偏移量
 		offset += len(posts)
 		// 检查是否需要终止循环
-		if len(posts) < b.batchSize || time.UnixMilli(posts[len(posts)-1].UpdatedTime).Before(deadline) {
+		if len(posts) < b.batchSize || posts[len(posts)-1].UpdatedAt.Before(deadline) {
 			b.l.Info("compute topN done", zap.Int("offset", offset), zap.Int("batchSize", b.batchSize), zap.Int("rankSize", b.rankSize), zap.Duration("duration", time.Since(startTime)))
 			break
 		}
@@ -128,9 +128,9 @@ func (b *rankingService) fetchPosts(ctx context.Context, offset int) ([]domain.P
 }
 
 // fetchInteractions 获取每个帖子的交互数据
-func (b *rankingService) fetchInteractions(ctx context.Context, posts []domain.Post) (map[int64]domain.Interactive, error) {
+func (b *rankingService) fetchInteractions(ctx context.Context, posts []domain.Post) (map[uint]domain.Interactive, error) {
 	// 创建帖子 ID 列表
-	ids := make([]int64, len(posts))
+	ids := make([]uint, len(posts))
 	for i, post := range posts {
 		ids[i] = post.ID
 	}

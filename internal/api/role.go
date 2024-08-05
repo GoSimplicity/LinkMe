@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/middleware"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
@@ -36,7 +36,7 @@ func (h *PermissionHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 // GetPermissions 处理获取权限列表的请求
-func (h *PermissionHandler) GetPermissions(ctx *gin.Context, req required_parameter.ListPermissionsReq) (Result, error) {
+func (h *PermissionHandler) GetPermissions(ctx *gin.Context, req req.ListPermissionsReq) (Result, error) {
 	permissions, err := h.svc.GetPermissions(ctx)
 	if err != nil {
 		return Result{
@@ -52,7 +52,7 @@ func (h *PermissionHandler) GetPermissions(ctx *gin.Context, req required_parame
 }
 
 // AssignPermission 处理分配权限的请求
-func (h *PermissionHandler) AssignPermission(ctx *gin.Context, req required_parameter.AssignPermissionReq) (Result, error) {
+func (h *PermissionHandler) AssignPermission(ctx *gin.Context, req req.AssignPermissionReq) (Result, error) {
 	if err := h.svc.AssignPermission(ctx, req.UserName, req.Path, req.Method); err != nil {
 		return Result{
 			Code: http.StatusInternalServerError,
@@ -66,7 +66,7 @@ func (h *PermissionHandler) AssignPermission(ctx *gin.Context, req required_para
 }
 
 // RemovePermission 处理移除权限的请求
-func (h *PermissionHandler) RemovePermission(ctx *gin.Context, req required_parameter.RemovePermissionReq) (Result, error) {
+func (h *PermissionHandler) RemovePermission(ctx *gin.Context, req req.RemovePermissionReq) (Result, error) {
 	if err := h.svc.RemovePermission(ctx, req.UserName, req.Path, req.Method); err != nil {
 		return Result{
 			Code: http.StatusInternalServerError,
@@ -79,7 +79,7 @@ func (h *PermissionHandler) RemovePermission(ctx *gin.Context, req required_para
 	}, nil
 }
 
-func (h *PermissionHandler) AssignRole(ctx *gin.Context, req required_parameter.AssignPermissionRoleReq) (Result, error) {
+func (h *PermissionHandler) AssignRole(ctx *gin.Context, req req.AssignPermissionRoleReq) (Result, error) {
 	if err := h.svc.AssignRoleToUser(ctx, req.UserName, req.RoleName); err != nil {
 		return Result{
 			Code: http.StatusInternalServerError,
@@ -92,7 +92,7 @@ func (h *PermissionHandler) AssignRole(ctx *gin.Context, req required_parameter.
 	}, nil
 }
 
-func (h *PermissionHandler) RemovePermissionRole(ctx *gin.Context, req required_parameter.RemovePermissionRoleReq) (Result, error) {
+func (h *PermissionHandler) RemovePermissionRole(ctx *gin.Context, req req.RemovePermissionRoleReq) (Result, error) {
 	if err := h.svc.RemoveRoleFromUser(ctx, req.UserName, req.RoleName); err != nil {
 		return Result{
 			Code: http.StatusInternalServerError,

@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
@@ -62,7 +62,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	// 发送邮件验证码
 	userGroup.POST("/send_email", WrapBody(uh.SendEmail))
 	// 用户登出
-	userGroup.POST("/logout", WrapBody(uh.Logout))
+	userGroup.POST("/logout", WrapNoParam(uh.Logout))
 	// 刷新令牌
 	userGroup.POST("/refresh_token", WrapBody(uh.RefreshToken))
 	// 修改密码
@@ -80,7 +80,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 // SignUp 用户注册
-func (uh *UserHandler) SignUp(ctx *gin.Context, req required_parameter.SignUpReq) (Result, error) {
+func (uh *UserHandler) SignUp(ctx *gin.Context, req req.SignUpReq) (Result, error) {
 	// 验证邮箱格式
 	emailValid, err := uh.Email.MatchString(req.Email)
 	if err != nil {
@@ -142,7 +142,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req required_parameter.SignUpReq
 }
 
 // Login 登陆
-func (uh *UserHandler) Login(ctx *gin.Context, req required_parameter.LoginReq) (Result, error) {
+func (uh *UserHandler) Login(ctx *gin.Context, req req.LoginReq) (Result, error) {
 	du, err := uh.svc.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
@@ -171,7 +171,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req required_parameter.LoginReq) 
 }
 
 // Logout 登出
-func (uh *UserHandler) Logout(ctx *gin.Context, _ required_parameter.LogoutReq) (Result, error) {
+func (uh *UserHandler) Logout(ctx *gin.Context) (Result, error) {
 	// 清除JWT令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
 		return Result{
@@ -186,7 +186,7 @@ func (uh *UserHandler) Logout(ctx *gin.Context, _ required_parameter.LogoutReq) 
 }
 
 // RefreshToken 刷新令牌
-func (uh *UserHandler) RefreshToken(ctx *gin.Context, _ required_parameter.RefreshTokenReq) (Result, error) {
+func (uh *UserHandler) RefreshToken(ctx *gin.Context, _ req.RefreshTokenReq) (Result, error) {
 	var rc ijwt.RefreshClaims
 	// 从前端的Authorization中取出token
 	tokenString := uh.ijwt.ExtractToken(ctx)
@@ -223,7 +223,7 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context, _ required_parameter.Refre
 }
 
 // SendSMS 发送短信验证码
-func (uh *UserHandler) SendSMS(ctx *gin.Context, req required_parameter.SMSReq) (Result, error) {
+func (uh *UserHandler) SendSMS(ctx *gin.Context, req req.SMSReq) (Result, error) {
 	// 验证手机号码格式
 	if !utils.IsValidNumber(req.Number) {
 		return Result{
@@ -242,7 +242,7 @@ func (uh *UserHandler) SendSMS(ctx *gin.Context, req required_parameter.SMSReq) 
 }
 
 // ChangePassword 修改密码
-func (uh *UserHandler) ChangePassword(ctx *gin.Context, req required_parameter.ChangeReq) (Result, error) {
+func (uh *UserHandler) ChangePassword(ctx *gin.Context, req req.ChangeReq) (Result, error) {
 	// 检查新密码和确认密码是否匹配
 	if req.NewPassword != req.ConfirmPassword {
 		return Result{
@@ -270,7 +270,7 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req required_parameter.C
 }
 
 // SendEmail 发送邮件
-func (uh *UserHandler) SendEmail(ctx *gin.Context, req required_parameter.EmailReq) (Result, error) {
+func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.EmailReq) (Result, error) {
 	// 验证邮箱格式
 	if emailValid, err := uh.Email.MatchString(req.Email); err != nil {
 		return Result{}, err
@@ -291,7 +291,7 @@ func (uh *UserHandler) SendEmail(ctx *gin.Context, req required_parameter.EmailR
 }
 
 // WriteOff 注销用户
-func (uh *UserHandler) WriteOff(ctx *gin.Context, req required_parameter.DeleteUserReq) (Result, error) {
+func (uh *UserHandler) WriteOff(ctx *gin.Context, req req.DeleteUserReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	// 删除用户
 	if err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid); err != nil {
@@ -317,7 +317,7 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context, req required_parameter.DeleteU
 }
 
 // GetProfile 获取用户资料
-func (uh *UserHandler) GetProfile(ctx *gin.Context, _ required_parameter.GetProfileReq) (Result, error) {
+func (uh *UserHandler) GetProfile(ctx *gin.Context, _ req.GetProfileReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	// 获取用户资料
 	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
@@ -335,7 +335,7 @@ func (uh *UserHandler) GetProfile(ctx *gin.Context, _ required_parameter.GetProf
 }
 
 // UpdateProfileByID 更新用户资料
-func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req required_parameter.UpdateProfileReq) (Result, error) {
+func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req req.UpdateProfileReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	// 更新用户资料
 	err := uh.svc.UpdateProfile(ctx, domain.Profile{
@@ -359,13 +359,13 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req required_paramete
 }
 
 // LoginSMS 短信登录
-func (uh *UserHandler) LoginSMS(ctx *gin.Context, req required_parameter.LoginSMSReq) (Result, error) {
+func (uh *UserHandler) LoginSMS(ctx *gin.Context, req req.LoginSMSReq) (Result, error) {
 	// 此处可以添加短信登录逻辑
 	return Result{}, nil
 }
 
 // ListUser 获取用户列表（管理员使用）
-func (uh *UserHandler) ListUser(ctx *gin.Context, req required_parameter.ListUserReq) (Result, error) {
+func (uh *UserHandler) ListUser(ctx *gin.Context, req req.ListUserReq) (Result, error) {
 	// 分页查询用户列表
 	users, err := uh.svc.ListUser(ctx, domain.Pagination{
 		Page: req.Page,
@@ -385,7 +385,7 @@ func (uh *UserHandler) ListUser(ctx *gin.Context, req required_parameter.ListUse
 }
 
 // GetUserCount 获取用户统计（管理员使用）
-func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ required_parameter.GetUserCountReq) (Result, error) {
+func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ req.GetUserCountReq) (Result, error) {
 	// 获取用户总数
 	count, err := uh.svc.GetUserCount(ctx)
 	if err != nil {

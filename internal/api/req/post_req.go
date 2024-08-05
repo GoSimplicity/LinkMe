@@ -1,18 +1,18 @@
-package required_parameter
+package req
 
 type EditReq struct {
-	PostId  int64  `json:"postId,omitempty"`
+	PostId  uint   `json:"postId,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
 	PlateID int64  `json:"plateId,omitempty"`
 }
 
 type PublishReq struct {
-	PostId int64 `json:"postId,omitempty"`
+	PostId uint `json:"postId,omitempty"`
 }
 
 type WithDrawReq struct {
-	PostId int64 `json:"postId,omitempty"`
+	PostId uint `json:"postId,omitempty"`
 }
 
 type ListReq struct {
@@ -31,30 +31,30 @@ type ListPostReq struct {
 }
 
 type DetailPostReq struct {
-	PostId int64 `uri:"postId"`
+	PostId uint `uri:"postId"`
 }
 
 type UpdateReq struct {
-	PostId  int64  `json:"postId,omitempty"`
+	PostId  uint   `json:"postId,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
 	PlateID int64  `json:"plateId,omitempty"`
 }
 type DetailReq struct {
-	PostId int64 `uri:"postId"`
+	PostId uint `uri:"postId"`
 }
 
 type DeleteReq struct {
-	PostId int64 `uri:"postId"`
+	PostId uint `uri:"postId"`
 }
 
 type LikeReq struct {
-	PostId int64 `json:"postId,omitempty"`
-	Liked  bool  `json:"liked,omitempty"`
+	PostId uint `json:"postId,omitempty"`
+	Liked  bool `json:"liked,omitempty"`
 }
 
 type CollectReq struct {
-	PostId    int64 `json:"postId,omitempty"`
+	PostId    uint  `json:"postId,omitempty"`
 	CollectId int64 `json:"collectId,omitempty"`
 	Collectd  bool  `json:"collectd,omitempty"`
 }

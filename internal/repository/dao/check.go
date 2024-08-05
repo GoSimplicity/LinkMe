@@ -15,7 +15,7 @@ type CheckDAO interface {
 	UpdateStatus(ctx context.Context, check domain.Check) error                            // 更新审核状态
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
 	FindByID(ctx context.Context, checkId int64) (domain.Check, error)
-	FindByPostId(ctx context.Context, postId int64) (domain.Check, error) // 获取审核详情
+	FindByPostId(ctx context.Context, postId uint) (domain.Check, error) // 获取审核详情
 	GetCheckCount(ctx context.Context) (int64, error)
 }
 
@@ -26,7 +26,7 @@ type checkDAO struct {
 
 type Check struct {
 	ID        int64  `gorm:"primaryKey;autoIncrement"`                     // 审核ID
-	PostID    int64  `gorm:"not null"`                                     // 帖子ID
+	PostID    uint   `gorm:"not null"`                                     // 帖子ID
 	Content   string `gorm:"type:text;not null"`                           // 审核内容
 	Title     string `gorm:"size:255;not null"`                            // 审核标签
 	Author    int64  `gorm:"column:author_id;index"`                       // 提交审核的用户ID
@@ -139,7 +139,7 @@ func (dao *checkDAO) FindByID(ctx context.Context, checkId int64) (domain.Check,
 	}, nil
 }
 
-func (dao *checkDAO) FindByPostId(ctx context.Context, postId int64) (domain.Check, error) {
+func (dao *checkDAO) FindByPostId(ctx context.Context, postId uint) (domain.Check, error) {
 	var check Check
 	result := dao.db.WithContext(ctx).Where("post_id = ?", postId).First(&check)
 	if result.Error != nil {

@@ -53,7 +53,7 @@ func (i *InteractiveReadEventConsumer) Start(ctx context.Context) error {
 // BatchConsume 处理函数，处理批次消息
 func (i *InteractiveReadEventConsumer) BatchConsume(msgs []*sarama.ConsumerMessage, events []ReadEvent) error {
 	bizs := make([]string, 0, len(events))
-	bizIds := make([]int64, 0, len(events))
+	bizIds := make([]uint, 0, len(events))
 	for _, evt := range events {
 		bizs = append(bizs, "post")
 		bizIds = append(bizIds, evt.PostId)

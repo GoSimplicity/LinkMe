@@ -1,4 +1,4 @@
-package required_parameter
+package req
 
 type SignUpReq struct {
 	Email           string `json:"email"`

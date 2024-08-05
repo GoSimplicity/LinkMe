@@ -2,7 +2,7 @@ package domain
 
 type Check struct {
 	ID        int64  // 审核ID
-	PostID    int64  // 帖子ID
+	PostID    uint   // 帖子ID
 	Content   string // 审核内容
 	Title     string // 审核标签
 	UserID    int64  // 提交审核的用户ID
@@ -14,7 +14,7 @@ type Check struct {
 
 type CheckList struct {
 	ID        int64  // 审核ID
-	PostID    int64  // 帖子ID
+	PostID    uint   // 帖子ID
 	Title     string // 审核标签
 	UserID    int64  // 提交审核的用户ID
 	Status    string // 审核状态

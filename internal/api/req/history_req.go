@@ -1,4 +1,4 @@
-package required_parameter
+package req
 
 type ListHistoryReq struct {
 	Page int    `json:"page,omitempty"` // 当前页码
@@ -6,7 +6,7 @@ type ListHistoryReq struct {
 }
 
 type DeleteHistoryReq struct {
-	PostId int64 `json:"postId,omitempty"`
+	PostId uint `json:"postId,omitempty"`
 }
 
 type DeleteHistoryAllReq struct {

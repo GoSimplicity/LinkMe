@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
@@ -34,7 +34,7 @@ func (h *PlateHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup.POST("/list", WrapBody(h.ListPlate))
 }
 
-func (h *PlateHandler) CreatePlate(ctx *gin.Context, req required_parameter.CreatePlateReq) (Result, error) {
+func (h *PlateHandler) CreatePlate(ctx *gin.Context, req req.CreatePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.CreatePlate(ctx, domain.Plate{
 		Name:        req.Name,
@@ -52,7 +52,7 @@ func (h *PlateHandler) CreatePlate(ctx *gin.Context, req required_parameter.Crea
 	}, nil
 }
 
-func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req required_parameter.UpdatePlateReq) (Result, error) {
+func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req req.UpdatePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.UpdatePlate(ctx, domain.Plate{
 		ID:          req.ID,
@@ -71,7 +71,7 @@ func (h *PlateHandler) UpdatePlate(ctx *gin.Context, req required_parameter.Upda
 	}, nil
 }
 
-func (h *PlateHandler) DeletePlate(ctx *gin.Context, req required_parameter.DeletePlateReq) (Result, error) {
+func (h *PlateHandler) DeletePlate(ctx *gin.Context, req req.DeletePlateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := h.svc.DeletePlate(ctx, req.PlateID, uc.Uid)
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *PlateHandler) DeletePlate(ctx *gin.Context, req required_parameter.Dele
 	}, nil
 }
 
-func (h *PlateHandler) ListPlate(ctx *gin.Context, req required_parameter.ListPlateReq) (Result, error) {
+func (h *PlateHandler) ListPlate(ctx *gin.Context, req req.ListPlateReq) (Result, error) {
 	plates, err := h.svc.ListPlate(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,

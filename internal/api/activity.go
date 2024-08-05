@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/api/required_parameter"
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
 	"github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/middleware"
@@ -29,7 +29,7 @@ func (ah *ActivityHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 // GetRecentActivity 获取最近的活动记录
-func (ah *ActivityHandler) GetRecentActivity(ctx *gin.Context, _ required_parameter.GetRecentActivityReq) (Result, error) {
+func (ah *ActivityHandler) GetRecentActivity(ctx *gin.Context, _ req.GetRecentActivityReq) (Result, error) {
 	activity, err := ah.svc.GetRecentActivity(ctx)
 	if err != nil {
 		return Result{

@@ -24,7 +24,7 @@ type SearchDAO interface {
 	InputUser(ctx context.Context, user UserSearch) error
 	InputPost(ctx context.Context, post PostSearch) error
 	DeleteUserIndex(ctx context.Context, userId int64) error
-	DeletePostIndex(ctx context.Context, postId int64) error
+	DeletePostIndex(ctx context.Context, postId uint) error
 }
 
 type searchDAO struct {
@@ -34,7 +34,7 @@ type searchDAO struct {
 }
 
 type PostSearch struct {
-	Id      int64    `json:"id"`
+	Id      uint     `json:"id"`
 	Title   string   `json:"title"`
 	Status  string   `json:"status"`
 	Content string   `json:"content"`
@@ -223,7 +223,7 @@ func (s *searchDAO) InputUser(ctx context.Context, user UserSearch) error {
 }
 
 func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
-	_, err := s.client.Index(PostIndex).Id(strconv.FormatInt(post.Id, 10)).Document(post).Do(ctx)
+	_, err := s.client.Index(PostIndex).Id(strconv.FormatInt(int64(post.Id), 10)).Document(post).Do(ctx)
 	if err != nil {
 		s.l.Error("create post index failed", zap.Error(err))
 		return err
@@ -249,10 +249,10 @@ func (s *searchDAO) DeleteUserIndex(ctx context.Context, userId int64) error {
 	return nil
 }
 
-func (s *searchDAO) DeletePostIndex(ctx context.Context, postId int64) error {
+func (s *searchDAO) DeletePostIndex(ctx context.Context, postId uint) error {
 	req := esapi.DeleteRequest{
 		Index:      PostIndex,
-		DocumentID: strconv.FormatInt(postId, 10),
+		DocumentID: strconv.FormatInt(int64(postId), 10),
 	}
 	res, err := req.Do(ctx, s.client)
 	if err != nil {

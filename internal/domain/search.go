@@ -1,7 +1,7 @@
 package domain
 
 type PostSearch struct {
-	Id      int64
+	Id      uint
 	Title   string
 	Status  string
 	Content string
@@ -12,5 +12,5 @@ type UserSearch struct {
 	Id       int64
 	Email    string
 	Nickname string
-	Phone    string
+	Phone    *string
 }

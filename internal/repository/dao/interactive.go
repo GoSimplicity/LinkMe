@@ -21,16 +21,16 @@ var (
 
 // InteractiveDAO 互动数据访问对象接口
 type InteractiveDAO interface {
-	IncrReadCnt(ctx context.Context, biz string, bizId int64) error
-	BatchIncrReadCnt(ctx context.Context, biz []string, bizIds []int64) error
+	IncrReadCnt(ctx context.Context, biz string, postId uint) error
+	BatchIncrReadCnt(ctx context.Context, biz []string, postIds []uint) error
 	InsertLikeInfo(ctx context.Context, lb UserLikeBiz) error
 	DeleteLikeInfo(ctx context.Context, lb UserLikeBiz) error
 	InsertCollectionBiz(ctx context.Context, cb UserCollectionBiz) error
 	DeleteCollectionBiz(ctx context.Context, cb UserCollectionBiz) error
-	GetLikeInfo(ctx context.Context, biz string, id int64, uid int64) (UserLikeBiz, error)
-	GetCollectInfo(ctx context.Context, biz string, id int64, uid int64) (UserCollectionBiz, error)
-	Get(ctx context.Context, biz string, id int64) (Interactive, error)
-	GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error)
+	GetLikeInfo(ctx context.Context, biz string, postId uint, uid int64) (UserLikeBiz, error)
+	GetCollectInfo(ctx context.Context, biz string, postId uint, uid int64) (UserCollectionBiz, error)
+	Get(ctx context.Context, biz string, postId uint) (Interactive, error)
+	GetByIds(ctx context.Context, biz string, postIds []uint) ([]Interactive, error)
 }
 
 type interactiveDAO struct {
@@ -42,7 +42,7 @@ type interactiveDAO struct {
 type UserLikeBiz struct {
 	ID         int64  `gorm:"primaryKey;autoIncrement"`                     // 点赞记录ID，主键，自增
 	Uid        int64  `gorm:"index"`                                        // 用户ID，用于标识哪个用户点赞
-	BizID      int64  `gorm:"index"`                                        // 业务ID，用于标识点赞的业务对象
+	BizID      uint   `gorm:"index"`                                        // 业务ID，用于标识点赞的业务对象
 	BizName    string `gorm:"type:varchar(255)"`                            // 业务名称
 	Status     int    `gorm:"type:int"`                                     // 状态，用于表示点赞的状态（如有效、无效等）
 	UpdateTime int64  `gorm:"column:updated_at;type:bigint;not null;index"` // 更新时间，Unix时间戳
@@ -54,7 +54,7 @@ type UserLikeBiz struct {
 type UserCollectionBiz struct {
 	ID           int64  `gorm:"primaryKey;autoIncrement"`                     // 收藏记录ID，主键，自增
 	Uid          int64  `gorm:"index"`                                        // 用户ID，用于标识哪个用户收藏
-	BizID        int64  `gorm:"index"`                                        // 业务ID，用于标识收藏的业务对象
+	BizID        uint   `gorm:"index"`                                        // 业务ID，用于标识收藏的业务对象
 	BizName      string `gorm:"type:varchar(255)"`                            // 业务名称
 	Status       int    `gorm:"column:status"`                                // 状态，用于表示收藏的状态（如有效、无效等）
 	CollectionId int64  `gorm:"index"`                                        // 收藏ID，用于标识具体的收藏对象
@@ -66,7 +66,7 @@ type UserCollectionBiz struct {
 // Interactive 互动信息结构体
 type Interactive struct {
 	ID           int64  `gorm:"primaryKey;autoIncrement"`                     // 互动记录ID，主键，自增
-	BizID        int64  `gorm:"uniqueIndex:biz_type_id"`                      // 业务ID，用于标识互动的业务对象
+	BizID        uint   `gorm:"uniqueIndex:biz_type_id"`                      // 业务ID，用于标识互动的业务对象
 	BizName      string `gorm:"type:varchar(128);uniqueIndex:biz_type_id"`    // 业务名称
 	ReadCount    int64  `gorm:"column:read_count"`                            // 阅读数量
 	LikeCount    int64  `gorm:"column:like_count"`                            // 点赞数量
@@ -87,12 +87,12 @@ func (i *interactiveDAO) getCurrentTime() int64 {
 }
 
 // IncrReadCnt 增加阅读计数
-func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int64) error {
+func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, postId uint) error {
 	now := i.getCurrentTime()
 	// 创建Interactive实例，用于存储阅读计数更新
 	interactive := Interactive{
 		BizName:    biz,
-		BizID:      bizId,
+		BizID:      postId,
 		ReadCount:  1,
 		CreateTime: now,
 		UpdateTime: now,
@@ -106,12 +106,12 @@ func (i *interactiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int6
 	}).Create(&interactive).Error
 }
 
-func (i *interactiveDAO) BatchIncrReadCnt(ctx context.Context, biz []string, bizIds []int64) error {
+func (i *interactiveDAO) BatchIncrReadCnt(ctx context.Context, biz []string, postIds []uint) error {
 	// 利用一个事务只提交一次的特性，优化性能
 	return i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txInc := NewInteractiveDAO(tx, i.l)
 		for j := 0; j < len(biz); j++ {
-			if err := txInc.IncrReadCnt(ctx, biz[j], bizIds[j]); err != nil {
+			if err := txInc.IncrReadCnt(ctx, biz[j], postIds[j]); err != nil {
 				i.l.Error("add read count failed", zap.Error(err))
 				return err
 			}
@@ -253,28 +253,28 @@ func (i *interactiveDAO) DeleteCollectionBiz(ctx context.Context, cb UserCollect
 	})
 }
 
-func (i *interactiveDAO) GetLikeInfo(ctx context.Context, biz string, id int64, uid int64) (UserLikeBiz, error) {
+func (i *interactiveDAO) GetLikeInfo(ctx context.Context, biz string, postId uint, uid int64) (UserLikeBiz, error) {
 	var lb UserLikeBiz
-	err := i.db.WithContext(ctx).Where("uid = ? AND biz_name = ? AND biz_id = ? AND status = ?", uid, biz, id, 1).First(&lb).Error
+	err := i.db.WithContext(ctx).Where("uid = ? AND biz_name = ? AND biz_id = ? AND status = ?", uid, biz, postId, 1).First(&lb).Error
 	return lb, err
 }
 
-func (i *interactiveDAO) GetCollectInfo(ctx context.Context, biz string, id int64, uid int64) (UserCollectionBiz, error) {
+func (i *interactiveDAO) GetCollectInfo(ctx context.Context, biz string, postId uint, uid int64) (UserCollectionBiz, error) {
 	var cb UserCollectionBiz
-	err := i.db.WithContext(ctx).Where("uid = ? AND biz_name = ? AND biz_id = ? AND status = ?", uid, biz, id, 1).First(&cb).Error
+	err := i.db.WithContext(ctx).Where("uid = ? AND biz_name = ? AND biz_id = ? AND status = ?", uid, biz, postId, 1).First(&cb).Error
 	return cb, err
 }
 
-func (i *interactiveDAO) Get(ctx context.Context, biz string, id int64) (Interactive, error) {
+func (i *interactiveDAO) Get(ctx context.Context, biz string, postId uint) (Interactive, error) {
 	var inc Interactive
-	err := i.db.WithContext(ctx).Where("biz_name = ? AND biz_id = ?", biz, id).First(&inc).Error
+	err := i.db.WithContext(ctx).Where("biz_name = ? AND biz_id = ?", biz, postId).First(&inc).Error
 	return inc, err
 }
 
-func (i *interactiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error) {
+func (i *interactiveDAO) GetByIds(ctx context.Context, biz string, postIds []uint) ([]Interactive, error) {
 	var inc []Interactive
 	err := i.db.WithContext(ctx).
-		Where("biz_name = ? AND biz_id IN ?", biz, ids).
+		Where("biz_name = ? AND biz_id IN ?", biz, postIds).
 		Find(&inc).Error
 	return inc, err
 }

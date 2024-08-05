@@ -16,7 +16,7 @@ type SearchRepository interface {
 	InputUser(ctx context.Context, user domain.UserSearch) error
 	InputPost(ctx context.Context, post domain.PostSearch) error
 	DeleteUserIndex(ctx context.Context, userId int64) error
-	DeletePostIndex(ctx context.Context, postId int64) error
+	DeletePostIndex(ctx context.Context, postId uint) error
 }
 
 func NewSearchRepository(dao dao.SearchDAO) SearchRepository {
@@ -47,7 +47,7 @@ func (s *searchRepository) DeleteUserIndex(ctx context.Context, userId int64) er
 	return s.dao.DeleteUserIndex(ctx, userId)
 }
 
-func (s *searchRepository) DeletePostIndex(ctx context.Context, postId int64) error {
+func (s *searchRepository) DeletePostIndex(ctx context.Context, postId uint) error {
 	return s.dao.DeletePostIndex(ctx, postId)
 }
 
@@ -66,7 +66,6 @@ func (s *searchRepository) toDaoUserSearch(domainUsers domain.UserSearch) dao.Us
 		Email:    domainUsers.Email,
 		Id:       domainUsers.Id,
 		Nickname: domainUsers.Nickname,
-		Phone:    domainUsers.Phone,
 	}
 }
 
@@ -91,7 +90,6 @@ func (s *searchRepository) toDomainUserSearch(daoUsers []dao.UserSearch) []domai
 			Email:    daoUser.Email,
 			Id:       daoUser.Id,
 			Nickname: daoUser.Nickname,
-			Phone:    daoUser.Phone,
 		}
 	}
 	return domainUsers

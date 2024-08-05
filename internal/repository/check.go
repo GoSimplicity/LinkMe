@@ -14,7 +14,7 @@ type CheckRepository interface {
 	UpdateStatus(ctx context.Context, check domain.Check) error                            // 更新审核状态
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.CheckList, error) // 获取审核列表
 	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                     // 获取审核详情
-	FindByPostId(ctx context.Context, postID int64) (domain.Check, error)
+	FindByPostId(ctx context.Context, postID uint) (domain.Check, error)
 	GetCheckCount(ctx context.Context) (int64, error)
 }
 
@@ -30,12 +30,14 @@ func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
 	}
 }
 
-func (r *checkRepository) FindByPostId(ctx context.Context, postID int64) (domain.Check, error) {
+func (r *checkRepository) FindByPostId(ctx context.Context, postID uint) (domain.Check, error) {
 	return r.dao.FindByPostId(ctx, postID)
 
 }
 
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
+	// 设置状态为审核中
+	check.Status = constants.PostUnderReview
 	// 先查找是否存在该帖子审核信息
 	dc, err := r.dao.FindByPostId(ctx, check.PostID)
 	log.Println(dc)
