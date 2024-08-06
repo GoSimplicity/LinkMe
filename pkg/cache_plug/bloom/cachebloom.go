@@ -1,4 +1,4 @@
-package cachebloom
+package bloom
 
 import (
 	"context"
