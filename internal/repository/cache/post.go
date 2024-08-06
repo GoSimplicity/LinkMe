@@ -12,8 +12,6 @@ import (
 )
 
 type PostCache interface {
-	GetFirstPage(ctx context.Context, postId uint) ([]domain.Post, error)       // 获取个人用户的第一页帖子缓存
-	GetPubFirstPage(ctx context.Context, postId uint) ([]domain.Post, error)    // 获取公开用户的第一页帖子缓存
 	SetFirstPage(ctx context.Context, postId uint, post []domain.Post) error    // 设置个人用户的第一页帖子缓存
 	SetPubFirstPage(ctx context.Context, postId uint, post []domain.Post) error // 设置公开用户的第一页帖子缓存
 	DelFirstPage(ctx context.Context, postId uint) error                        // 删除用户的第一页帖子缓存
@@ -34,25 +32,6 @@ func NewPostCache(cmd redis.Cmdable, l *zap.Logger) PostCache {
 		cmd: cmd,
 		l:   l,
 	}
-}
-
-// GetFirstPage 获取个人第一页帖子摘要
-func (p *postCache) GetFirstPage(ctx context.Context, postId uint) ([]domain.Post, error) {
-	var dp []domain.Post
-	key := fmt.Sprintf("post:first:%d", postId)
-	val, err := p.cmd.Get(ctx, key).Bytes()
-	if errors.Is(err, redis.Nil) {
-		p.l.Warn("缓存未命中", zap.String("key", key))
-		return nil, nil
-	} else if err != nil {
-		p.l.Warn("缓存获取失败", zap.Error(err), zap.String("key", key))
-		return nil, err
-	}
-	if er := json.Unmarshal(val, &dp); er != nil {
-		p.l.Error("反序列化失败", zap.Error(er), zap.String("key", key))
-		return nil, er
-	}
-	return dp, nil
 }
 
 // SetFirstPage 设置个人第一页帖子摘要

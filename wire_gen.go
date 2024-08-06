@@ -16,7 +16,8 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/ioc"
-	"github.com/GoSimplicity/LinkMe/pkg/cachebloom"
+	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/bloom"
+	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
 	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
 
@@ -48,8 +49,9 @@ func InitWebServer() *Cmd {
 	mongoClient := ioc.InitMongoDB()
 	postDAO := dao.NewPostDAO(db, logger, mongoClient)
 	postCache := cache.NewPostCache(cmdable, logger)
-	cacheBloom := cachebloom.NewCacheBloom(cmdable)
-	postRepository := repository.NewPostRepository(postDAO, logger, postCache, cacheBloom)
+	cacheBloom := bloom.NewCacheBloom(cmdable)
+	cacheManager := local.NewLocalCacheManager(cmdable)
+	postRepository := repository.NewPostRepository(postDAO, logger, postCache, cacheBloom, cacheManager)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	historyCache := cache.NewHistoryCache(logger, cmdable)
 	historyRepository := repository.NewHistoryRepository(logger, historyCache)
