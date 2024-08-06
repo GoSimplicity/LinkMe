@@ -63,7 +63,6 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 				return err
 			}
 		} else {
-			// 其他错误
 			return err
 		}
 	}
