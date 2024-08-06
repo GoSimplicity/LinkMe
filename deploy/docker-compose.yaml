@@ -63,3 +63,18 @@ services:
     ports:
       - "9200:9200"
       - "9300:9300"
+  canal:
+    image: canal/canal-server
+    container_name: linkme-canal
+    environment:
+      - CANAL_IP=canal-server
+      - CANAL_PORT=11111
+      - CANAL_DESTINATIONS=linkme
+    depends_on:
+      - db
+      - kafka
+    ports:
+      - "11111:11111"
+    volumes:
+      - /data/canal/instance.properties:/home/admin/canal-server/conf/linkme/instance.properties # 配置 Canal 实例的具体参数
+      - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties # Canal 服务器的全局配置文件
