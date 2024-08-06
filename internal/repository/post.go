@@ -7,9 +7,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
-	"github.com/GoSimplicity/LinkMe/pkg/cachebloom"
+	bloom "github.com/GoSimplicity/LinkMe/pkg/cache_plug/bloom"
+	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,15 +38,17 @@ type postRepository struct {
 	dao dao.PostDAO
 	l   *zap.Logger
 	c   cache.PostCache
-	cb  *cachebloom.CacheBloom
+	cb  *bloom.CacheBloom
+	cl  *local.CacheManager
 }
 
-func NewPostRepository(dao dao.PostDAO, l *zap.Logger, c cache.PostCache, cb *cachebloom.CacheBloom) PostRepository {
+func NewPostRepository(dao dao.PostDAO, l *zap.Logger, c cache.PostCache, cb *bloom.CacheBloom, cl *local.CacheManager) PostRepository {
 	return &postRepository{
 		dao: dao,
 		l:   l,
 		c:   c,
 		cb:  cb,
+		cl:  cl,
 	}
 }
 
@@ -87,110 +91,127 @@ func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) err
 	return nil
 }
 
-// GetDraftsByAuthor 获取作者的草稿帖子
+// GetDraftsByAuthor 获取作者帖子详情
 func (p *postRepository) GetDraftsByAuthor(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
+	// 定义缓存键
+	cacheKey := fmt.Sprintf("post:draft:%d:%d", postId, uid)
+	// 使用布隆过滤器查询数据
+	cachedPost, err := bloom.QueryData(p.cb, ctx, cacheKey, domain.Post{}, time.Minute*10)
+	if err == nil && !isEmpty(cachedPost) {
+		// 如果缓存命中，直接返回缓存中的数据
+		return cachedPost, nil
+	}
+	// 如果缓存未命中，从数据库中获取数据
 	dp, err := p.dao.GetByAuthor(ctx, postId, uid)
 	if err != nil {
+		// 如果数据库查询失败，缓存空对象
+		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
 		return domain.Post{}, err
 	}
-	return toDomainPost(dp), nil
+	// 将数据存储到布隆过滤器与缓存中
+	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10)
+	if err != nil {
+		p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(err))
+	}
+	return cachedPost, nil
 }
 
 // GetPostById 获取帖子详细信息
 func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
+	// 定义缓存键
+	cacheKey := fmt.Sprintf("post:detail:%d:%d", postId, uid)
+	// 使用布隆过滤器查询数据
+	cachedPost, err := bloom.QueryData(p.cb, ctx, cacheKey, domain.Post{}, time.Minute*10)
+	if err == nil && !isEmpty(cachedPost) {
+		// 如果缓存命中，直接返回缓存中的数据
+		return cachedPost, nil
+	}
+	// 如果缓存未命中，从数据库中获取数据
 	post, err := p.dao.GetById(ctx, postId, uid)
 	if err != nil {
+		// 如果数据库查询失败，缓存空对象
+		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
 		return domain.Post{}, err
 	}
-	return toDomainPost(post), nil
+	// 将数据存储到布隆过滤器与缓存中
+	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(post), time.Minute*10)
+	if err != nil {
+		p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(err))
+	}
+	return cachedPost, nil
 }
 
 // GetPublishedPostById 获取已发布的帖子详细信息
 func (p *postRepository) GetPublishedPostById(ctx context.Context, postId uint) (domain.Post, error) {
+	// 定义缓存键
+	cacheKey := fmt.Sprintf("post:pub:detail:%d", postId)
+	// 使用布隆过滤器查询数据
+	cachedPost, err := bloom.QueryData(p.cb, ctx, cacheKey, domain.Post{}, time.Minute*10)
+	if err == nil && !isEmpty(cachedPost) {
+		// 如果缓存命中，直接返回缓存中的数据
+		return cachedPost, nil
+	}
+	// 如果缓存未命中，从数据库中获取数据
 	dp, err := p.dao.GetPubById(ctx, postId)
 	if err != nil {
+		// 如果数据库查询失败，缓存空对象
+		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
 		return domain.Post{}, err
 	}
-	return toDomainPost(dp), nil
-}
-
-// ListPosts 列出帖子
-func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	var posts []domain.Post
-	var err error
-	// 定义缓存键
-	cacheKey := fmt.Sprintf("post:first:%d", pagination.Uid)
-	// 使用布隆过滤器查询数据
-	cachedPosts, err := cachebloom.QueryData(p.cb, ctx, cacheKey, []domain.Post{}, time.Minute*10)
-	if err == nil && len(cachedPosts) != 0 {
-		// 如果缓存命中，直接返回缓存中的数据
-		return cachedPosts, nil
-	}
-	// 如果缓存未命中，从数据库中获取数据
-	pub, err := p.dao.List(ctx, pagination)
-	if err != nil {
-		// 如果数据库查询失败，缓存空对象
-		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
-		return nil, err
-	}
-	posts = fromDomainSlicePost(pub)
-	// 使用 errgroup 并发更新缓存
-	eg, ctx := errgroup.WithContext(ctx)
 	// 将数据存储到布隆过滤器与缓存中
-	eg.Go(func() error {
-		if _, er := cachebloom.QueryData(p.cb, ctx, cacheKey, posts, time.Minute*10); er != nil {
-			p.l.Warn("update bloom filter and cache failed", zap.Error(er))
-			return er
-		}
-		return nil
-	})
-	// 等待所有并发操作完成
-	if er := eg.Wait(); er != nil {
-		return nil, er
+	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10)
+	if err != nil {
+		p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(err))
 	}
-	return posts, nil
+	return cachedPost, nil
 }
 
-// ListPublishedPosts 列出已发布的帖子
-func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	var posts []domain.Post
-	var err error
+func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	// 定义缓存键
-	cacheKey := fmt.Sprintf("post:pub:first:%d", pagination.Uid)
-	if pagination.Page == 1 {
-		// 使用布隆过滤器查询数据
-		cachedPosts, er := cachebloom.QueryData(p.cb, ctx, cacheKey, []domain.Post{}, time.Minute*10)
-		if er == nil && len(cachedPosts) != 0 {
-			// 如果缓存命中，直接返回缓存中的数据
-			return cachedPosts, nil
-		} else if er != nil {
-			p.l.Warn("获取缓存失败", zap.Error(er))
+	cacheKey := fmt.Sprintf("post:pri:%d:%d", pagination.Uid, pagination.Page)
+	// 尝试从缓存中获取数据
+	var cachedPosts []domain.Post
+	err := p.cl.Get(ctx, cacheKey, func() (interface{}, error) {
+		// 如果缓存未命中，从数据库中加载数据
+		pub, err := p.dao.List(ctx, pagination)
+		if err != nil {
+			// 如果数据库查询失败，缓存空对象以防止缓存穿透
+			_ = p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*10)
+			return nil, err
 		}
-	}
-	// 如果缓存未命中，从数据库中获取数据
-	pub, err := p.dao.ListPub(ctx, pagination)
+		// 将从数据库加载的数据转换为 domain.Post 类型
+		posts := fromDomainSlicePost(pub)
+		return posts, nil
+	}, &cachedPosts)
 	if err != nil {
-		// 如果数据库查询失败，缓存空对象
-		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
+		p.l.Warn("获取数据失败", zap.Error(err))
 		return nil, err
 	}
-	posts = fromDomainSlicePost(pub)
-	if pagination.Page == 1 {
-		// 使用 errgroup 并发更新布隆过滤器和缓存
-		eg, ctx1 := errgroup.WithContext(ctx)
-		eg.Go(func() error {
-			if _, er := cachebloom.QueryData(p.cb, ctx1, cacheKey, posts, time.Minute*10); err != nil {
-				p.l.Warn("update bloom filter and cache failed", zap.Error(err))
-				return er
-			}
-			return nil
-		})
-		// 等待所有并发操作完成
-		if er := eg.Wait(); er != nil {
-			return nil, er
+	return cachedPosts, nil
+}
+
+func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	// 定义缓存键
+	cacheKey := fmt.Sprintf("post:pub:%d:%d", pagination.Uid, pagination.Page)
+	// 尝试从缓存中获取数据
+	var cachedPosts []domain.Post
+	err := p.cl.Get(ctx, cacheKey, func() (interface{}, error) {
+		// 如果缓存未命中，从数据库中加载数据
+		pub, err := p.dao.ListPub(ctx, pagination)
+		if err != nil {
+			// 如果数据库查询失败，缓存空对象以防止缓存穿透
+			_ = p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*5)
+			return nil, err
 		}
+		// 将从数据库加载的数据转换为 domain.Post 类型
+		posts := fromDomainSlicePost(pub)
+		return posts, nil
+	}, &cachedPosts)
+	if err != nil {
+		p.l.Warn("获取数据失败", zap.Error(err))
+		return nil, err
 	}
-	return posts, nil
+	return cachedPosts, nil
 }
 
 // Delete 删除帖子
@@ -261,6 +282,10 @@ func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func isEmpty(post domain.Post) bool {
+	return reflect.DeepEqual(post, domain.Post{})
 }
 
 // 将领域层对象转为dao层对象
