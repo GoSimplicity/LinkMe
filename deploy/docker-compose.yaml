@@ -18,6 +18,7 @@ services:
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_MESSAGE_MAX_BYTES=20971520
   db:
     image: mysql:8.0
     container_name: linkme-mysql
@@ -78,23 +79,3 @@ services:
     volumes:
       - /data/canal/instance.properties:/home/admin/canal-server/conf/linkme/instance.properties # 配置 Canal 实例的具体参数
       - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties # Canal 服务器的全局配置文件
-  connect:
-    image: debezium/connect:2.7
-    container_name: linkme-connect
-    restart: always
-    ports:
-      - "8083:8083"
-    environment:
-      BOOTSTRAP_SERVERS: 'kafka:9092'
-      GROUP_ID: '1'
-      CONFIG_STORAGE_TOPIC: 'my_connect_configs'
-      OFFSET_STORAGE_TOPIC: 'my_connect_offsets'
-      STATUS_STORAGE_TOPIC: 'my_connect_statuses'
-      KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
-      VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
-      CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
-      CONNECT_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
-      CONNECT_REST_ADVERTISED_HOST_NAME: 'connect'
-      CONNECT_PLUGIN_PATH: '/kafka/connect,/debezium-connector-mysql'
-    depends_on:
-      - kafka
