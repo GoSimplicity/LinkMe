@@ -11,6 +11,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
@@ -102,7 +103,8 @@ func InitWebServer() *Cmd {
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
-	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer)
+	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer)
 	cmd := &Cmd{
 		server:   engine,
 		Cron:     cron,
