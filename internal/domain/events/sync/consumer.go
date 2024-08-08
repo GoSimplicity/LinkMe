@@ -2,14 +2,15 @@ package sync
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
-	"github.com/GoSimplicity/LinkMe/pkg/canalp"
 	"github.com/IBM/sarama"
+	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"strconv"
+	"reflect"
 	"time"
 )
 
@@ -19,6 +20,29 @@ type SyncConsumer struct {
 	db          *gorm.DB
 	mongoClient *mongo.Client
 	postDAO     dao.PostDAO
+}
+
+type Event struct {
+	Type     string              `json:"type"`
+	Database string              `json:"database"`
+	Table    string              `json:"table"`
+	Data     []map[string]string `json:"data"`
+}
+
+type Post struct {
+	ID           uint         `mapstructure:"id"`
+	Title        string       `mapstructure:"title"`
+	Content      string       `mapstructure:"content"`
+	CreatedAt    time.Time    `mapstructure:"created_at"`
+	UpdatedAt    time.Time    `mapstructure:"updated_at"`
+	DeletedAt    sql.NullTime `mapstructure:"deleted_at"`
+	AuthorID     int64        `mapstructure:"author_id"`
+	Status       uint8        `mapstructure:"status"`
+	PlateID      int64        `mapstructure:"plate_id"`
+	Slug         string       `mapstructure:"slug"`
+	CategoryID   int64        `mapstructure:"category_id"`
+	Tags         string       `mapstructure:"tags"`
+	CommentCount int64        `mapstructure:"comment_count"`
 }
 
 type consumerGroupHandler struct {
@@ -62,91 +86,69 @@ func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 }
 
 func (r *SyncConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) {
-	var binlogMsg canalp.Message[map[string]interface{}]
-	if err := json.Unmarshal(msg.Value, &binlogMsg); err != nil {
-		r.l.Error("消息反序列化失败", zap.Error(err))
+	var e Event
+
+	if err := json.Unmarshal(msg.Value, &e); err != nil {
+		panic(err)
+	}
+
+	var p []Post
+
+	config := &mapstructure.DecoderConfig{
+		Metadata:         nil,
+		Result:           &p,
+		TagName:          "mapstructure",
+		WeaklyTypedInput: true,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToTimeHookFunc("2006-01-02 15:04:05.999"),
+			stringToNullTimeHookFunc("2006-01-02 15:04:05.999"),
+		),
+	}
+
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		r.l.Error("解码器创建失败", zap.Error(err))
 		return
 	}
-	var post dao.Post
-	for _, data := range binlogMsg.Data {
-		if err := mapToStruct(data, &post); err != nil {
-			r.l.Error("数据映射到结构体失败", zap.Error(err))
-			continue
+
+	if err := decoder.Decode(e.Data); err != nil {
+		r.l.Error("数据映射到结构体失败", zap.Error(err))
+		return
+	}
+
+	sess.MarkMessage(msg, "")
+}
+
+func stringToTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
+	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+		if f != reflect.String || t != reflect.Struct {
+			return data, nil
 		}
-		sess.MarkMessage(msg, "")
+
+		str := data.(string)
+		if str == "" {
+			return time.Time{}, nil
+		}
+
+		return time.Parse(layout, str)
 	}
 }
-func mapToStruct(data map[string]interface{}, post *dao.Post) error {
-	if idStr, ok := data["id"].(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return err
+
+func stringToNullTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
+	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+		if f != reflect.String || t != reflect.Struct {
+			return data, nil
 		}
-		post.ID = uint(id)
-	}
 
-	if authorIDStr, ok := data["author_id"].(string); ok {
-		authorID, err := strconv.ParseInt(authorIDStr, 10, 64)
-		if err != nil {
-			return err
+		str := data.(string)
+		if str == "" {
+			return sql.NullTime{Valid: false}, nil
 		}
-		post.AuthorID = authorID
-	}
 
-	if statusStr, ok := data["status"].(string); ok {
-		status, err := strconv.ParseUint(statusStr, 10, 8)
+		parsedTime, err := time.Parse(layout, str)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		post.Status = uint8(status)
+		return sql.NullTime{Time: parsedTime, Valid: true}, nil
 	}
-
-	if plateIDStr, ok := data["plate_id"].(string); ok {
-		plateID, err := strconv.ParseInt(plateIDStr, 10, 64)
-		if err != nil {
-			return err
-		}
-		post.PlateID = plateID
-	}
-
-	if categoryIDStr, ok := data["category_id"].(string); ok {
-		categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
-		if err != nil {
-			return err
-		}
-		post.CategoryID = categoryID
-	}
-
-	if commentCountStr, ok := data["comment_count"].(string); ok {
-		commentCount, err := strconv.ParseInt(commentCountStr, 10, 64)
-		if err != nil {
-			return err
-		}
-		post.CommentCount = commentCount
-	}
-
-	// Convert other fields directly
-	post.Title = data["title"].(string)
-	post.Content = data["content"].(string)
-
-	if createdAtStr, ok := data["created_at"].(string); ok {
-		createdAt, err := time.Parse("2006-01-02 15:04:05.999", createdAtStr)
-		if err != nil {
-			return err
-		}
-		post.CreatedAt = createdAt
-	}
-
-	if updatedAtStr, ok := data["updated_at"].(string); ok {
-		updatedAt, err := time.Parse("2006-01-02 15:04:05.999", updatedAtStr)
-		if err != nil {
-			return err
-		}
-		post.UpdatedAt = updatedAt
-	}
-
-	post.Slug = data["slug"].(string)
-	post.Tags = data["tags"].(string)
-
-	return nil
 }
