@@ -7,6 +7,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
@@ -96,6 +97,7 @@ func InitWebServer() *Cmd {
 		email.NewSaramaSyncProducer,
 		bloom.NewCacheBloom,
 		local.NewLocalCacheManager,
+		sync.NewSyncConsumer,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)

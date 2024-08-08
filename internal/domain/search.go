@@ -3,7 +3,7 @@ package domain
 type PostSearch struct {
 	Id      uint
 	Title   string
-	Status  string
+	Status  uint8
 	Content string
 	Tags    []string
 }

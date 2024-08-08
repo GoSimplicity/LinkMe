@@ -1,13 +1,13 @@
 db:
-  dsn: "root:root@tcp(localhost:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:root@tcp(192.168.1.11:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 redis:
-  addr: "localhost:6379" # 公网redis地址
+  addr: "192.168.1.11:6379" # 公网redis地址
 log:
   filepath: "logs/linkme.json"
 mongodb:
-  addr: "mongodb://localhost:27017"
+  addr: "mongodb://192.168.1.11:27017"
 kafka:
-  addr: "localhost:9092"
+  addr: "192.168.1.11:9092"
 es:
   addr: "http://192.168.1.11:30889"
 sms:

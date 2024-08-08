@@ -54,13 +54,11 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req req.EditReq) (Result, error) {
 	// 获取当前登陆的用户信息
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	id, err := ph.svc.Create(ctx, domain.Post{
-		ID:      req.PostId,
-		Content: req.Content,
-		Title:   req.Title,
-		PlateID: req.PlateID,
-		Author: domain.Author{
-			Id: uc.Uid,
-		},
+		ID:       req.PostId,
+		Content:  req.Content,
+		Title:    req.Title,
+		PlateID:  req.PlateID,
+		AuthorID: uc.Uid,
 	})
 	if err != nil {
 		return Result{
@@ -78,13 +76,11 @@ func (ph *PostHandler) Edit(ctx *gin.Context, req req.EditReq) (Result, error) {
 func (ph *PostHandler) Update(ctx *gin.Context, req req.UpdateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Update(ctx, domain.Post{
-		ID:      req.PostId,
-		Title:   req.Title,
-		Content: req.Content,
-		PlateID: req.PlateID,
-		Author: domain.Author{
-			Id: uc.Uid,
-		},
+		ID:       req.PostId,
+		Title:    req.Title,
+		Content:  req.Content,
+		PlateID:  req.PlateID,
+		AuthorID: uc.Uid,
 	}); err != nil {
 		return Result{
 			Code: PostUpdateERRORCode,
@@ -100,10 +96,8 @@ func (ph *PostHandler) Update(ctx *gin.Context, req req.UpdateReq) (Result, erro
 func (ph *PostHandler) Publish(ctx *gin.Context, req req.PublishReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Publish(ctx, domain.Post{
-		ID: req.PostId,
-		Author: domain.Author{
-			Id: uc.Uid,
-		},
+		ID:       req.PostId,
+		AuthorID: uc.Uid,
 	}); err != nil {
 		return Result{
 			Code: PostPublishERRORCode,
@@ -120,10 +114,8 @@ func (ph *PostHandler) Publish(ctx *gin.Context, req req.PublishReq) (Result, er
 func (ph *PostHandler) Withdraw(ctx *gin.Context, req req.WithDrawReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := ph.svc.Withdraw(ctx, domain.Post{
-		ID: req.PostId,
-		Author: domain.Author{
-			Id: uc.Uid,
-		},
+		ID:       req.PostId,
+		AuthorID: uc.Uid,
 	}); err != nil {
 		return Result{
 			Code: PostWithdrawERRORCode,

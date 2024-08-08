@@ -24,7 +24,7 @@ func NewInteractiveReadEventConsumer(repo repository.InteractiveRepository,
 	}
 }
 
-func (i *InteractiveReadEventConsumer) Start(ctx context.Context) error {
+func (i *InteractiveReadEventConsumer) Start(_ context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("interactive", i.client)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func (i *InteractiveReadEventConsumer) Start(ctx context.Context) error {
 }
 
 // BatchConsume 处理函数，处理批次消息
-func (i *InteractiveReadEventConsumer) BatchConsume(msgs []*sarama.ConsumerMessage, events []ReadEvent) error {
+func (i *InteractiveReadEventConsumer) BatchConsume(_ []*sarama.ConsumerMessage, events []ReadEvent) error {
 	bizs := make([]string, 0, len(events))
 	bizIds := make([]uint, 0, len(events))
 	for _, evt := range events {

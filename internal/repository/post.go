@@ -9,7 +9,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	bloom "github.com/GoSimplicity/LinkMe/pkg/cache_plug/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
-	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"reflect"
 	"time"
@@ -28,7 +27,6 @@ type PostRepository interface {
 	ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, post domain.Post) error
-	Sync(ctx context.Context, post domain.Post) (uint, error)
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 	GetPostCount(ctx context.Context) (int64, error)
@@ -120,25 +118,27 @@ func (p *postRepository) GetDraftsByAuthor(ctx context.Context, postId uint, uid
 func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
 	// 定义缓存键
 	cacheKey := fmt.Sprintf("post:detail:%d:%d", postId, uid)
-	// 使用布隆过滤器查询数据
-	cachedPost, err := bloom.QueryData(p.cb, ctx, cacheKey, domain.Post{}, time.Minute*10)
-	if err == nil && !isEmpty(cachedPost) {
-		// 如果缓存命中，直接返回缓存中的数据
-		return cachedPost, nil
-	}
-	// 如果缓存未命中，从数据库中获取数据
-	post, err := p.dao.GetById(ctx, postId, uid)
+
+	// 使用 QueryData 查询数据
+	post, err := bloom.QueryData(p.cb, ctx, cacheKey, domain.Post{}, time.Minute*10)
 	if err != nil {
-		// 如果数据库查询失败，缓存空对象
-		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
 		return domain.Post{}, err
 	}
-	// 将数据存储到布隆过滤器与缓存中
-	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(post), time.Minute*10)
-	if err != nil {
-		p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(err))
+
+	// 如果缓存未命中，则从数据库获取数据
+	if isEmpty(post) {
+		dbPost, err := p.dao.GetById(ctx, postId, uid)
+		if err != nil {
+			// 如果数据库查询失败，缓存空对象
+			_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Minute*10)
+			return domain.Post{}, err
+		}
+		// 将数据转换为 domain.Post 并存储到缓存中
+		post = toDomainPost(dbPost)
+		_, _ = bloom.CacheData(p.cb, ctx, cacheKey, post, time.Minute*10)
 	}
-	return cachedPost, nil
+
+	return post, nil
 }
 
 // GetPublishedPostById 获取已发布的帖子详细信息
@@ -223,40 +223,6 @@ func (p *postRepository) Delete(ctx context.Context, post domain.Post) error {
 	return p.dao.DeleteById(ctx, fromDomainPost(post))
 }
 
-// Sync 同步帖子状态
-func (p *postRepository) Sync(ctx context.Context, post domain.Post) (uint, error) {
-	err := p.dao.UpdateStatus(ctx, fromDomainPost(post))
-	if err != nil {
-		return 0, fmt.Errorf("update post status failed: %w", err)
-	}
-	mp, err := p.dao.GetById(ctx, post.ID, post.Author.Id)
-	if err != nil {
-		return 0, fmt.Errorf("get post failed: %w", err)
-	}
-	eg, ctx := errgroup.WithContext(ctx)
-	if mp.Status != post.Status {
-		eg.Go(func() error {
-			return p.c.DelFirstPage(ctx, post.ID)
-		})
-	}
-	if mp.Status == domain.Published {
-		eg.Go(func() error {
-			return p.c.DelPubFirstPage(ctx, post.ID)
-		})
-	}
-	id, err := p.dao.Sync(ctx, fromDomainPost(post))
-	if err != nil {
-		return 0, fmt.Errorf("sync post failed: %w", err)
-	}
-	eg.Go(func() error {
-		return p.c.DelPubFirstPage(ctx, post.ID)
-	})
-	if er := eg.Wait(); er != nil {
-		return 0, er
-	}
-	return id, nil
-}
-
 // ListAllPost 列出所有帖子
 func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	posts, err := p.dao.ListAllPost(ctx, pagination)
@@ -294,7 +260,7 @@ func fromDomainPost(p domain.Post) dao.Post {
 		Model:        gorm.Model{ID: p.ID},
 		Title:        p.Title,
 		Content:      p.Content,
-		Author:       p.Author.Id,
+		AuthorID:     p.AuthorID,
 		Status:       p.Status,
 		PlateID:      p.PlateID,
 		Slug:         p.Slug,
@@ -341,6 +307,6 @@ func toDomainPost(post dao.Post) domain.Post {
 		CategoryID:   post.CategoryID,
 		Tags:         post.Tags,
 		CommentCount: post.CommentCount,
-		Author:       domain.Author{Id: post.Author},
+		AuthorID:     post.AuthorID,
 	}
 }

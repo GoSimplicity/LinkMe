@@ -81,10 +81,6 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	}
 	// 更新帖子状态为已发布并同步
 	post.Status = domain.Published
-	if _, er := s.postRepo.Sync(ctx, post); er != nil {
-		s.l.Error("Failed to sync post", zap.Uint("PostID", post.ID), zap.Error(er))
-		return fmt.Errorf("sync post failed: %w", er)
-	}
 	if er := s.postRepo.UpdateStatus(ctx, post); er != nil {
 		s.l.Error("Failed to update post status", zap.Uint("PostID", post.ID), zap.Error(er))
 		return fmt.Errorf("update post status failed: %w", er)
