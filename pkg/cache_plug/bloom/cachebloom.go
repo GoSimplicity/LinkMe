@@ -27,12 +27,15 @@ func NewCacheBloom(client redis.Cmdable) *CacheBloom {
 
 // QueryData 查询数据，如果缓存和布隆过滤器都没有命中，则存储并返回传递的数据
 func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, ttl time.Duration) (T, error) {
+	// 定义一个零值变量来处理错误返回
+	var zeroValue T
+
 	// 检查布隆过滤器
 	if !cb.bf.TestString(key) {
 		if !isNil(data) {
-			return cacheData(cb, ctx, key, data, ttl)
+			return CacheData(cb, ctx, key, data, ttl)
 		}
-		return data, nil
+		return zeroValue, nil
 	}
 
 	// 检查缓存
@@ -40,23 +43,23 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			if !isNil(data) {
-				return cacheData(cb, ctx, key, data, ttl)
+				return CacheData(cb, ctx, key, data, ttl)
 			}
-			return data, nil
+			return zeroValue, nil
 		}
-		return data, err
+		return zeroValue, err
 	}
 
 	// 反序列化缓存中的数据
 	var result T
 	if err := json.Unmarshal([]byte(cachedData), &result); err != nil {
-		return data, err
+		return zeroValue, err
 	}
 	return result, nil
 }
 
-// cacheData 序列化数据并存储到 Redis 和布隆过滤器中
-func cacheData[T any](cb *CacheBloom, ctx context.Context, key string, data T, ttl time.Duration) (T, error) {
+// CacheData 序列化数据并存储到 Redis 和布隆过滤器中
+func CacheData[T any](cb *CacheBloom, ctx context.Context, key string, data T, ttl time.Duration) (T, error) {
 	serializedData, err := json.Marshal(data)
 	if err != nil {
 		return data, err

@@ -20,15 +20,13 @@ const hookExecutedKey contextKey = "hookExecuted"
 var (
 	ErrPostNotFound  = errors.New("post not found")
 	ErrInvalidParams = errors.New("invalid parameters")
-	ErrSyncFailed    = errors.New("sync failed")
-	ErrNoChanges     = errors.New("no changes detected")
 )
 
 type PostDAO interface {
 	Insert(ctx context.Context, post Post) (uint, error)                       // 创建一个新的帖子记录
 	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
-	Sync(ctx context.Context, post Post) (uint, error)                         // 用于同步帖子记录
 	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
+	Sync(ctx context.Context, post Post) error                                 // 用于同步帖子记录
 	GetByAuthor(ctx context.Context, postId uint, uid int64) (Post, error)     // 根据作者ID获取帖子记录
 	GetById(ctx context.Context, postId uint, uid int64) (Post, error)         // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, postId uint) (Post, error)                 // 根据ID获取一个已发布的帖子记录
@@ -50,8 +48,8 @@ type Post struct {
 	gorm.Model
 	Title        string `gorm:"size:255;not null"`            // 文章标题
 	Content      string `gorm:"type:text;not null"`           // 文章内容
-	Status       string `gorm:"size:20;default:'draft'"`      // 文章状态，如草稿、发布等
-	Author       int64  `gorm:"column:author_id;index"`       // 用户uid
+	Status       uint8  `gorm:"default:0"`                    // 文章状态，如草稿、发布等
+	AuthorID     int64  `gorm:"column:author_id;index"`       // 用户uid
 	Slug         string `gorm:"size:100;uniqueIndex"`         // 文章的唯一标识，用于生成友好URL
 	CategoryID   int64  `gorm:"index"`                        // 关联分类表的外键
 	PlateID      int64  `gorm:"index"`                        // 关联板块表的外键
@@ -98,12 +96,40 @@ func (p *postDAO) Insert(ctx context.Context, post Post) (uint, error) {
 	return post.ID, nil
 }
 
+// Sync 同步线上库(mongodb)与制作库(mysql)
+func (p *postDAO) Sync(ctx context.Context, post Post) error {
+	var mysqlPost Post
+	// 根据id查询帖子信息
+	if err := p.db.WithContext(ctx).Where("id = ?", post.ID).First(&mysqlPost).Error; err != nil {
+		return err
+	}
+	// 只有在帖子为公开状态才会进行同步
+	if post.Status == domain.Published {
+		// 判断当前id的帖子是否已经被同步
+		if err := p.client.Database("linkme").Collection("posts").FindOne(ctx, bson.M{"id": post.ID}).Decode(&Post{}); err == nil {
+			// 如果MongoDB中已存在相同ID的文章，则不执行同步
+			return err
+		}
+		// 如果没同步则执行同步操作
+		if _, err := p.client.Database("linkme").Collection("posts").InsertOne(ctx, mysqlPost); err != nil {
+			return err
+		}
+	} else {
+		// 进入到这里说明帖子状态非公开状态,或从公开状态变为非公开状态
+		// 我们的mongodb数据库只储存状态为公开状态的帖子
+		if _, err := p.client.Database("linkme").Collection("posts").DeleteOne(ctx, bson.M{"id": post.ID}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // UpdateById 通过Id更新帖子
 func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
-	if post.ID == 0 || post.Author == 0 {
+	if post.ID == 0 || post.AuthorID == 0 {
 		return ErrInvalidParams
 	}
-	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND author_id = ?", post.ID, post.Author).Updates(&post)
+	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND author_id = ?", post.ID, post.AuthorID).Updates(&post)
 	if res.Error != nil {
 		p.l.Error("failed to update post", zap.Error(res.Error))
 		return res.Error
@@ -125,34 +151,6 @@ func (p *postDAO) UpdateStatus(ctx context.Context, post Post) error {
 		return ErrPostNotFound
 	}
 	return nil
-}
-
-// Sync 同步线上库(mongodb)与制作库(mysql)
-func (p *postDAO) Sync(ctx context.Context, post Post) (uint, error) {
-	var mysqlPost Post
-	// 根据id查询帖子信息
-	if err := p.db.WithContext(ctx).Where("id = ?", post.ID).First(&mysqlPost).Error; err != nil {
-		return 0, err
-	}
-	// 只有在帖子为公开状态才会进行同步
-	if post.Status == domain.Published {
-		// 判断当前id的帖子是否已经被同步
-		if err := p.client.Database("linkme").Collection("posts").FindOne(ctx, bson.M{"id": post.ID}).Decode(&Post{}); err == nil {
-			// 如果MongoDB中已存在相同ID的文章，则不执行同步
-			return 0, ErrSyncFailed
-		}
-		// 如果没同步则执行同步操作
-		if _, err := p.client.Database("linkme").Collection("posts").InsertOne(ctx, mysqlPost); err != nil {
-			return 0, err
-		}
-	} else {
-		// 进入到这里说明帖子状态非公开状态,或从公开状态变为非公开状态
-		// 我们的mongodb数据库只储存状态为公开状态的帖子
-		if _, err := p.client.Database("linkme").Collection("posts").DeleteOne(ctx, bson.M{"id": post.ID}); err != nil {
-			return 0, err
-		}
-	}
-	return mysqlPost.ID, nil
 }
 
 // GetById 根据ID获取一个帖子记录
