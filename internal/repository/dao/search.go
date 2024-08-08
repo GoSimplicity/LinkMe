@@ -36,7 +36,7 @@ type searchDAO struct {
 type PostSearch struct {
 	Id      uint     `json:"id"`
 	Title   string   `json:"title"`
-	Status  string   `json:"status"`
+	Status  uint8    `json:"status"`
 	Content string   `json:"content"`
 	Tags    []string `json:"tags"`
 }

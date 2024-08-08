@@ -58,9 +58,6 @@ func (p *postService) Create(ctx context.Context, post domain.Post) (uint, error
 // Update 更新帖子，默认状态为草稿
 func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Draft
-	if _, err := p.repo.Sync(ctx, post); err != nil {
-		return err
-	}
 	return p.repo.Update(ctx, post)
 }
 
@@ -79,7 +76,7 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		}
 	}
 	// 获取帖子详细信息
-	dp, err := p.repo.GetPostById(ctx, post.ID, post.Author.Id)
+	dp, err := p.repo.GetPostById(ctx, post.ID, post.AuthorID)
 	if err != nil {
 		return fmt.Errorf("get post failed: %w", err)
 	}
@@ -88,7 +85,7 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		PostID:  dp.ID,
 		Content: dp.Content,
 		Title:   dp.Title,
-		UserID:  dp.Author.Id,
+		UserID:  dp.AuthorID,
 	}
 	checkId, err := p.checkRepo.Create(ctx, check)
 	if err != nil {
@@ -105,9 +102,6 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 // Withdraw 撤回帖子，移除线上数据库中的帖子
 func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Withdrawn
-	if _, err := p.repo.Sync(ctx, post); err != nil {
-		return err
-	}
 	if err := p.searchRepo.DeletePostIndex(ctx, post.ID); err != nil {
 		p.l.Error("delete post index failed", zap.Error(err))
 	}
@@ -175,21 +169,12 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 		return err
 	}
 	res := domain.Post{
-		ID:     postId,
-		Status: domain.Deleted,
-		Author: domain.Author{Id: uid},
+		ID:       postId,
+		Status:   domain.Deleted,
+		AuthorID: uid,
 	}
 	// 使用 errgroup 管理并发操作
 	eg, ctx := errgroup.WithContext(ctx)
-	// 查看删除的是否是已发布的帖子，并同步删除线上数据库中的帖子
-	eg.Go(func() error {
-		if _, er := p.repo.GetPublishedPostById(ctx, postId); er == nil {
-			if _, er := p.repo.Sync(ctx, res); er != nil {
-				return fmt.Errorf("sync post failed: %w", er)
-			}
-		}
-		return nil
-	})
 	// 删除帖子索引
 	eg.Go(func() error {
 		if er := p.searchRepo.DeletePostIndex(ctx, postId); er != nil {

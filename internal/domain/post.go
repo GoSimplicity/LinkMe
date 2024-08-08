@@ -7,16 +7,11 @@ import (
 )
 
 const (
-	Draft     = "Draft"     // 草稿状态
-	Published = "Published" // 发布状态
-	Withdrawn = "Withdrawn" // 撤回状态
-	Deleted   = "Deleted"   // 删除状态
+	Draft     uint8 = iota // 0: 草稿状态
+	Published              // 1: 发布状态
+	Withdrawn              // 2: 撤回状态
+	Deleted                // 3: 删除状态
 )
-
-type Author struct {
-	Id   int64
-	Name string
-}
 
 type Post struct {
 	ID           uint
@@ -25,8 +20,8 @@ type Post struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    sql.NullTime
-	Author       Author
-	Status       string
+	AuthorID     int64
+	Status       uint8
 	Visibility   string
 	PlateID      int64
 	Slug         string

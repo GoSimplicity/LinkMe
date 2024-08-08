@@ -72,7 +72,7 @@ func createContentSummary(content string) string {
 func toDomainHistory(post domain.Post) domain.History {
 	return domain.History{
 		Content:  createContentSummary(post.Content),
-		AuthorID: post.Author.Id,
+		AuthorID: post.AuthorID,
 		Tags:     post.Tags,
 		PostID:   post.ID,
 		Title:    post.Title,

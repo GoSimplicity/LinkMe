@@ -5,6 +5,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/IBM/sarama"
 	"github.com/spf13/viper"
 )
@@ -42,7 +43,7 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 }
 
 // InitConsumers 初始化并返回一个事件消费者，当前仅包含InteractiveReadEventConsumer
-func InitConsumers(postConsumer *post.InteractiveReadEventConsumer, smsConsumer *sms.SMSConsumer, emailConsumer *email.EmailConsumer) []events.Consumer {
-	// 返回单个消费者
-	return []events.Consumer{postConsumer, smsConsumer, emailConsumer}
+func InitConsumers(postConsumer *post.InteractiveReadEventConsumer, smsConsumer *sms.SMSConsumer, emailConsumer *email.EmailConsumer, syncConsumer *sync.SyncConsumer) []events.Consumer {
+	// 返回消费者切片
+	return []events.Consumer{postConsumer, smsConsumer, emailConsumer, syncConsumer}
 }
