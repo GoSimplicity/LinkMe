@@ -32,6 +32,7 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 
 	// 检查布隆过滤器
 	if !cb.bf.TestString(key) {
+		// 如果data数据不为空，则缓存数据并返回data
 		if !isNil(data) {
 			return CacheData(cb, ctx, key, data, ttl)
 		}
@@ -40,8 +41,11 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 
 	// 检查缓存
 	cachedData, err := cb.client.Get(ctx, key).Result()
+
 	if err != nil {
+		// 判断错误是否为redis.Nil，即缓存不存在
 		if errors.Is(err, redis.Nil) {
+			// 如果data数据不为空，则缓存数据并返回data
 			if !isNil(data) {
 				return CacheData(cb, ctx, key, data, ttl)
 			}
@@ -50,39 +54,51 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 		return zeroValue, err
 	}
 
-	// 反序列化缓存中的数据
+	// 走到这里说明缓存中有数据，反序列化缓存中的数据
 	var result T
+
 	if err := json.Unmarshal([]byte(cachedData), &result); err != nil {
 		return zeroValue, err
 	}
+
 	return result, nil
 }
 
 // CacheData 序列化数据并存储到 Redis 和布隆过滤器中
 func CacheData[T any](cb *CacheBloom, ctx context.Context, key string, data T, ttl time.Duration) (T, error) {
 	serializedData, err := json.Marshal(data)
+
 	if err != nil {
 		return data, err
 	}
 
+	// 设置缓存
 	if err := cb.client.Set(ctx, key, serializedData, ttl).Err(); err != nil {
 		return data, err
 	}
 
+	// 添加key到布隆过滤器
 	cb.bf.AddString(key)
+
 	return data, nil
 }
 
 // SetEmptyCache 缓存空对象，防止缓存穿透
 func (cb *CacheBloom) SetEmptyCache(ctx context.Context, key string, ttl time.Duration) error {
 	emptyValue, err := json.Marshal(struct{}{})
+
 	if err != nil {
 		return err
 	}
+
+	// 设置缓存空对象
 	if err := cb.client.Set(ctx, key, emptyValue, ttl).Err(); err != nil {
 		return err
 	}
+
+	// 添加key到布隆过滤器
 	cb.bf.AddString(key)
+
 	return nil
 }
 
