@@ -110,7 +110,7 @@ func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 
 // GetDraftsByAuthor 获取作者的草稿帖子
 func (p *postService) GetDraftsByAuthor(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
-	return p.repo.GetDraftsByAuthor(ctx, postId, uid)
+	return p.repo.GetPostById(ctx, postId, uid)
 }
 
 // GetPostById 获取帖子详细信息
