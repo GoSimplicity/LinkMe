@@ -27,7 +27,6 @@ type PostDAO interface {
 	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
 	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
 	Sync(ctx context.Context, post Post) error                                 // 用于同步帖子记录
-	GetByAuthor(ctx context.Context, postId uint, uid int64) (Post, error)     // 根据作者ID获取帖子记录
 	GetById(ctx context.Context, postId uint, uid int64) (Post, error)         // 根据ID获取一个帖子记录
 	GetPubById(ctx context.Context, postId uint) (Post, error)                 // 根据ID获取一个已发布的帖子记录
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
@@ -163,21 +162,6 @@ func (p *postDAO) GetById(ctx context.Context, postId uint, uid int64) (Post, er
 			return Post{}, ErrPostNotFound
 		}
 		p.l.Error("failed to get post", zap.Error(err))
-		return Post{}, err
-	}
-	return post, nil
-}
-
-// GetByAuthor 根据作者ID获取帖子记录
-func (p *postDAO) GetByAuthor(ctx context.Context, postId uint, uid int64) (Post, error) {
-	var post Post
-	err := p.db.WithContext(ctx).Where("id = ? AND author_id = ?", postId, uid).First(&post).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			p.l.Debug("post not found by author", zap.Uint("post_id", postId), zap.Int64("author_id", uid))
-			return Post{}, ErrPostNotFound
-		}
-		p.l.Error("failed to get post by author", zap.Error(err))
 		return Post{}, err
 	}
 	return post, nil
