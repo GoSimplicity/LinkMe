@@ -101,6 +101,11 @@ func (r *SyncConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Con
 		return
 	}
 
+	if e.Table != "posts" {
+		r.l.Info("不是帖子表，跳过", zap.String("table", e.Table))
+		return
+	}
+
 	// 数据映射到结构体
 	if err := decodeEventDataToPosts(e.Data, &posts); err != nil {
 		r.l.Error("数据映射到结构体失败", zap.Error(err))
@@ -184,10 +189,11 @@ func (r *SyncConsumer) deleteMongo(ctx context.Context, post Post) error {
 	// 检查删除的文档数量，处理帖子不存在的情况
 	if result.DeletedCount == 0 {
 		r.l.Info("帖子不存在，可能已经被删除", zap.Uint("id", post.ID))
-		return nil // 认为这是正常情况，返回 nil 表示没有错误
+		// 认为这是正常情况，返回 nil 表示没有错误
+		return nil
 	}
 
-	r.l.Info("帖子删除成功", zap.Uint("id", post.ID))
+	r.l.Info("帖子已成功删除", zap.Uint("id", post.ID))
 	return nil
 }
 
