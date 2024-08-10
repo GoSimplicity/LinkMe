@@ -1,4 +1,0 @@
-DROP USER IF EXISTS 'canal'@'%';
-CREATE USER 'canal'@'%' IDENTIFIED WITH mysql_native_password BY 'canal';
-GRANT SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'canal'@'%';
-FLUSH PRIVILEGES;

@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: es-pv
+  namespace: linkme
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/es/data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: es-pvc
+  namespace: linkme
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkme-es
+  namespace: linkme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: es
+  template:
+    metadata:
+      labels:
+        app: es
+    spec:
+      containers:
+        - name: es
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: ES_JAVA_OPTS
+              value: "-Xms1g -Xmx1g"
+          volumeMounts:
+            - name: es-storage
+              mountPath: /usr/share/elasticsearch/data
+            - name: es-config
+              mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+              subPath: elasticsearch.yml
+      volumes:
+        - name: es-storage
+          persistentVolumeClaim:
+            claimName: es-pvc
+        - name: es-config
+          configMap:
+            name: es-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-service
+  namespace: linkme
+spec:
+  type: NodePort
+  ports:
+    - port: 9200
+      name: es-http
+      nodePort: 30885
+    - port: 9300
+      name: es-tcp
+      nodePort: 30886
+  selector:
+    app: es
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-config
+  namespace: linkme
+data:
+  elasticsearch.yml: |
+    cluster.name: "docker-cluster"
+    network.host: 0.0.0.0
+    http.port: 9200
+    xpack.security.enabled: false  # 禁用安全认证
+    xpack.security.transport.ssl.enabled: false  # 禁用传输层安全
