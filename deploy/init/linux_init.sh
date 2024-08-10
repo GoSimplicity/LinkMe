@@ -1,15 +1,10 @@
 #!/bin/bash
-
-# 创建数据库 请自行修改数据库密码等信息
 mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS linkme DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-
-# 在 MySQL 中创建一个用于 Canal 连接的用户，并赋予必要的权限
-mysql -uroot -proot -e "CREATE USER 'canal'@'%' IDENTIFIED BY 'canal';"
-mysql -uroot -proot -e "GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'canal'@'%';"
+USER_EXISTS=$(mysql -uroot -proot -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = 'canal');")
+if [ "$USER_EXISTS" != 1 ]; then
+  mysql -uroot -proot -e "CREATE USER 'canal'@'%' IDENTIFIED BY 'canal';"
+fi
+mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON *.* TO 'canal'@'%' WITH GRANT OPTION;"
 mysql -uroot -proot -e "FLUSH PRIVILEGES;"
-
-# 导入SQL文件 请自行修改SQL文件路径
-mysql -uroot -proot linkme < linkme.sql
-
-# 提示完成
+mysql -uroot -proot linkme < /docker-entrypoint-initdb.d/linkme.sql
 echo "Database import complete."

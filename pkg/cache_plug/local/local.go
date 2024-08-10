@@ -19,16 +19,19 @@ type CacheManager struct {
 // NewLocalCacheManager 创建并初始化一个 CacheManager 实例
 func NewLocalCacheManager(redisClient redis.Cmdable) *CacheManager {
 	localCache := cache.New(5*time.Minute, 10*time.Minute)
+
 	return &CacheManager{localCache: localCache, redisClient: redisClient}
 }
 
 // Set 缓存数据到本地缓存和 Redis
 func (cm *CacheManager) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	cm.localCache.Set(key, value, cache.DefaultExpiration)
+
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
+
 	return cm.redisClient.Set(ctx, key, data, expiration).Err()
 }
 
@@ -41,6 +44,7 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 		if err != nil {
 			return err
 		}
+
 		return json.Unmarshal(data, result)
 	}
 	// 尝试从 Redis 获取
@@ -52,11 +56,13 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 			if err != nil {
 				return err
 			}
+
 			// 缓存加载的数据
 			err = cm.Set(ctx, key, value, cache.DefaultExpiration)
 			if err != nil {
 				return err
 			}
+
 			// 将加载的数据转换为字节数组
 			data, err = json.Marshal(value)
 			if err != nil {
@@ -66,12 +72,14 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 			return err
 		}
 	}
+
 	return json.Unmarshal(data, result)
 }
 
 // Delete 从缓存中删除数据
 func (cm *CacheManager) Delete(ctx context.Context, key string) error {
 	cm.localCache.Delete(key)
+
 	return cm.redisClient.Del(ctx, key).Err()
 }
 
@@ -81,9 +89,12 @@ func (cm *CacheManager) SetEmptyCache(ctx context.Context, key string, ttl time.
 	if err != nil {
 		return err
 	}
+
 	if err := cm.redisClient.Set(ctx, key, emptyValue, ttl).Err(); err != nil {
 		return err
 	}
+
 	cm.localCache.Set(key, emptyValue, cache.DefaultExpiration)
+
 	return nil
 }
