@@ -9,7 +9,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 type PostService interface {
@@ -124,27 +123,30 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid
 	if err != nil {
 		return domain.Post{}, err
 	}
-	// 使用 errgroup 管理并发操作
-	eg, ctx := errgroup.WithContext(ctx)
 	// 异步存入历史记录
-	eg.Go(func() error {
-		if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
-			return fmt.Errorf("set history failed: %w", er)
+	go func() {
+		err := (func() error {
+			if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
+				p.l.Error("set history failed", zap.Error(er))
+				return fmt.Errorf("set history failed: %w", er)
+			}
+			return nil
+		})()
+		if err != nil {
 		}
-		return nil
-	})
+	}()
 	// 异步处理读取事件
-	eg.Go(func() error {
-		if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
-			return fmt.Errorf("produce read event failed: %w", er)
+	go func() {
+		err := (func() error {
+			if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
+				p.l.Error("produce read event failed", zap.Error(err))
+				return fmt.Errorf("produce read event failed: %w", er)
+			}
+			return nil
+		})()
+		if err != nil {
 		}
-		return nil
-	})
-	// 等待所有并发操作完成
-	if er := eg.Wait(); er != nil {
-		p.l.Error("concurrent operations failed", zap.Error(er))
-		return domain.Post{}, er
-	}
+	}()
 	return dp, nil
 }
 
@@ -173,20 +175,21 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 		Status:   domain.Deleted,
 		AuthorID: uid,
 	}
-	// 使用 errgroup 管理并发操作
-	eg, ctx := errgroup.WithContext(ctx)
-	// 删除帖子索引
-	eg.Go(func() error {
-		if er := p.searchRepo.DeletePostIndex(ctx, postId); er != nil {
-			return fmt.Errorf("delete post index failed: %w", er)
-		}
-		return nil
-	})
-	// 等待所有并发操作完成
-	if er := eg.Wait(); er != nil {
-		p.l.Error("concurrent operations failed", zap.Error(er))
-		return er
-	}
+
+	go p.searchRepo.DeletePostIndex(ctx, postId)
+	//// 使用 errgroup 管理并发操作
+	//eg, ctx := errgroup.WithContext(ctx)
+	//// 删除帖子索引
+	//eg.Go(func() error {
+	//	if er := p.searchRepo.DeletePostIndex(ctx, postId); er != nil {
+	//		p.l.Error("delete post index failed", zap.Error(er))
+	//	}
+	//	return nil
+	//})
+	//// 等待所有并发操作完成
+	//if er := eg.Wait(); er != nil {
+	//	p.l.Error("concurrent operations failed", zap.Error(er))
+	//}
 	return p.repo.Delete(ctx, res)
 }
 
