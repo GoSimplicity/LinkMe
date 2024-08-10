@@ -35,7 +35,6 @@ type PostRepository interface {
 type postRepository struct {
 	dao dao.PostDAO
 	l   *zap.Logger
-	c   cache.PostCache
 	cb  *bloom.CacheBloom
 	cl  *local.CacheManager
 }
@@ -44,7 +43,6 @@ func NewPostRepository(dao dao.PostDAO, l *zap.Logger, c cache.PostCache, cb *bl
 	return &postRepository{
 		dao: dao,
 		l:   l,
-		c:   c,
 		cb:  cb,
 		cl:  cl,
 	}

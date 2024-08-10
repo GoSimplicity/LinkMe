@@ -9,7 +9,7 @@ services:
       - "9094:9094"
     environment:
       - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CREATE_TOPICS=linkme_binlog:3:1
+      - KAFKA_CREATE_TOPICS=linkme_binlog:3:1,linkme-sync:3:1,linkme-cache:3:1,linkme-es:3:1
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
       - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://:9093,EXTERNAL://0.0.0.0:9094
@@ -18,6 +18,9 @@ services:
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_MESSAGE_MAX_BYTES=20971520
+      - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data # 指定 Kafka 数据目录
+    volumes:
+      - /data/kafka:/bitnami/kafka/data
   db:
     image: mysql:8.0
     container_name: linkme-mysql
@@ -27,6 +30,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: linkme
     volumes:
+      - /data/mysql:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d/
   redis:
     image: redis:latest
@@ -49,15 +53,16 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=root
+      - MONGO_INITDB_DATABASE=linkme # 设置默认数据库名
+    volumes:
+      - /data/mongo:/data/db  # 持久化 MongoDB 数据到宿主机的 /data/mongo 目录
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
-    volumes: # 此处是在linux环境下进行 记得给目录添加权限
+    volumes:
       - /data/es/data:/usr/share/elasticsearch/data
       - /data/es/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml # 记得将项目根目录下的elasticsearch.yaml放到/data/es/config/目录下
     ports:
@@ -76,5 +81,9 @@ services:
     ports:
       - "11111:11111"
     volumes:
-      - /data/canal/instance.properties:/home/admin/canal-server/conf/linkme/instance.properties # 配置 Canal 实例的具体参数
-      - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties # Canal 服务器的全局配置文件
+      - /data/canal/sync:/home/admin/canal-server/conf/
+      - /data/canal/logs:/home/admin/canal-server/logs
+      - /data/canal/destinations:/home/admin/canal-server/destinations
+      - /data/canal/es:/home/admin/canal-server/conf/
+      - /data/canal/cache:/home/admin/canal-server/conf/
+      - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties
