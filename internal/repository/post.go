@@ -84,13 +84,20 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 	dp, err := p.dao.GetById(ctx, postId, uid)
 	if err != nil {
 		// 如果数据库查询失败，缓存空对象
-		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Second*10)
+		go func() {
+			_ = p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10)
+		}()
 		return domain.Post{}, err
 	}
 
-	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10)
+	// 将获取到的数据异步缓存
+	go func() {
+		if _, cacheErr := bloom.QueryData(p.cb, context.Background(), cacheKey, toDomainPost(dp), time.Minute*10); cacheErr != nil {
+			p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
+		}
+	}()
 
-	return cachedPost, nil
+	return toDomainPost(dp), nil
 }
 
 // GetPublishedPostById 获取已发布的帖子详细信息
@@ -103,21 +110,24 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId uint) 
 		return cachedPost, nil
 	}
 
-	// 如果缓存未命中，则从数据库获取数据
+	// 如果缓存未命中，直接返回数据库查询结果，同时异步更新缓存
 	dp, err := p.dao.GetPubById(ctx, postId)
 	if err != nil {
 		// 如果数据库查询失败，缓存空对象
-		_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Second*10)
+		go func() {
+			_ = p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10)
+		}()
 		return domain.Post{}, err
 	}
 
-	// 将获取到的数据缓存
-	cachedPost, err = bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10)
-	if err != nil {
-		p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(err))
-	}
+	// 将获取到的数据异步缓存
+	go func() {
+		if _, cacheErr := bloom.QueryData(p.cb, context.Background(), cacheKey, toDomainListPubPost(dp), time.Minute*10); cacheErr != nil {
+			p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
+		}
+	}()
 
-	return cachedPost, nil
+	return toDomainListPubPost(dp), nil
 }
 
 // ListPosts 获取私密帖子的列表，使用热点数据永不过期的策略
@@ -166,7 +176,7 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 			return nil, err
 		}
 
-		posts := fromDomainSlicePost(pub)
+		posts := fromDomainSlicePubPostList(pub)
 
 		// 在后台异步刷新缓存
 		go p.refreshCacheAsync(ctx, cacheKey, posts)
@@ -245,6 +255,27 @@ func fromDomainPost(p domain.Post) dao.Post {
 }
 
 // 将dao层对象转为领域层对象
+func fromDomainSlicePubPostList(post []dao.ListPubPost) []domain.Post {
+	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
+	for i, repoPost := range post {
+		domainPosts[i] = domain.Post{
+			ID:           repoPost.ID,
+			Title:        repoPost.Title,
+			Content:      repoPost.Content,
+			CreatedAt:    repoPost.CreatedAt,
+			UpdatedAt:    repoPost.UpdatedAt,
+			Status:       repoPost.Status,
+			PlateID:      repoPost.PlateID,
+			Slug:         repoPost.Slug,
+			CategoryID:   repoPost.CategoryID,
+			Tags:         repoPost.Tags,
+			CommentCount: repoPost.CommentCount,
+		}
+	}
+	return domainPosts
+}
+
+// 将dao层对象转为领域层对象
 func fromDomainSlicePost(post []dao.Post) []domain.Post {
 	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
 	for i, repoPost := range post {
@@ -275,6 +306,24 @@ func toDomainPost(post dao.Post) domain.Post {
 		CreatedAt:    post.CreatedAt,
 		UpdatedAt:    post.UpdatedAt,
 		DeletedAt:    sql.NullTime(post.DeletedAt),
+		Status:       post.Status,
+		PlateID:      post.PlateID,
+		Slug:         post.Slug,
+		CategoryID:   post.CategoryID,
+		Tags:         post.Tags,
+		CommentCount: post.CommentCount,
+		AuthorID:     post.AuthorID,
+	}
+}
+
+// 将dao层转化为领域层
+func toDomainListPubPost(post dao.ListPubPost) domain.Post {
+	return domain.Post{
+		ID:           post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		CreatedAt:    post.CreatedAt,
+		UpdatedAt:    post.UpdatedAt,
 		Status:       post.Status,
 		PlateID:      post.PlateID,
 		Slug:         post.Slug,

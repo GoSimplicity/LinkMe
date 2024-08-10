@@ -31,13 +31,13 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 	var zeroValue T
 
 	// 检查布隆过滤器
-	if !cb.bf.TestString(key) {
-		// 如果data数据不为空，则缓存数据并返回data
-		if !isNil(data) {
-			return CacheData(cb, ctx, key, data, ttl)
-		}
-		return zeroValue, nil
+	//if !cb.bf.TestString(key) {
+	// 如果data数据不为空，则缓存数据并返回data
+	if !isNil(data) {
+		return CacheData(cb, ctx, key, data, ttl)
 	}
+	//return zeroValue, nil
+	//}
 
 	// 检查缓存
 	cachedData, err := cb.client.Get(ctx, key).Result()
@@ -104,6 +104,18 @@ func (cb *CacheBloom) SetEmptyCache(ctx context.Context, key string, ttl time.Du
 
 // isNil 使用反射检查值是否为 nil
 func isNil(value interface{}) bool {
+	// 如果值本身就是 nil，直接返回 true
+	if value == nil {
+		return true
+	}
+
 	v := reflect.ValueOf(value)
-	return v.Kind() == reflect.Ptr && v.IsNil()
+
+	// 处理指针类型
+	if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		return v.IsNil()
+	}
+
+	// 处理零值情况（例如空字符串、零值结构体等）
+	return reflect.DeepEqual(value, reflect.Zero(v.Type()).Interface())
 }

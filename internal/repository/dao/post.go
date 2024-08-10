@@ -23,14 +23,14 @@ var (
 )
 
 type PostDAO interface {
-	Insert(ctx context.Context, post Post) (uint, error)                       // 创建一个新的帖子记录
-	UpdateById(ctx context.Context, post Post) error                           // 根据ID更新一个帖子记录
-	UpdateStatus(ctx context.Context, post Post) error                         // 更新帖子的状态
-	Sync(ctx context.Context, post Post) error                                 // 用于同步帖子记录
-	GetById(ctx context.Context, postId uint, uid int64) (Post, error)         // 根据ID获取一个帖子记录
-	GetPubById(ctx context.Context, postId uint) (Post, error)                 // 根据ID获取一个已发布的帖子记录
-	ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) // 获取已发布的帖子记录列表
-	List(ctx context.Context, pagination domain.Pagination) ([]Post, error)    // 获取个人的帖子记录列表
+	Insert(ctx context.Context, post Post) (uint, error)                              // 创建一个新的帖子记录
+	UpdateById(ctx context.Context, post Post) error                                  // 根据ID更新一个帖子记录
+	UpdateStatus(ctx context.Context, post Post) error                                // 更新帖子的状态
+	Sync(ctx context.Context, post Post) error                                        // 用于同步帖子记录
+	GetById(ctx context.Context, postId uint, uid int64) (Post, error)                // 根据ID获取一个帖子记录
+	GetPubById(ctx context.Context, postId uint) (ListPubPost, error)                 // 根据ID获取一个已发布的帖子记录
+	ListPub(ctx context.Context, pagination domain.Pagination) ([]ListPubPost, error) // 获取已发布的帖子记录列表
+	List(ctx context.Context, pagination domain.Pagination) ([]Post, error)           // 获取个人的帖子记录列表
 	DeleteById(ctx context.Context, post Post) error
 	ListAllPost(ctx context.Context, pagination domain.Pagination) ([]Post, error)
 	GetPost(ctx context.Context, postId uint) (Post, error)
@@ -55,6 +55,22 @@ type Post struct {
 	Plate        Plate  `gorm:"foreignKey:PlateID"`           // 板块关系
 	Tags         string `gorm:"type:varchar(255);default:''"` // 文章标签，以逗号分隔
 	CommentCount int64  `gorm:"default:0"`                    // 文章的评论数量
+}
+
+type ListPubPost struct {
+	ID           uint      `bson:"id"`           // MongoDB的ObjectID
+	CreatedAt    time.Time `bson:"createdat"`    // 创建时间
+	UpdatedAt    time.Time `bson:"updatedat"`    // 更新时间
+	Title        string    `bson:"title"`        // 文章标题
+	Content      string    `bson:"content"`      // 文章内容
+	Status       uint8     `bson:"status"`       // 文章状态，如草稿、发布等
+	AuthorID     int64     `bson:"authorid"`     // 用户uid
+	Slug         string    `bson:"slug"`         // 文章的唯一标识，用于生成友好URL
+	CategoryID   int64     `bson:"categoryid"`   // 关联分类表的外键
+	PlateID      int64     `bson:"plateid"`      // 关联板块表的外键
+	Plate        Plate     `bson:"plate"`        // 板块关系
+	Tags         string    `bson:"tags"`         // 文章标签，以逗号分隔
+	CommentCount int64     `bson:"commentcount"` // 文章的评论数量
 }
 
 func NewPostDAO(db *gorm.DB, l *zap.Logger, client *mongo.Client) PostDAO {
@@ -128,20 +144,30 @@ func (p *postDAO) UpdateById(ctx context.Context, post Post) error {
 	if post.ID == 0 || post.AuthorID == 0 {
 		return ErrInvalidParams
 	}
-	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND author_id = ?", post.ID, post.AuthorID).Updates(&post)
+
+	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND author_id = ?", post.ID, post.AuthorID).Updates(map[string]interface{}{
+		"title":    post.Title,
+		"content":  post.Content,
+		"plate_id": post.PlateID,
+		"status":   post.Status,
+	})
 	if res.Error != nil {
 		p.l.Error("failed to update post", zap.Error(res.Error))
 		return res.Error
 	}
+
 	if res.RowsAffected == 0 {
 		return ErrPostNotFound
 	}
+
 	return nil
 }
 
 // UpdateStatus 更新帖子状态
 func (p *postDAO) UpdateStatus(ctx context.Context, post Post) error {
-	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", post.ID).Updates(&post)
+	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ?", post.ID).Updates(map[string]interface{}{
+		"status": post.Status,
+	})
 	if res.Error != nil {
 		p.l.Error("failed to update post status", zap.Error(res.Error))
 		return res.Error
@@ -179,8 +205,8 @@ func (p *postDAO) List(ctx context.Context, pagination domain.Pagination) ([]Pos
 }
 
 // GetPubById 根据ID获取一个已发布的帖子记录
-func (p *postDAO) GetPubById(ctx context.Context, postId uint) (Post, error) {
-	var post Post
+func (p *postDAO) GetPubById(ctx context.Context, postId uint) (ListPubPost, error) {
+	var post ListPubPost
 	// 设置查询超时时间
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -195,16 +221,16 @@ func (p *postDAO) GetPubById(ctx context.Context, postId uint) (Post, error) {
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			p.l.Debug("published post not found", zap.Error(err))
-			return Post{}, ErrPostNotFound
+			return ListPubPost{}, ErrPostNotFound
 		}
 		p.l.Error("failed to get published post", zap.Error(err))
-		return Post{}, err
+		return ListPubPost{}, err
 	}
 	return post, nil
 }
 
 // ListPub 查询公开帖子列表
-func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
+func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]ListPubPost, error) {
 	status := domain.Published
 	// 设置查询超时时间
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -219,7 +245,7 @@ func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]
 		Skip:  pagination.Offset,
 		Limit: pagination.Size,
 	}
-	var posts []Post
+	var posts []ListPubPost
 	cursor, err := collection.Find(ctx, filter, &opts)
 	if err != nil {
 		p.l.Error("database query failed", zap.Error(err))
