@@ -104,7 +104,7 @@ func InitWebServer() *Cmd {
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
-	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable)
+	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager)
 	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer)
 	cmd := &Cmd{
 		server:   engine,
