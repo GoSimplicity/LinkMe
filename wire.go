@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
+	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
@@ -74,7 +75,6 @@ func InitWebServer() *Cmd {
 		cache.NewRankingLocalCache,
 		cache.NewRankingRedisCache,
 		cache.NewUserCache,
-		cache.NewPostCache,
 		cache.NewInteractiveCache,
 		cache.NewHistoryCache,
 		cache.NewSMSCache,
@@ -98,6 +98,7 @@ func InitWebServer() *Cmd {
 		bloom.NewCacheBloom,
 		local.NewLocalCacheManager,
 		sync.NewSyncConsumer,
+		cache2.NewCacheConsumer,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)
