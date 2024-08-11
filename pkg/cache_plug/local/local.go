@@ -76,11 +76,15 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 	return json.Unmarshal(data, result)
 }
 
-// Delete 从缓存中删除数据
-func (cm *CacheManager) Delete(ctx context.Context, key string) error {
-	cm.localCache.Delete(key)
+// Delete 从本地缓存和 Redis 中删除一个或多个键
+func (cm *CacheManager) Delete(ctx context.Context, keys ...string) error {
+	// 从本地缓存中删除每个键
+	for _, key := range keys {
+		cm.localCache.Delete(key)
+	}
 
-	return cm.redisClient.Del(ctx, key).Err()
+	// 从 Redis 中删除每个键
+	return cm.redisClient.Del(ctx, keys...).Err()
 }
 
 // SetEmptyCache 缓存空对象，防止缓存穿透

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
 	"github.com/IBM/sarama"
 	"github.com/mitchellh/mapstructure"
 	"github.com/redis/go-redis/v9"
@@ -18,6 +19,7 @@ type CacheConsumer struct {
 	client sarama.Client
 	l      *zap.Logger
 	redis  redis.Cmdable
+	local  *local.CacheManager
 }
 
 type Event struct {
@@ -47,12 +49,13 @@ type consumerGroupHandler struct {
 	r *CacheConsumer
 }
 
-func NewCacheConsumer(client sarama.Client, l *zap.Logger, redis redis.Cmdable) *CacheConsumer {
+func NewCacheConsumer(client sarama.Client, l *zap.Logger, redis redis.Cmdable, local *local.CacheManager) *CacheConsumer {
 	// 创建MongoDB客户端
 	return &CacheConsumer{
 		client: client,
 		l:      l,
 		redis:  redis,
+		local:  local,
 	}
 }
 
@@ -88,6 +91,11 @@ func (r *CacheConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Co
 	// 反序列化消息
 	if err := json.Unmarshal(msg.Value, &e); err != nil {
 		r.l.Error("消息反序列化失败", zap.Error(err))
+		return
+	}
+
+	if e.Table != "posts" {
+		r.l.Info("不是帖子表，跳过", zap.String("table", e.Table))
 		return
 	}
 
@@ -154,7 +162,7 @@ func (r *CacheConsumer) DeleteKeysWithPattern(ctx context.Context, pattern strin
 
 		if len(keys) > 0 {
 			// 删除匹配的键
-			if err := r.redis.Del(ctx, keys...).Err(); err != nil {
+			if err := r.local.Delete(ctx, keys...); err != nil {
 				r.l.Error("Failed to delete Redis keys", zap.Error(err))
 				return err
 			}
