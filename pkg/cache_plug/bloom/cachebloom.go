@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -31,13 +32,13 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 	var zeroValue T
 
 	// 检查布隆过滤器
-	//if !cb.bf.TestString(key) {
-	// 如果data数据不为空，则缓存数据并返回data
-	if !isNil(data) {
-		return CacheData(cb, ctx, key, data, ttl)
+	if !cb.bf.TestString(key) {
+		//如果data数据不为空，则缓存数据并返回data
+		if !isNil(data) {
+			return CacheData(cb, ctx, key, data, ttl)
+		}
+		return zeroValue, nil
 	}
-	//return zeroValue, nil
-	//}
 
 	// 检查缓存
 	cachedData, err := cb.client.Get(ctx, key).Result()
@@ -100,6 +101,27 @@ func (cb *CacheBloom) SetEmptyCache(ctx context.Context, key string, ttl time.Du
 	cb.bf.AddString(key)
 
 	return nil
+}
+
+// rebuildBloomFilter 重建布隆过滤器
+func (cb *CacheBloom) rebuildBloomFilter(ctx context.Context) {
+	// 创建一个新的布隆过滤器
+	newBF := bloom.NewWithEstimates(1000000, 0.01)
+
+	// 从 Redis 获取所有键并将它们添加到新的布隆过滤器中
+	keys, err := cb.client.Keys(ctx, "*").Result()
+	if err != nil {
+		fmt.Println("获取 Redis 键失败:", err)
+		return
+	}
+
+	for _, key := range keys {
+		newBF.AddString(key)
+	}
+
+	// 用新的布隆过滤器替换旧的布隆过滤器
+	cb.bf = newBF
+	fmt.Println("布隆过滤器重建成功")
 }
 
 // isNil 使用反射检查值是否为 nil

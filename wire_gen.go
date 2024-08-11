@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
+	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
@@ -49,10 +50,9 @@ func InitWebServer() *Cmd {
 	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
 	mongoClient := ioc.InitMongoDB()
 	postDAO := dao.NewPostDAO(db, logger, mongoClient)
-	postCache := cache.NewPostCache(cmdable, logger)
 	cacheBloom := bloom.NewCacheBloom(cmdable)
 	cacheManager := local.NewLocalCacheManager(cmdable)
-	postRepository := repository.NewPostRepository(postDAO, logger, postCache, cacheBloom, cacheManager)
+	postRepository := repository.NewPostRepository(postDAO, logger, cacheBloom, cacheManager)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	historyCache := cache.NewHistoryCache(logger, cmdable)
 	historyRepository := repository.NewHistoryRepository(logger, historyCache)
@@ -104,7 +104,8 @@ func InitWebServer() *Cmd {
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
-	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer)
+	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer)
 	cmd := &Cmd{
 		server:   engine,
 		Cron:     cron,

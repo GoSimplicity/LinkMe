@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	bloom "github.com/GoSimplicity/LinkMe/pkg/cache_plug/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
@@ -39,7 +38,7 @@ type postRepository struct {
 	cl  *local.CacheManager
 }
 
-func NewPostRepository(dao dao.PostDAO, l *zap.Logger, c cache.PostCache, cb *bloom.CacheBloom, cl *local.CacheManager) PostRepository {
+func NewPostRepository(dao dao.PostDAO, l *zap.Logger, cb *bloom.CacheBloom, cl *local.CacheManager) PostRepository {
 	return &postRepository{
 		dao: dao,
 		l:   l,
@@ -130,9 +129,9 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId uint) 
 	return toDomainListPubPost(dp), nil
 }
 
-// ListPosts 获取私密帖子的列表，使用热点数据永不过期的策略
+// ListPosts 获取作者帖子的列表，使用热点数据永不过期的策略
 func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	cacheKey := fmt.Sprintf("post:pri:%d:%d", pagination.Uid, pagination.Page)
+	cacheKey := fmt.Sprintf("post:pri:list:%d:%d", pagination.Uid, pagination.Page)
 
 	var cachedPosts []domain.Post
 
@@ -163,7 +162,7 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 
 // ListPublishedPosts 获取已发布的帖子列表，使用热点数据永不过期的策略
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	cacheKey := fmt.Sprintf("post:pub:%d", pagination.Page)
+	cacheKey := fmt.Sprintf("post:pub:list:%d", pagination.Page)
 
 	var cachedPosts []domain.Post
 
