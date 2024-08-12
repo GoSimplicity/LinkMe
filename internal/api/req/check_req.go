@@ -17,7 +17,6 @@ type ApproveCheckReq struct {
 // RejectCheckReq 定义了审核拒绝请求的结构体
 type RejectCheckReq struct {
 	CheckID int64  `json:"checkId" binding:"required"` // 审核ID
-	UserID  int64  `json:"userId" binding:"required"`  // 审核拒绝的用户ID
 	Remark  string `json:"remark" binding:"required"`  // 审核拒绝原因
 }
 

@@ -107,7 +107,7 @@ func (r *CacheConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Co
 
 	// 处理每个 Post
 	for _, post := range posts {
-		if err := r.handlePost(sess.Context(), post, e.Table); err != nil {
+		if err := r.handlePost(sess.Context(), post); err != nil {
 			r.l.Error("处理帖子失败", zap.Uint("id", post.ID), zap.Error(err))
 			return
 		}
@@ -118,10 +118,10 @@ func (r *CacheConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Co
 }
 
 // handlePost 根据状态处理帖子
-func (r *CacheConsumer) handlePost(ctx context.Context, post Post, table string) error {
+func (r *CacheConsumer) handlePost(ctx context.Context, post Post) error {
 	pipe := r.redis.Pipeline() // 开启Redis管道
 
-	if table == "posts" && post.Status == domain.Published {
+	if post.Status == domain.Published {
 		// 删除公共详细缓存
 		pipe.Del(ctx, fmt.Sprintf("post:pub:detail:%d", post.ID))
 		// 使用 DeleteKeysWithPattern 删除匹配模式的公共列表缓存

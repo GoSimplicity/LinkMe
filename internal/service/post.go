@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
@@ -67,18 +66,21 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	if err != nil {
 		return fmt.Errorf("cannot find post with ID %d: %w", post.ID, err)
 	}
+
 	// 检查帖子状态是否允许重新提交审核
-	if po.Status == constants.PostUnApproved {
-		po.Status = constants.PostUnderReview
+	if po.Status == domain.UnApproved {
+		po.Status = domain.UnderReview
 		if er := p.checkRepo.UpdateStatus(ctx, domain.Check{Status: po.Status}); er != nil {
 			return fmt.Errorf("update check status failed: %w", er)
 		}
 	}
+
 	// 获取帖子详细信息
 	dp, err := p.repo.GetPostById(ctx, post.ID, post.AuthorID)
 	if err != nil {
 		return fmt.Errorf("get post failed: %w", err)
 	}
+
 	// 提交审核
 	check := domain.Check{
 		PostID:  dp.ID,
@@ -86,15 +88,18 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		Title:   dp.Title,
 		UserID:  dp.AuthorID,
 	}
+
 	checkId, err := p.checkRepo.Create(ctx, check)
 	if err != nil {
 		return fmt.Errorf("push check failed: %w", err)
 	}
+
 	// 确保 checkId 有效
 	if checkId == 0 {
 		p.l.Error("push check failed, invalid checkId", zap.Uint("postID", post.ID))
 		return errors.New("push check failed, invalid checkId")
 	}
+
 	return nil
 }
 
@@ -123,6 +128,7 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid
 	if err != nil {
 		return domain.Post{}, err
 	}
+
 	// 异步存入历史记录
 	go func() {
 		err := (func() error {
@@ -135,6 +141,7 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid
 		if err != nil {
 		}
 	}()
+
 	// 异步处理读取事件
 	go func() {
 		err := (func() error {
@@ -147,6 +154,7 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid
 		if err != nil {
 		}
 	}()
+
 	return dp, nil
 }
 
@@ -177,19 +185,6 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 	}
 
 	go p.searchRepo.DeletePostIndex(ctx, postId)
-	//// 使用 errgroup 管理并发操作
-	//eg, ctx := errgroup.WithContext(ctx)
-	//// 删除帖子索引
-	//eg.Go(func() error {
-	//	if er := p.searchRepo.DeletePostIndex(ctx, postId); er != nil {
-	//		p.l.Error("delete post index failed", zap.Error(er))
-	//	}
-	//	return nil
-	//})
-	//// 等待所有并发操作完成
-	//if er := eg.Wait(); er != nil {
-	//	p.l.Error("concurrent operations failed", zap.Error(er))
-	//}
 	return p.repo.Delete(ctx, res)
 }
 
