@@ -84,6 +84,4 @@ services:
       - /data/canal/sync:/home/admin/canal-server/conf/
       - /data/canal/logs:/home/admin/canal-server/logs
       - /data/canal/destinations:/home/admin/canal-server/destinations
-      - /data/canal/es:/home/admin/canal-server/conf/
-      - /data/canal/cache:/home/admin/canal-server/conf/
       - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties
