@@ -37,7 +37,7 @@ func (r *checkRepository) FindByPostId(ctx context.Context, postID uint) (domain
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
 	// 先查找是否存在该帖子审核信息
 	dc, err := r.dao.FindByPostId(ctx, check.PostID)
-	if dc.PostID != 0 && err == nil && dc.Status != domain.UnderReview {
+	if dc.PostID != 0 && err == nil {
 		return -1, nil
 	}
 

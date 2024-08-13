@@ -22,17 +22,13 @@ type CheckService interface {
 type checkService struct {
 	repo         repository.CheckRepository
 	ActivityRepo repository.ActivityRepository
-	postRepo     repository.PostRepository
-	historyRepo  repository.HistoryRepository
 	searchRepo   repository.SearchRepository
 	l            *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, postRepo repository.PostRepository, historyRepo repository.HistoryRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
+func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
 	return &checkService{
 		repo:         repo,
-		postRepo:     postRepo,
-		historyRepo:  historyRepo,
 		ActivityRepo: ActivityRepo,
 		searchRepo:   searchRepo,
 		l:            l,
@@ -71,35 +67,6 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
-	// 获取相关的帖子
-	post, err := s.postRepo.GetPostById(ctx, check.PostID, check.UserID)
-	if err != nil {
-		s.l.Error("获取帖子失败", zap.Uint("PostID", check.PostID), zap.Int64("UserID", check.UserID), zap.Error(err))
-		return fmt.Errorf("获取帖子失败: %w", err)
-	}
-
-	// 更新帖子状态为已发布并同步
-	post.Status = domain.Published
-	if err := s.postRepo.UpdateStatus(ctx, post); err != nil {
-		s.l.Error("更新帖子状态失败", zap.Uint("PostID", post.ID), zap.Error(err))
-		return fmt.Errorf("更新帖子状态失败: %w", err)
-	}
-
-	// 存入历史记录
-	if err := s.historyRepo.SetHistory(ctx, post); err != nil {
-		s.l.Error("存入历史记录失败", zap.Uint("PostID", post.ID), zap.Error(err))
-	}
-
-	// 添加搜索索引
-	if err := s.searchRepo.InputPost(ctx, domain.PostSearch{
-		Id:      post.ID,
-		Title:   post.Title,
-		Content: post.Content,
-		Status:  post.Status,
-	}); err != nil {
-		s.l.Error("添加搜索索引失败", zap.Uint("PostID", post.ID), zap.Error(err))
-	}
-
 	// 异步记录最近活动
 	go func() {
 		if err := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
@@ -110,8 +77,6 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 			s.l.Error("记录最近活动失败", zap.Int64("UserID", uid), zap.Error(err))
 		}
 	}()
-
-	s.l.Info("审核通过并发布帖子", zap.Uint("PostID", post.ID))
 
 	return nil
 }

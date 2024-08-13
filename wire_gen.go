@@ -9,8 +9,10 @@ package main
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
 	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
@@ -56,9 +58,8 @@ func InitWebServer() *Cmd {
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	historyCache := cache.NewHistoryCache(logger, cmdable)
 	historyRepository := repository.NewHistoryRepository(logger, historyCache)
-	checkDAO := dao.NewCheckDAO(db, logger)
-	checkRepository := repository.NewCheckRepository(checkDAO, logger)
-	postService := service.NewPostService(postRepository, logger, postProducer, historyRepository, checkRepository, searchRepository)
+	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
+	postService := service.NewPostService(postRepository, logger, postProducer, historyRepository, searchRepository, publishProducer)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
 	interactiveCache := cache.NewInteractiveCache(cmdable)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
@@ -66,9 +67,11 @@ func InitWebServer() *Cmd {
 	postHandler := api.NewPostHandler(postService, interactiveService, enforcer)
 	historyService := service.NewHistoryService(historyRepository, logger)
 	historyHandler := api.NewHistoryHandler(historyService)
+	checkDAO := dao.NewCheckDAO(db, logger)
+	checkRepository := repository.NewCheckRepository(checkDAO, logger)
 	activityDAO := dao.NewActivityDAO(db, logger)
 	activityRepository := repository.NewActivityRepository(activityDAO)
-	checkService := service.NewCheckService(checkRepository, postRepository, historyRepository, searchRepository, logger, activityRepository)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository)
 	checkHandler := api.NewCheckHandler(checkService, enforcer)
 	v := ioc.InitMiddlewares(handler, logger, enforcer)
 	permissionDAO := dao.NewPermissionDAO(enforcer, logger, db)
@@ -105,7 +108,9 @@ func InitWebServer() *Cmd {
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
 	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager)
-	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer)
+	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
+	checkConsumer := check.NewSyncConsumer(client, logger, postRepository)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer)
 	cmd := &Cmd{
 		server:   engine,
 		Cron:     cron,
