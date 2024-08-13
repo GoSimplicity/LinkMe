@@ -68,6 +68,7 @@ func (r *CacheConsumer) Start(_ context.Context) error {
 		for {
 			if err := cg.Consume(context.Background(), []string{"linkme_binlog"}, &consumerGroupHandler{r: r}); err != nil {
 				r.l.Error("退出了消费循环异常", zap.Error(err))
+				time.Sleep(time.Second * 5)
 			}
 		}
 	}()
@@ -95,7 +96,6 @@ func (r *CacheConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Co
 	}
 
 	if e.Table != "posts" {
-		r.l.Info("不是帖子表，跳过", zap.String("table", e.Table))
 		return
 	}
 

@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
 )
@@ -27,22 +27,22 @@ type PostService interface {
 }
 
 type postService struct {
-	repo        repository.PostRepository
-	historyRepo repository.HistoryRepository // 历史记录
-	checkRepo   repository.CheckRepository
-	producer    post.Producer
-	searchRepo  repository.SearchRepository
-	l           *zap.Logger
+	repo            repository.PostRepository
+	historyRepo     repository.HistoryRepository // 历史记录
+	producer        post.Producer
+	searchRepo      repository.SearchRepository
+	publishProducer publish.Producer
+	l               *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, historyRepo repository.HistoryRepository, checkRepo repository.CheckRepository, searchRepo repository.SearchRepository) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, historyRepo repository.HistoryRepository, searchRepo repository.SearchRepository, publishProducer publish.Producer) PostService {
 	return &postService{
-		repo:        repo,
-		historyRepo: historyRepo,
-		checkRepo:   checkRepo,
-		searchRepo:  searchRepo,
-		l:           l,
-		producer:    p,
+		repo:            repo,
+		historyRepo:     historyRepo,
+		searchRepo:      searchRepo,
+		l:               l,
+		producer:        p,
+		publishProducer: publishProducer,
 	}
 }
 
@@ -59,46 +59,38 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	return p.repo.Update(ctx, post)
 }
 
-// Publish 发布帖子到审核
 func (p *postService) Publish(ctx context.Context, post domain.Post) error {
-	// 检查帖子是否存在
-	po, err := p.checkRepo.FindByPostId(ctx, post.ID)
-	if err != nil {
-		return fmt.Errorf("cannot find post with ID %d: %w", post.ID, err)
-	}
-
-	// 检查帖子状态是否允许重新提交审核
-	if po.Status == domain.UnApproved {
-		po.Status = domain.UnderReview
-		if er := p.checkRepo.UpdateStatus(ctx, domain.Check{Status: po.Status}); er != nil {
-			return fmt.Errorf("update check status failed: %w", er)
-		}
-	}
-
 	// 获取帖子详细信息
 	dp, err := p.repo.GetPostById(ctx, post.ID, post.AuthorID)
 	if err != nil {
 		return fmt.Errorf("get post failed: %w", err)
 	}
 
-	// 提交审核
-	check := domain.Check{
-		PostID:  dp.ID,
-		Content: dp.Content,
-		Title:   dp.Title,
-		UserID:  dp.AuthorID,
-	}
+	// 使用context.WithCancel来管理goroutine的生命周期
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	checkId, err := p.checkRepo.Create(ctx, check)
-	if err != nil {
-		return fmt.Errorf("push check failed: %w", err)
-	}
+	go func() {
+		// 确保goroutine中的panic不会导致程序崩溃
+		defer func() {
+			if r := recover(); r != nil {
+				p.l.Error("panic occurred in produce publish event goroutine", zap.Any("error", r))
+			}
+		}()
 
-	// 确保 checkId 有效
-	if checkId == 0 {
-		p.l.Error("push check failed, invalid checkId", zap.Uint("postID", post.ID))
-		return errors.New("push check failed, invalid checkId")
-	}
+		// 生产发布事件
+		err := p.publishProducer.ProducePublishEvent(publish.PublishEvent{
+			PostId:   dp.ID,
+			Content:  dp.Content,
+			Title:    dp.Title,
+			AuthorID: dp.AuthorID,
+		})
+
+		if err != nil {
+			p.l.Error("produce publish event failed", zap.Error(err))
+			cancel() // 取消操作
+		}
+	}()
 
 	return nil
 }
@@ -184,7 +176,14 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 		AuthorID: uid,
 	}
 
-	go p.searchRepo.DeletePostIndex(ctx, postId)
+	go func() {
+		err := p.searchRepo.DeletePostIndex(ctx, postId)
+		if err != nil {
+			p.l.Error("delete post index failed", zap.Error(err))
+			return
+		}
+	}()
+
 	return p.repo.Delete(ctx, res)
 }
 
