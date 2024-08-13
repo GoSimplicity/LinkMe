@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const TopicSMS = "sms_events"
+const TopicSMS = "linkme_sms_events"
 
 type Producer interface {
 	ProduceSMSCode(ctx context.Context, evt SMSCodeEvent) error

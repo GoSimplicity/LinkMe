@@ -3,8 +3,10 @@ package ioc
 import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/IBM/sarama"
@@ -48,7 +50,7 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 }
 
 // InitConsumers 初始化并返回一个事件消费者
-func InitConsumers(postConsumer *post.InteractiveReadEventConsumer, smsConsumer *sms.SMSConsumer, emailConsumer *email.EmailConsumer, syncConsumer *sync.SyncConsumer, cacheConsumer *cache.CacheConsumer) []events.Consumer {
+func InitConsumers(postConsumer *post.InteractiveReadEventConsumer, smsConsumer *sms.SMSConsumer, emailConsumer *email.EmailConsumer, syncConsumer *sync.SyncConsumer, cacheConsumer *cache.CacheConsumer, publishConsumer *publish.PublishPostEventConsumer, checkConsumer *check.CheckConsumer) []events.Consumer {
 	// 返回消费者切片
-	return []events.Consumer{postConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer}
+	return []events.Consumer{postConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishConsumer, checkConsumer}
 }
