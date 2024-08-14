@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
+	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/IBM/sarama"
 	"github.com/mitchellh/mapstructure"
 	"github.com/redis/go-redis/v9"
@@ -61,6 +61,7 @@ func NewCacheConsumer(client sarama.Client, l *zap.Logger, redis redis.Cmdable, 
 
 func (r *CacheConsumer) Start(_ context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("cache_consumer_group", r.client)
+	r.l.Info("CacheConsumer 开始消费")
 	if err != nil {
 		return err
 	}

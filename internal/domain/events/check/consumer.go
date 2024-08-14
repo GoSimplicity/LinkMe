@@ -52,6 +52,7 @@ func NewSyncConsumer(client sarama.Client, l *zap.Logger, repo repository.PostRe
 
 func (r *CheckConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("check_consumer_group", r.client)
+	r.l.Info("CheckConsumer 开始消费")
 	if err != nil {
 		return err
 	}

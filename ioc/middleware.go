@@ -2,6 +2,7 @@ package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/middleware"
+	"github.com/GoSimplicity/LinkMe/pkg/prometheusp"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-contrib/cors"
@@ -13,6 +14,15 @@ import (
 
 // InitMiddlewares 初始化中间件
 func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) []gin.HandlerFunc {
+	prom := &prometheusp.MetricsPlugin{
+		Namespace:  "linkme",
+		Subsystem:  "api",
+		InstanceID: "instance_1",
+	}
+
+	// 注册指标
+	prom.RegisterMetrics()
+
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
@@ -27,9 +37,10 @@ func InitMiddlewares(ih ijwt.Handler, l *zap.Logger, enforcer *casbin.Enforcer) 
 			},
 			MaxAge: 12 * time.Hour,
 		}),
-		func(ctx *gin.Context) {
-			println("this is my middleware")
-		},
+		// 统计响应时间
+		prom.TrackActiveRequestsMiddleware(),
+		// 统计活跃请求数
+		prom.TrackResponseTimeMiddleware(),
 		middleware.NewJWTMiddleware(ih).CheckLogin(),
 		middleware.NewLogMiddleware(l).Log(),
 	}
