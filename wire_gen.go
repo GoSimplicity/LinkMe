@@ -20,8 +20,8 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/ioc"
-	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/bloom"
-	"github.com/GoSimplicity/LinkMe/pkg/cache_plug/local"
+	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
+	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
 
@@ -80,7 +80,7 @@ func InitWebServer() *Cmd {
 	permissionHandler := api.NewPermissionHandler(permissionService, enforcer)
 	rankingRedisCache := cache.NewRankingRedisCache(cmdable)
 	rankingLocalCache := cache.NewRankingLocalCache()
-	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache)
+	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache, logger)
 	rankingService := service.NewRankingService(interactiveService, postRepository, rankingRepository, logger)
 	rankingHandler := api.NewRakingHandler(rankingService)
 	plateDAO := dao.NewPlateDAO(logger, db)

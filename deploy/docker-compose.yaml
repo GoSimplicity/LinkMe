@@ -85,3 +85,10 @@ services:
       - /data/canal/logs:/home/admin/canal-server/logs
       - /data/canal/destinations:/home/admin/canal-server/destinations
       - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties
+  prometheus:
+    image: bitnami/prometheus:latest
+    container_name: linkme-prometheus
+    volumes:
+      - ./prometheus.yml:/opt/bitnami/prometheus/conf/prometheus.yml
+    ports:
+      - "9090:9090"
