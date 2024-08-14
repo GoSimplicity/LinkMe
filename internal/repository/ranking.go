@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
-	"log"
+	"go.uber.org/zap"
 	"sync"
 )
 
@@ -17,12 +17,14 @@ type RankingRepository interface {
 type rankingRepository struct {
 	redisCache cache.RankingRedisCache
 	localCache cache.RankingLocalCache
+	l          *zap.Logger
 }
 
-func NewRankingCache(redisCache cache.RankingRedisCache, localCache cache.RankingLocalCache) RankingRepository {
+func NewRankingCache(redisCache cache.RankingRedisCache, localCache cache.RankingLocalCache, l *zap.Logger) RankingRepository {
 	return &rankingRepository{
 		redisCache: redisCache,
 		localCache: localCache,
+		l:          l,
 	}
 }
 
@@ -31,22 +33,27 @@ func (rc *rankingRepository) GetTopN(ctx context.Context) ([]domain.Post, error)
 	// 尝试从本地缓存获取数据
 	res, err := rc.localCache.Get(ctx)
 	if err == nil {
-		log.Println("本地缓存命中")
+		rc.l.Info("本地缓存命中")
 		return res, nil
 	}
-	log.Printf("本地缓存未命中: %v", err)
+
+	rc.l.Warn("本地缓存未命中", zap.Error(err))
+
 	// 尝试从 Redis 缓存获取数据
 	res, err = rc.redisCache.Get(ctx)
 	if err != nil {
-		log.Printf("Redis 缓存未命中: %v", err)
+		rc.l.Warn("Redis 缓存未命中", zap.Error(err))
 		// 尝试强制从本地缓存获取数据
 		return rc.localCache.ForceGet(ctx)
 	}
-	log.Println("Redis 缓存命中")
+
+	rc.l.Info("redis缓存命中")
+
 	// 将数据设置到本地缓存
 	if er := rc.localCache.Set(ctx, res); er != nil {
-		log.Printf("设置本地缓存时出错: %v", er)
+		rc.l.Error("设置本地缓存时出错", zap.Error(er))
 	}
+
 	return res, nil
 }
 
@@ -54,28 +61,32 @@ func (rc *rankingRepository) GetTopN(ctx context.Context) ([]domain.Post, error)
 func (rc *rankingRepository) ReplaceTopN(ctx context.Context, posts []domain.Post) error {
 	var wg sync.WaitGroup
 	var localErr, redisErr error
+
 	wg.Add(2)
+
 	// 并发设置本地缓存
 	go func() {
 		defer wg.Done()
 		if err := rc.localCache.Set(ctx, posts); err != nil {
 			localErr = err
-			log.Printf("设置本地缓存时出错: %v", err)
+			rc.l.Error("设置本地缓存时出错", zap.Error(err))
 		}
 	}()
+
 	// 并发设置 Redis 缓存
 	go func() {
 		defer wg.Done()
 		if err := rc.redisCache.Set(ctx, posts); err != nil {
 			redisErr = err
-			log.Printf("设置 Redis 缓存时出错: %v", err)
+			rc.l.Error("设置 Redis 缓存时出错", zap.Error(err))
 		}
 	}()
-	// 等待所有并发操作完成
+
 	wg.Wait()
-	// 如果任何一个缓存操作失败，返回错误
+
 	if localErr != nil || redisErr != nil {
 		return fmt.Errorf("替换前 N 失败: localErr=%v, redisErr=%v", localErr, redisErr)
 	}
+
 	return nil
 }

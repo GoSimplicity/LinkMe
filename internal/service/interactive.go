@@ -36,6 +36,7 @@ func (i *interactiveService) Like(ctx context.Context, biz string, postId uint, 
 	if liked {
 		return i.repo.DecrLike(ctx, biz, postId, uid)
 	}
+
 	return i.repo.IncrLike(ctx, biz, postId, uid)
 }
 
@@ -48,6 +49,7 @@ func (i *interactiveService) Collect(ctx context.Context, biz string, postId uin
 	if collected {
 		return i.repo.DecrCollectionItem(ctx, biz, postId, cid, uid)
 	}
+
 	return i.repo.IncrCollectionItem(ctx, biz, postId, cid, uid)
 }
 
@@ -60,6 +62,7 @@ func (i *interactiveService) Get(ctx context.Context, biz string, postId uint) (
 	if err != nil {
 		return domain.Interactive{}, err
 	}
+
 	return di, err
 }
 
@@ -69,8 +72,10 @@ func (i *interactiveService) GetByIds(ctx context.Context, biz string, postIds [
 		return nil, err
 	}
 	resultDis := make(map[uint]domain.Interactive)
+
 	for _, interactive := range dis {
 		resultDis[interactive.BizID] = interactive
 	}
+
 	return resultDis, err
 }

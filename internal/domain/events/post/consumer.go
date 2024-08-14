@@ -26,6 +26,7 @@ func NewInteractiveReadEventConsumer(repo repository.InteractiveRepository,
 
 func (i *InteractiveReadEventConsumer) Start(_ context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("interactive", i.client)
+	i.l.Info("PostConsumer 开始消费")
 	if err != nil {
 		return err
 	}
