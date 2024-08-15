@@ -3,7 +3,7 @@ package ioc
 import (
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
-	"github.com/GoSimplicity/LinkMe/pkg/gormp"
+	prometheus3 "github.com/GoSimplicity/LinkMe/pkg/gormp/prometheus"
 	prometheus2 "github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
@@ -46,7 +46,7 @@ func InitDB() *gorm.DB {
 	}
 
 	// 创建并注册自定义的 PrometheusCallbacks 插件，用于监控gorm操作执行时间
-	prometheusPlugin := gormp.NewPrometheusCallbacks(prometheus2.SummaryOpts{
+	prometheusPlugin := prometheus3.NewPrometheusCallbacks(prometheus2.SummaryOpts{
 		Namespace: "linkme",                                          // 命名空间
 		Subsystem: "gorm",                                            // 子系统
 		Name:      "operation_duration_seconds",                      // 指标名称

@@ -9,7 +9,9 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
+	"github.com/GoSimplicity/LinkMe/pkg/samarap/prometheus" // 假设 promethes 文件放在 pkg 目录下
 	"github.com/IBM/sarama"
+	prometheus2 "github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 )
 
@@ -46,7 +48,22 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 		panic(err)
 	}
 
-	return p
+	// 创建并注册自定义的 KafkaMetricsHook 插件
+	kafkaMetricsHook := prometheus.NewKafkaMetricsHook(prometheus2.SummaryOpts{
+		Namespace: "linkme",
+		Subsystem: "kafka",
+		Name:      "operation_duration_seconds",
+		Help:      "Duration of Kafka operations in seconds",
+		Objectives: map[float64]float64{
+			0.5:  0.01,
+			0.75: 0.01,
+			0.9:  0.01,
+			0.99: 0.001,
+		},
+	})
+
+	// 包装生产者
+	return kafkaMetricsHook.WrapProducer(p)
 }
 
 // InitConsumers 初始化并返回一个事件消费者
