@@ -1,4 +1,4 @@
-package prometheusp
+package prometheus
 
 import (
 	"github.com/gin-gonic/gin"

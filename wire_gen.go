@@ -73,7 +73,7 @@ func InitWebServer() *Cmd {
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository)
 	checkHandler := api.NewCheckHandler(checkService, enforcer)
-	v := ioc.InitMiddlewares(handler, logger, enforcer)
+	v := ioc.InitMiddlewares(handler, logger)
 	permissionDAO := dao.NewPermissionDAO(enforcer, logger, db)
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(permissionRepository, logger)
