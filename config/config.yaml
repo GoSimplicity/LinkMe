@@ -1,2 +1,19 @@
 db:
-  dsn: "root:root@tcp(localhost:3306)/linkme"
+  dsn: "root:root@tcp(192.168.1.11:30882)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+redis:
+  addr: "192.168.1.11:30884"
+  filepath: "logs/linkme.json"
+mongodb:
+  addr: "mongodb://192.168.1.11:30883"
+kafka:
+  addr: "192.168.1.11:30880"
+es:
+  addr: "http://192.168.1.11:30885"
+sms:
+  tencent:
+    secretId: ""
+    secretKey: ""
+    endPoint: ""
+    smsID: ""
+    sign: ""
+    templateID: ""

@@ -7,12 +7,22 @@
 package main
 
 import (
-	"LinkMe/internal/dao"
-	"LinkMe/internal/repository"
-	"LinkMe/internal/service"
-	"LinkMe/internal/web"
-	"LinkMe/ioc"
-	"github.com/gin-gonic/gin"
+	"github.com/GoSimplicity/LinkMe/internal/api"
+	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
+	"github.com/GoSimplicity/LinkMe/internal/service"
+	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
+	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
+	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
 
 import (
@@ -21,12 +31,94 @@ import (
 
 // Injectors from wire.go:
 
-func InitWebServer() *gin.Engine {
+func InitWebServer() *Cmd {
 	db := ioc.InitDB()
-	userDAO := dao.NewUserDAO(db)
-	userRepository := repository.NewUserRepository(userDAO)
-	userService := service.NewUserService(userRepository)
-	userHandler := web.NewUserHandler(userService)
-	engine := ioc.InitWebServer(userHandler)
-	return engine
+	node := ioc.InitializeSnowflakeNode()
+	logger := ioc.InitLogger()
+	enforcer := ioc.InitCasbin(db)
+	userDAO := dao.NewUserDAO(db, node, logger, enforcer)
+	cmdable := ioc.InitRedis()
+	userCache := cache.NewUserCache(cmdable)
+	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
+	typedClient := ioc.InitES()
+	searchDAO := dao.NewSearchDAO(db, typedClient, logger)
+	searchRepository := repository.NewSearchRepository(searchDAO)
+	userService := service.NewUserService(userRepository, logger, searchRepository)
+	handler := jwt.NewJWTHandler(cmdable)
+	client := ioc.InitSaramaClient()
+	syncProducer := ioc.InitSyncProducer(client)
+	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
+	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
+	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
+	mongoClient := ioc.InitMongoDB()
+	postDAO := dao.NewPostDAO(db, logger, mongoClient)
+	cacheBloom := bloom.NewCacheBloom(cmdable)
+	cacheManager := local.NewLocalCacheManager(cmdable)
+	postRepository := repository.NewPostRepository(postDAO, logger, cacheBloom, cacheManager)
+	postProducer := post.NewSaramaSyncProducer(syncProducer)
+	historyCache := cache.NewHistoryCache(logger, cmdable)
+	historyRepository := repository.NewHistoryRepository(logger, historyCache)
+	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
+	postService := service.NewPostService(postRepository, logger, postProducer, historyRepository, searchRepository, publishProducer)
+	interactiveDAO := dao.NewInteractiveDAO(db, logger)
+	interactiveCache := cache.NewInteractiveCache(cmdable)
+	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
+	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
+	postHandler := api.NewPostHandler(postService, interactiveService, enforcer)
+	historyService := service.NewHistoryService(historyRepository, logger)
+	historyHandler := api.NewHistoryHandler(historyService)
+	checkDAO := dao.NewCheckDAO(db, logger)
+	checkRepository := repository.NewCheckRepository(checkDAO, logger)
+	activityDAO := dao.NewActivityDAO(db, logger)
+	activityRepository := repository.NewActivityRepository(activityDAO)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository)
+	checkHandler := api.NewCheckHandler(checkService, enforcer)
+	v := ioc.InitMiddlewares(handler, logger)
+	permissionDAO := dao.NewPermissionDAO(enforcer, logger, db)
+	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
+	permissionService := service.NewPermissionService(permissionRepository, logger)
+	permissionHandler := api.NewPermissionHandler(permissionService, enforcer)
+	rankingRedisCache := cache.NewRankingRedisCache(cmdable)
+	rankingLocalCache := cache.NewRankingLocalCache()
+	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache, logger)
+	rankingService := service.NewRankingService(interactiveService, postRepository, rankingRepository, logger)
+	rankingHandler := api.NewRakingHandler(rankingService)
+	plateDAO := dao.NewPlateDAO(logger, db)
+	plateRepository := repository.NewPlateRepository(logger, plateDAO)
+	plateService := service.NewPlateService(logger, plateRepository)
+	plateHandler := api.NewPlateHandler(plateService, enforcer)
+	activityService := service.NewActivityService(activityRepository)
+	activityHandler := api.NewActivityHandler(activityService, enforcer)
+	commentDAO := dao.NewCommentService(db, logger)
+	commentRepository := repository.NewCommentRepository(commentDAO)
+	commentService := service.NewCommentService(commentRepository)
+	commentHandler := api.NewCommentHandler(commentService)
+	searchService := service.NewSearchService(searchRepository)
+	searchHandler := api.NewSearchHandler(searchService)
+	relationDAO := dao.NewRelationDAO(db, logger)
+	relationRepository := repository.NewRelationRepository(relationDAO)
+	relationService := service.NewRelationService(relationRepository)
+	relationHandler := api.NewRelationHandler(relationService)
+	engine := ioc.InitWebServer(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler)
+	cron := ioc.InitRanking(logger, rankingService)
+	interactiveReadEventConsumer := post.NewInteractiveReadEventConsumer(interactiveRepository, client, logger)
+	smsDAO := dao.NewSmsDAO(db, logger)
+	smsCache := cache.NewSMSCache(cmdable)
+	tencentSms := ioc.InitSms()
+	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
+	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
+	emailCache := cache.NewEmailCache(cmdable)
+	emailRepository := repository.NewEmailRepository(emailCache, logger)
+	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
+	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
+	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager)
+	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
+	checkConsumer := check.NewSyncConsumer(client, logger, postRepository)
+	v2 := ioc.InitConsumers(interactiveReadEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer)
+	cmd := &Cmd{
+		server:   engine,
+		Cron:     cron,
+		consumer: v2,
+	}
+	return cmd
 }
