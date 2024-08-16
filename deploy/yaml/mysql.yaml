@@ -63,7 +63,7 @@ spec:
             claimName: mysql-pvc
         - name: init-storage
           hostPath:
-            path: ./init
+            path: /data/mysql/init
 ---
 apiVersion: v1
 kind: Service
