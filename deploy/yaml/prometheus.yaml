@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkme-prometheus
+  labels:
+    app: linkme-prometheus
+  namespace: linkme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linkme-prometheus
+  template:
+    metadata:
+      name: linkme-prometheus
+      labels:
+        app: linkme-prometheus
+    spec:
+      containers:
+        - name: linkme-prometheus
+          image: bitnami/prometheus:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - mountPath: /bitnami/prometheus/data
+              name: prometheus-data
+            - mountPath: /etc/prometheus/prometheus.yml
+              name: prometheus-yml
+      volumes:
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: linkme-prometheus-pvc
+        - name: prometheus-yml
+          hostPath:
+            path: /data/prometheus/prometheus.yml
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: linkme-prometheus-pv
+  namespace: linkme
+spec:
+  storageClassName: record
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/prometheus"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linkme-prometheus-pvc
+  namespace: linkme
+spec:
+  storageClassName: record
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkme-prometheus
+  namespace: linkme
+spec:
+  selector:
+    app: linkme-prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+      nodePort: 30900
+  type: NodePort
