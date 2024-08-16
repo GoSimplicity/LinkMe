@@ -18,5 +18,7 @@ func InitTables(db *gorm.DB) error {
 		&Plate{},
 		&RecentActivity{},
 		&Comment{},
+		&Relation{},
+		&RelationCount{},
 	)
 }
