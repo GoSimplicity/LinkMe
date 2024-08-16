@@ -17,12 +17,17 @@ https://github.com/GoSimplicity/LinkMe-web
 
 ## 功能特性
 - 用户注册、登录、注销
+- 用户角色RBAC
+- 用户关系
+- 用户评论
 - 发布帖子、评论、点赞
+- 历史记录
+- 帖子审核
 - 用户个人资料编辑
 - 论坛版块管理
-- 多种数据库支持
+- 自动获取热门榜单
+- 用户、帖子搜索
 - Kubernetes 一键部署
-- RESTful API 设计
 - 前后端分离架构
 ## 技术栈
 - Go 语言
@@ -35,6 +40,7 @@ https://github.com/GoSimplicity/LinkMe-web
 - Kafka 消息队列
 - Prometheus 监控
 - ELK 日志收集
+- Canal 数据同步
 - ElasticSearch 搜索引擎
 - Docker 容器化
 - 随项目进度技术栈实时更新..
@@ -42,22 +48,19 @@ https://github.com/GoSimplicity/LinkMe-web
 ```
 .
 ├── config           # 项目配置文件目录
-├── init             # 初始化文件目录
-├── docs             # API文档目录
-├── go.mod           # Go模块定义文件
-├── go.sum           # Go模块依赖校验和
+├── deploy           # docker及k8s部署文件目录
+├── doc              # 项目文档目录
 ├── internal         # 项目内部包，含核心业务逻辑
 ├── ioc              # IoC容器配置，负责依赖注入设置
-├── LICENSE          # 开源许可证书
-├── LinkMe           # 可执行文件或快捷方式
-├── main.go          # 项目主入口文件
 ├── pkg              # 自定义工具包与库
+├── job              # 定时任务目录
+├── logs             # 项目日志目录
+├── utils            # 项目工具包目录
+├── main.go          # 项目入口文件
 ├── middleware       # 中间件目录
-├── README.md        # 项目自述文件
 ├── tmp              # 临时文件目录
 ├── wire_gen.go      # Wire工具生成的代码
 ├── wire.go          # Wire配置，声明依赖注入关系
-└── yaml             # Kubernetes部署配置文件目录
 ```
 ## 如何贡献
 我们欢迎任何形式的贡献，包括但不限于：
@@ -86,7 +89,7 @@ go mod tidy
 #### 手动创建
 ```bash
 # 进入项目目录中的init目录下
-cd init
+cd deploy/init
 # windows用户执行下面文件
 windows_init.bat
 # linux用户及mac用户执行下面文件
@@ -94,11 +97,11 @@ chmod +x linux_init.sh && ./linux_init.sh
 ```
 #### 使用 docker-compose 启动中间件(推荐)
 ```bash
-docker-compose up -d
+cd deploy && docker-compose up -d
 ```
 #### 使用 Kubernetes YAML 文件 启动中间件
 ```bash
-kubectl apply -f yaml/  # 需要有k8s环境
+cd deploy && kubectl apply -f yaml/  # 需要有k8s环境
 ```
 ### 使用 Wire 进行依赖注入
 ```bash
