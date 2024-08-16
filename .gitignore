@@ -4,6 +4,7 @@
 *.swp
 *.swo
 dist/
+tmp/
 build/
 target/
 out/
@@ -21,8 +22,8 @@ coverage/
 *.gcov
 *.gcda
 *.testwise.xml
-logs/
 *.log
+*.json
 *.svn/
 *.git/
 *.hg/
@@ -33,3 +34,6 @@ package-lock.json
 .pip-cache/
 .env
 .DS_Store
+.tmp/
+LinkMe
+*.jar
