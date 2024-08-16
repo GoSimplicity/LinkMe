@@ -48,10 +48,6 @@ spec:
               mountPath: /home/admin/canal-server/conf/canal.properties
             - name: canal-sync-config
               mountPath: /home/admin/canal-server/conf/linkme_sync/instance.properties
-            - name: canal-cache-config
-              mountPath: /home/admin/canal-server/conf/linkme_cache/instance.properties
-            - name: canal-es-config
-              mountPath: /home/admin/canal-server/conf/linkme_es/instance.properties
             - name: canal-log-storage
               mountPath: /home/admin/canal-server/logs
             - name: canal-destinations-storage
@@ -62,13 +58,7 @@ spec:
             path: /data/canal/conf/canal.properties
         - name: canal-sync-config
           hostPath:
-            path: /data/canal/conf/linkme_sync/instance.properties
-        - name: canal-cache-config
-          hostPath:
-            path: /data/canal/conf/linkme_cache/instance.properties
-        - name: canal-es-config
-          hostPath:
-            path: /data/canal/conf/linkme_es/instance.properties
+            path: /data/canal/conf/sync/instance.properties
         - name: canal-log-storage
           hostPath:
             path: /data/canal/logs
