@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: canal-pv
+  namespace: linkme
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/canal
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: canal-pvc
+  namespace: linkme
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkme-canal
+  namespace: linkme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: canal
+  template:
+    metadata:
+      labels:
+        app: canal
+    spec:
+      containers:
+        - name: canal
+          image: canal/canal-server
+          ports:
+            - containerPort: 11111
+          volumeMounts:
+            - name: canal-main-config
+              mountPath: /home/admin/canal-server/conf/canal.properties
+            - name: canal-sync-config
+              mountPath: /home/admin/canal-server/conf/linkme_sync/instance.properties
+            - name: canal-log-storage
+              mountPath: /home/admin/canal-server/logs
+            - name: canal-destinations-storage
+              mountPath: /home/admin/canal-server/destinations
+      volumes:
+        - name: canal-main-config
+          hostPath:
+            path: /data/canal/conf/canal.properties
+        - name: canal-sync-config
+          hostPath:
+            path: /data/canal/conf/sync/instance.properties
+        - name: canal-log-storage
+          hostPath:
+            path: /data/canal/logs
+        - name: canal-destinations-storage
+          hostPath:
+            path: /data/canal/destinations
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: canal-service
+  namespace: linkme
+spec:
+  type: NodePort
+  ports:
+    - port: 11111
+      nodePort: 30887
+  selector:
+    app: canal

@@ -1,0 +1,157 @@
+package jwt
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+)
+
+var (
+	Key1   = []byte("ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l")
+	Key2   = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2")
+	IssUer = "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
+)
+
+type Handler interface {
+	SetLoginToken(ctx *gin.Context, uid int64) (string, error)
+	SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error)
+	ExtractToken(ctx *gin.Context) string
+	CheckSession(ctx *gin.Context, ssid string) error
+	ClearToken(ctx *gin.Context) error
+	setRefreshToken(ctx *gin.Context, uid int64, ssid string) error
+}
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid         int64
+	Ssid        string
+	UserAgent   string
+	ContentType string
+}
+
+type RefreshClaims struct {
+	jwt.RegisteredClaims
+	Uid  int64
+	Ssid string
+}
+
+type handler struct {
+	client        redis.Cmdable
+	signingMethod jwt.SigningMethod
+	rcExpiration  time.Duration
+}
+
+func NewJWTHandler(c redis.Cmdable) Handler {
+	return &handler{
+		client:        c,
+		signingMethod: jwt.SigningMethodHS512,
+		rcExpiration:  time.Hour * 24 * 7,
+	}
+}
+
+// SetLoginToken 设置长短Token
+func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, error) {
+	ssid := uuid.New().String()
+	if err := h.setRefreshToken(ctx, uid, ssid); err != nil {
+		return "", err
+	}
+	return h.SetJWTToken(ctx, uid, ssid)
+}
+
+// SetJWTToken 设置短Token
+func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error) {
+	uc := UserClaims{
+		Uid:         uid,
+		Ssid:        ssid,
+		UserAgent:   ctx.GetHeader("User-Agent"),
+		ContentType: ctx.GetHeader("Content-Type"),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
+			Issuer:    IssUer,
+		},
+	}
+	token := jwt.NewWithClaims(h.signingMethod, uc)
+	// 进行签名
+	signedString, err := token.SignedString(Key1)
+	if err != nil {
+		return "", err
+	}
+	return signedString, nil
+}
+
+// setRefreshToken 设置长Token
+func (h *handler) setRefreshToken(ctx *gin.Context, uid int64, ssid string) error {
+	rc := RefreshClaims{
+		Uid:  uid,
+		Ssid: ssid,
+		RegisteredClaims: jwt.RegisteredClaims{
+			// 设置刷新时间为一周
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.rcExpiration)),
+		},
+	}
+	t := jwt.NewWithClaims(h.signingMethod, rc)
+	signedString, err := t.SignedString(Key2)
+	if err != nil {
+		return err
+	}
+	ctx.Header("X-Refresh-Token", signedString)
+	return err
+}
+
+// ExtractToken 提取 Authorization 头部中的 Token
+func (h *handler) ExtractToken(ctx *gin.Context) string {
+	authCode := ctx.GetHeader("Authorization")
+	if authCode == "" {
+		return ""
+	}
+	// Authorization 头部格式需为 Bearer string
+	s := strings.Split(authCode, " ")
+	if len(s) != 2 {
+		return ""
+	}
+	return s[1]
+}
+
+// CheckSession 检查会话状态
+func (h *handler) CheckSession(ctx *gin.Context, ssid string) error {
+	// 判断缓存中是否存在指定键
+	c, err := h.client.Exists(ctx, fmt.Sprintf("linkme:user:ssid:%s", ssid)).Result()
+	if err != nil {
+		return err
+	}
+	if c != 0 {
+		return errors.New("token失效")
+	}
+	return nil
+}
+
+// ClearToken 清空token
+func (h *handler) ClearToken(ctx *gin.Context) error {
+	ctx.Header("X-Refresh-Token", "")
+	uc := ctx.MustGet("user").(UserClaims)
+	// 获取 refresh token
+	refreshTokenString := ctx.GetHeader("X-Refresh-Token")
+	if refreshTokenString == "" {
+		return errors.New("missing refresh token")
+	}
+	// 解析 refresh token
+	refreshClaims := &RefreshClaims{}
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return Key2, nil
+	})
+	if err != nil || !refreshToken.Valid {
+		return errors.New("invalid refresh token")
+	}
+	// 设置redis中的会话ID键的过期时间为refresh token的剩余过期时间
+	remainingTime := refreshClaims.ExpiresAt.Time.Sub(time.Now())
+	if er := h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", uc.Ssid), "", remainingTime).Err(); er != nil {
+		return er
+	}
+	return nil
+}
