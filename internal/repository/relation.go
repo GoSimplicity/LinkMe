@@ -8,8 +8,8 @@ import (
 
 // RelationRepository 定义了关注关系的存储库接口
 type RelationRepository interface {
-	ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error)
-	GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error)
+	ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error)
+	ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]domain.Relation, error)
 	FollowUser(ctx context.Context, followerID, followeeID int64) error
 	CancelFollowUser(ctx context.Context, followerID, followeeID int64) error
 	GetFolloweeCount(ctx context.Context, userID int64) (int64, error)
@@ -35,16 +35,16 @@ func (r *relationRepository) CancelFollowUser(ctx context.Context, followerID, f
 	return r.dao.CancelFollowUser(ctx, followerID, followeeID)
 }
 
-// ListRelations 列出关注列表
-func (r *relationRepository) ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error) {
-	relations, err := r.dao.ListRelations(ctx, followerID, pagination)
+// ListFollowerRelations 列出关注列表
+func (r *relationRepository) ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error) {
+	relations, err := r.dao.ListFollowerRelations(ctx, followerID, pagination)
 	return r.toDomainRelationSlice(relations), err
 }
 
-// GetRelationInfo 获取特定的关注关系信息
-func (r *relationRepository) GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error) {
-	info, err := r.dao.GetRelationInfo(ctx, followerID, followeeID)
-	return r.toDomainRelation(info), err
+// ListFolloweeRelations 获取特定的关注关系信息
+func (r *relationRepository) ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]domain.Relation, error) {
+	relations, err := r.dao.ListFolloweeRelations(ctx, followeeID, pagination)
+	return r.toDomainRelationSlice(relations), err
 }
 
 func (r *relationRepository) GetFolloweeCount(ctx context.Context, userID int64) (int64, error) {

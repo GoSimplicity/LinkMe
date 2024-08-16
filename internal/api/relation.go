@@ -15,8 +15,8 @@ type RelationHandler struct {
 
 func (r *RelationHandler) RegisterRoutes(server *gin.Engine) {
 	relationGroup := server.Group("/api/relations")
-	relationGroup.POST("/list", WrapBody(r.ListRelations))                  // 查看用户关系列表
-	relationGroup.GET("/get_info", WrapQuery(r.GetRelationInfo))            // 查看用户关系信息
+	relationGroup.POST("/list_follower", WrapBody(r.ListFollowerRelations)) // 查看用户关系列表
+	relationGroup.POST("/list_followee", WrapBody(r.ListFolloweeRelations)) // 查看用户关系信息
 	relationGroup.GET("/get_followee_count", WrapQuery(r.GetFolloweeCount)) // 获取关注者数量
 	relationGroup.GET("/get_follower_count", WrapQuery(r.GetFollowerCount)) // 获取粉丝数量
 	relationGroup.POST("/follow", WrapBody(r.FollowUser))                   // 关注
@@ -29,9 +29,9 @@ func NewRelationHandler(svc service.RelationService) *RelationHandler {
 	}
 }
 
-// ListRelations 处理列出关注关系的请求
-func (r *RelationHandler) ListRelations(ctx *gin.Context, req req.ListRelationsReq) (Result, error) {
-	relations, err := r.svc.ListRelations(ctx, req.FollowerID, domain.Pagination{
+// ListFollowerRelations 获取关注信息列表
+func (r *RelationHandler) ListFollowerRelations(ctx *gin.Context, req req.ListFollowerRelationsReq) (Result, error) {
+	relations, err := r.svc.ListFollowerRelations(ctx, req.FollowerID, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
 	})
@@ -48,9 +48,12 @@ func (r *RelationHandler) ListRelations(ctx *gin.Context, req req.ListRelationsR
 	}, nil
 }
 
-// GetRelationInfo 处理获取关注关系信息的请求
-func (r *RelationHandler) GetRelationInfo(ctx *gin.Context, req req.GetRelationInfoReq) (Result, error) {
-	relation, err := r.svc.GetRelationInfo(ctx, req.FollowerID, req.FolloweeID)
+// ListFolloweeRelations 获取关注关系信息
+func (r *RelationHandler) ListFolloweeRelations(ctx *gin.Context, req req.ListFolloweeRelationsReq) (Result, error) {
+	relation, err := r.svc.ListFolloweeRelations(ctx, req.FolloweeID, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
 	if err != nil {
 		return Result{
 			Code: ListCommentErrorCode,

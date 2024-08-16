@@ -16,8 +16,8 @@ const (
 )
 
 type RelationDAO interface {
-	ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error)
-	GetRelationInfo(ctx context.Context, followerID, followeeID int64) (Relation, error)
+	ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error)
+	ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]Relation, error)
 	FollowUser(ctx context.Context, followerID, followeeID int64) error
 	CancelFollowUser(ctx context.Context, followerID, followeeID int64) error
 	UpdateStatus(ctx context.Context, followerID, followeeID int64, status bool) error
@@ -61,32 +61,37 @@ func (r *relationDAO) getCurrentTime() int64 {
 	return time.Now().UnixMilli()
 }
 
-func (r *relationDAO) ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error) {
+func (r *relationDAO) ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error) {
 	var relations []Relation
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
 	if err := r.db.WithContext(ctx).
 		Where("follower_id = ? AND status = ?", followerID, FollowStatus).
-		Offset(intSize).
-		Limit(intOffset).
+		Offset(intOffset).
+		Limit(intSize).
 		Find(&relations).Error; err != nil {
 		return nil, err
 	}
 	return relations, nil
 }
 
-func (r *relationDAO) GetRelationInfo(ctx context.Context, followerID, followeeID int64) (Relation, error) {
-	var relation Relation
+func (r *relationDAO) ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]Relation, error) {
+	var relations []Relation
+	intSize := int(*pagination.Size)
+	intOffset := int(*pagination.Offset)
 	if err := r.db.WithContext(ctx).
-		Where("follower_id = ? AND followee_id = ? AND status = ?", followerID, followeeID, FollowStatus).
-		First(&relation).Error; err != nil {
-		return Relation{}, err
+		Where("followee_id = ? AND status = ?", followeeID, FollowStatus).
+		Offset(intOffset).
+		Limit(intSize).
+		Find(&relations).Error; err != nil {
+		return nil, err
 	}
-	return relation, nil
+	return relations, nil
 }
 
 func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int64) error {
 	now := r.getCurrentTime()
+
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 创建Relation记录
 		if err := tx.Create(&Relation{
@@ -98,6 +103,7 @@ func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int
 		}).Error; err != nil {
 			return err
 		}
+
 		// 更新关注者的关注数
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "user_id"}},
@@ -113,6 +119,7 @@ func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int
 		}).Error; err != nil {
 			return err
 		}
+
 		// 更新被关注者的粉丝数
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "user_id"}},
@@ -128,12 +135,15 @@ func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int
 		}).Error; err != nil {
 			return err
 		}
+
 		return nil
 	})
+
 	if err != nil {
 		r.l.Error("failed to follow user", zap.Error(err))
 		return err
 	}
+
 	return nil
 }
 
@@ -145,26 +155,31 @@ func (r *relationDAO) UpdateStatus(ctx context.Context, followerID, followeeID i
 		r.l.Error("failed to update status", zap.Error(err))
 		return err
 	}
+
 	return nil
 }
 
 func (r *relationDAO) FollowCount(ctx context.Context, userID int64) (RelationCount, error) {
 	var relationCount RelationCount
+
 	if err := r.db.WithContext(ctx).Where("user_id = ? AND status = ?", userID, FollowStatus).First(&relationCount).Error; err != nil {
 		r.l.Error("failed to get follower count", zap.Error(err))
 		return RelationCount{}, err
 	}
+
 	return relationCount, nil
 }
 
 func (r *relationDAO) CancelFollowUser(ctx context.Context, followerID, followeeID int64) error {
 	now := r.getCurrentTime()
+
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 删除Relation记录
 		if err := tx.Where("follower_id = ? AND followee_id = ? AND status = ?", followerID, followeeID, FollowStatus).
 			Delete(&Relation{}).Error; err != nil {
 			return err
 		}
+
 		// 更新关注者的关注数
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "user_id"}},
@@ -180,6 +195,7 @@ func (r *relationDAO) CancelFollowUser(ctx context.Context, followerID, followee
 		}).Error; err != nil {
 			return err
 		}
+
 		// 更新被关注者的粉丝数
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "user_id"}},
