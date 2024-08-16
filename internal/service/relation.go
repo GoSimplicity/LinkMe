@@ -7,8 +7,8 @@ import (
 )
 
 type RelationService interface {
-	ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error)
-	GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error)
+	ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error)
+	ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]domain.Relation, error)
 	FollowUser(ctx context.Context, followerID, followeeID int64) error
 	CancelFollowUser(ctx context.Context, followerID, followeeID int64) error
 	GetFolloweeCount(ctx context.Context, UserID int64) (int64, error)
@@ -25,17 +25,20 @@ func NewRelationService(repo repository.RelationRepository) RelationService {
 	}
 }
 
-// ListRelations 列出所有关注关系
-func (r *relationService) ListRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error) {
+// ListFollowerRelations 列出所有关注关系
+func (r *relationService) ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]domain.Relation, error) {
 	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
-	return r.repo.ListRelations(ctx, followerID, pagination)
+	return r.repo.ListFollowerRelations(ctx, followerID, pagination)
 }
 
-// GetRelationInfo 获取特定的关注关系信息
-func (r *relationService) GetRelationInfo(ctx context.Context, followerID, followeeID int64) (domain.Relation, error) {
-	return r.repo.GetRelationInfo(ctx, followerID, followeeID)
+// ListFolloweeRelations 获取特定的关注关系信息
+func (r *relationService) ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]domain.Relation, error) {
+	// 计算偏移量
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return r.repo.ListFolloweeRelations(ctx, followeeID, pagination)
 }
 
 // FollowUser 关注用户
