@@ -8,7 +8,6 @@ COPY .. .
 RUN go mod tidy
 # 静态编译可执行文件
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
-# 验证可执行文件是否被正确生成
 
 # 使用 Alpine 镜像作为生产阶段
 FROM alpine:latest
