@@ -28,21 +28,40 @@ type PostService interface {
 
 type postService struct {
 	repo            repository.PostRepository
-	historyRepo     repository.HistoryRepository // 历史记录
 	producer        post.Producer
 	searchRepo      repository.SearchRepository
 	publishProducer publish.Producer
 	l               *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, historyRepo repository.HistoryRepository, searchRepo repository.SearchRepository, publishProducer publish.Producer) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, searchRepo repository.SearchRepository, publishProducer publish.Producer) PostService {
 	return &postService{
 		repo:            repo,
-		historyRepo:     historyRepo,
 		searchRepo:      searchRepo,
 		l:               l,
 		producer:        p,
 		publishProducer: publishProducer,
+	}
+}
+
+// withAsyncCancel 装饰器函数，用来封装 goroutine 逻辑并处理错误和取消操作
+func (p *postService) withAsyncCancel(_ context.Context, cancel context.CancelFunc, fn func() error) func() {
+	return func() {
+		go func() {
+			// 确保 goroutine 中的 panic 不会导致程序崩溃
+			defer func() {
+				if r := recover(); r != nil {
+					p.l.Error("panic occurred in async operation goroutine", zap.Any("error", r))
+					cancel() // 取消操作
+				}
+			}()
+
+			// 执行目标函数
+			if err := fn(); err != nil {
+				p.l.Error("async operation failed", zap.Error(err))
+				cancel() // 取消操作
+			}
+		}()
 	}
 }
 
@@ -59,6 +78,7 @@ func (p *postService) Update(ctx context.Context, post domain.Post) error {
 	return p.repo.Update(ctx, post)
 }
 
+// Publish 发布帖子
 func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 	// 获取帖子详细信息
 	dp, err := p.repo.GetPostById(ctx, post.ID, post.AuthorID)
@@ -66,31 +86,20 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 		return fmt.Errorf("get post failed: %w", err)
 	}
 
-	// 使用context.WithCancel来管理goroutine的生命周期
+	// 使用 context.WithCancel 来管理 goroutine 的生命周期
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go func() {
-		// 确保goroutine中的panic不会导致程序崩溃
-		defer func() {
-			if r := recover(); r != nil {
-				p.l.Error("panic occurred in produce publish event goroutine", zap.Any("error", r))
-			}
-		}()
-
-		// 生产发布事件
-		err := p.publishProducer.ProducePublishEvent(publish.PublishEvent{
+	// 使用装饰器封装 goroutine 逻辑
+	asyncPublish := p.withAsyncCancel(ctx, cancel, func() error {
+		return p.publishProducer.ProducePublishEvent(publish.PublishEvent{
 			PostId:   dp.ID,
 			Content:  dp.Content,
 			Title:    dp.Title,
 			AuthorID: dp.AuthorID,
 		})
-
-		if err != nil {
-			p.l.Error("produce publish event failed", zap.Error(err))
-			cancel() // 取消操作
-		}
-	}()
+	})
+	asyncPublish()
 
 	return nil
 }
@@ -121,31 +130,27 @@ func (p *postService) GetPublishedPostById(ctx context.Context, postId uint, uid
 		return domain.Post{}, err
 	}
 
-	// 异步存入历史记录
-	go func() {
-		err := (func() error {
-			if er := p.historyRepo.SetHistory(ctx, dp); er != nil {
-				p.l.Error("set history failed", zap.Error(er))
-				return fmt.Errorf("set history failed: %w", er)
-			}
-			return nil
-		})()
-		if err != nil {
-		}
-	}()
+	// 使用 context.WithCancel 来管理 goroutine 的生命周期
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	// 异步处理读取事件
-	go func() {
-		err := (func() error {
-			if er := p.producer.ProduceReadEvent(post.ReadEvent{PostId: postId, Uid: uid}); er != nil {
-				p.l.Error("produce read event failed", zap.Error(err))
-				return fmt.Errorf("produce read event failed: %w", er)
-			}
-			return nil
-		})()
-		if err != nil {
+	// 使用装饰器模式异步处理读取事件
+	asyncReadEvent := p.withAsyncCancel(ctx, cancel, func() error {
+		if er := p.producer.ProduceReadEvent(post.ReadEvent{
+			PostId:  postId,
+			Uid:     uid,
+			Title:   dp.Title,
+			Content: dp.Content,
+		}); er != nil {
+
+			p.l.Error("produce read event failed", zap.Error(er))
+
+			return fmt.Errorf("produce read event failed: %w", er)
 		}
-	}()
+
+		return nil
+	})
+	asyncReadEvent()
 
 	return dp, nil
 }

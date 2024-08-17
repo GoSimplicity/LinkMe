@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/IBM/sarama"
 	"github.com/mitchellh/mapstructure"
@@ -16,10 +17,11 @@ import (
 )
 
 type CacheConsumer struct {
-	client sarama.Client
-	l      *zap.Logger
-	redis  redis.Cmdable
-	local  *local.CacheManager
+	client   sarama.Client
+	l        *zap.Logger
+	redis    redis.Cmdable
+	hisCache cache.HistoryCache
+	local    *local.CacheManager
 }
 
 type Event struct {
@@ -49,13 +51,14 @@ type consumerGroupHandler struct {
 	r *CacheConsumer
 }
 
-func NewCacheConsumer(client sarama.Client, l *zap.Logger, redis redis.Cmdable, local *local.CacheManager) *CacheConsumer {
+func NewCacheConsumer(client sarama.Client, l *zap.Logger, redis redis.Cmdable, local *local.CacheManager, hisCache cache.HistoryCache) *CacheConsumer {
 	// 创建MongoDB客户端
 	return &CacheConsumer{
-		client: client,
-		l:      l,
-		redis:  redis,
-		local:  local,
+		client:   client,
+		hisCache: hisCache,
+		l:        l,
+		redis:    redis,
+		local:    local,
 	}
 }
 
@@ -136,6 +139,12 @@ func (r *CacheConsumer) handlePost(ctx context.Context, post Post) error {
 		// 使用 DeleteKeysWithPattern 删除匹配模式的私有列表缓存
 		if err := r.DeleteKeysWithPattern(ctx, fmt.Sprintf("post:pri:list:%d:*", post.AuthorID)); err != nil {
 			r.l.Error("Failed to delete private list keys", zap.Error(err))
+			return err
+		}
+
+		// 如果监测到 Post 不属于发布状态，删除相关历史记录缓存
+		if err := r.hisCache.DeleteOneCache(ctx, post.ID, post.AuthorID); err != nil {
+			r.l.Error("Failed to delete history cache", zap.Error(err))
 			return err
 		}
 	}

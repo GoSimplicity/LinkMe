@@ -9,7 +9,7 @@ import (
 
 type HistoryRepository interface {
 	GetHistory(ctx context.Context, pagination domain.Pagination) ([]domain.History, error)
-	SetHistory(ctx context.Context, post domain.Post) error
+	SetHistory(ctx context.Context, post []domain.Post) error
 	DeleteOneHistory(ctx context.Context, postId uint, uid int64) error
 	DeleteAllHistory(ctx context.Context, uid int64) error
 }
@@ -34,7 +34,7 @@ func (h *historyRepository) GetHistory(ctx context.Context, pagination domain.Pa
 	return record, nil
 }
 
-func (h *historyRepository) SetHistory(ctx context.Context, post domain.Post) error {
+func (h *historyRepository) SetHistory(ctx context.Context, post []domain.Post) error {
 	history := toDomainHistory(post)
 	err := h.cache.SetCache(ctx, history)
 	if err != nil {
@@ -69,12 +69,18 @@ func createContentSummary(content string) string {
 	return content
 }
 
-func toDomainHistory(post domain.Post) domain.History {
-	return domain.History{
-		Content:  createContentSummary(post.Content),
-		AuthorID: post.AuthorID,
-		Tags:     post.Tags,
-		PostID:   post.ID,
-		Title:    post.Title,
+func toDomainHistory(posts []domain.Post) []domain.History {
+	histories := make([]domain.History, len(posts))
+
+	for i, post := range posts {
+		histories[i] = domain.History{
+			Content:  createContentSummary(post.Content),
+			AuthorID: post.AuthorID,
+			Tags:     post.Tags,
+			PostID:   post.ID,
+			Title:    post.Title,
+		}
 	}
+
+	return histories
 }

@@ -96,7 +96,7 @@ func InitWebServer() *Cmd {
 		dao.NewSearchDAO,
 		dao.NewRelationDAO,
 		post.NewSaramaSyncProducer,
-		post.NewInteractiveReadEventConsumer,
+		post.NewReadEventConsumer,
 		sms.NewSMSConsumer,
 		sms.NewSaramaSyncProducer,
 		email.NewEmailConsumer,
