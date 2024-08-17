@@ -11,7 +11,7 @@ import (
 )
 
 type HistoryCache interface {
-	SetCache(ctx context.Context, history domain.History) error
+	SetCache(ctx context.Context, histories []domain.History) error
 	GetCache(ctx context.Context, pagination domain.Pagination) ([]domain.History, error)
 	DeleteOneCache(ctx context.Context, postId uint, uid int64) error
 	DeleteAllHistory(ctx context.Context, uid int64) error
@@ -34,6 +34,7 @@ func (h *historyCache) GetCache(ctx context.Context, pagination domain.Paginatio
 	key := fmt.Sprintf("linkme:post:history:%d", pagination.Uid)
 	// 获取当前时间戳，用于过滤超过7天的记录
 	threshold := time.Now().Add(-7 * 24 * time.Hour).Unix()
+
 	// 从zset中获取最近7天的历史记录
 	values, err := h.client.ZRangeByScore(ctx, key, &redis.ZRangeBy{
 		Min:    fmt.Sprintf("%d", threshold),
@@ -45,7 +46,9 @@ func (h *historyCache) GetCache(ctx context.Context, pagination domain.Paginatio
 		h.l.Error("获取缓存失败", zap.Error(err))
 		return nil, err
 	}
+
 	var histories []domain.History
+
 	for _, v := range values {
 		var history domain.History
 		if er := json.Unmarshal([]byte(v), &history); er != nil {
@@ -54,50 +57,70 @@ func (h *historyCache) GetCache(ctx context.Context, pagination domain.Paginatio
 		}
 		histories = append(histories, history)
 	}
+
 	return histories, nil
 }
 
-// SetCache 将帖子设置在redis缓存中 并设置7天的过期时间
-func (h *historyCache) SetCache(ctx context.Context, history domain.History) error {
-	key := fmt.Sprintf("linkme:post:history:%d", history.AuthorID)
-	value, err := json.Marshal(history)
-	if err != nil {
-		h.l.Error("序列化帖子失败", zap.Error(err))
-		return err
+// SetCache 将多个帖子历史记录设置到 Redis 缓存中，并设置 7 天的过期时间
+func (h *historyCache) SetCache(ctx context.Context, histories []domain.History) error {
+	if len(histories) == 0 {
+		return nil // 如果没有历史记录，直接返回
 	}
+
+	key := fmt.Sprintf("linkme:post:history:%d", histories[0].AuthorID)
+
 	// 定义锁键和锁超时时间
 	lockKey := key + ":lock"
 	lockTimeout := 5 * time.Second
+
 	// 尝试获取锁
 	locked, err := h.acquireLock(ctx, lockKey, lockTimeout)
 	if err != nil {
 		h.l.Error("获取锁失败", zap.Error(err))
 		return err
 	}
+
 	if !locked {
 		return fmt.Errorf("无法获取锁")
 	}
+
 	// 当函数执行完毕，释放锁
 	defer func() {
 		if er := h.releaseLock(ctx, lockKey); er != nil {
 			h.l.Error("释放锁失败", zap.Error(er))
 		}
 	}()
-	// 将帖子记录添加到zset中，使用时间戳作为分数
-	if er := h.client.ZAdd(ctx, key, redis.Z{
-		Score:  float64(time.Now().Unix()),
-		Member: value,
-	}).Err(); er != nil {
-		h.l.Error("设置缓存失败", zap.Error(er))
-		return er
+
+	// 准备要添加到 Redis 中的 ZSet 元素
+	zAddArgs := make([]redis.Z, len(histories))
+	for i, history := range histories {
+		value, err := json.Marshal(history)
+		if err != nil {
+			h.l.Error("序列化帖子失败", zap.Error(err))
+			return err
+		}
+
+		zAddArgs[i] = redis.Z{
+			Score:  float64(time.Now().Unix()),
+			Member: value,
+		}
 	}
-	// 删除超过7天的记录
+
+	// 将帖子记录添加到 ZSet 中，使用时间戳作为分数
+	if err := h.client.ZAdd(ctx, key, zAddArgs...).Err(); err != nil {
+		h.l.Error("设置缓存失败", zap.Error(err))
+		return err
+	}
+
+	// 删除超过 7 天的记录
 	threshold := time.Now().Add(-7 * 24 * time.Hour).Unix()
-	if er := h.client.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", threshold)).Err(); er != nil {
-		h.l.Error("删除过期记录失败", zap.Error(er))
-		return er
+	if err := h.client.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", threshold)).Err(); err != nil {
+		h.l.Error("删除过期记录失败", zap.Error(err))
+		return err
 	}
+
 	h.l.Info("缓存设置成功", zap.String("key", key))
+
 	return nil
 }
 
@@ -106,6 +129,7 @@ func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int6
 	key := fmt.Sprintf("linkme:post:history:%d", uid)
 	lockKey := key + ":lock"
 	lockTimeout := 5 * time.Second
+
 	// 尝试获取锁
 	if locked, err := h.acquireLock(ctx, lockKey, lockTimeout); err != nil {
 		h.l.Error("获取锁失败", zap.Error(err))
@@ -113,18 +137,21 @@ func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int6
 	} else if !locked {
 		return fmt.Errorf("无法获取锁")
 	}
+
 	// 当函数执行完毕，释放锁
 	defer func() {
 		if err := h.releaseLock(ctx, lockKey); err != nil {
 			h.l.Error("释放锁失败", zap.Error(err))
 		}
 	}()
+
 	// 获取缓存中的历史记录
 	values, err := h.client.ZRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		h.l.Error("获取缓存失败", zap.Error(err))
 		return err
 	}
+
 	// 查找并删除匹配的postID
 	for _, v := range values {
 		var history domain.History
@@ -140,7 +167,9 @@ func (h *historyCache) DeleteOneCache(ctx context.Context, postId uint, uid int6
 			break
 		}
 	}
+
 	h.l.Info("缓存删除成功", zap.String("key", key))
+
 	return nil
 }
 
@@ -149,6 +178,7 @@ func (h *historyCache) DeleteAllHistory(ctx context.Context, uid int64) error {
 	key := fmt.Sprintf("linkme:post:history:%d", uid)
 	lockKey := key + ":lock"
 	lockTimeout := 5 * time.Second
+
 	// 尝试获取锁
 	if locked, err := h.acquireLock(ctx, lockKey, lockTimeout); err != nil {
 		h.l.Error("获取锁失败", zap.Error(err))
@@ -156,18 +186,22 @@ func (h *historyCache) DeleteAllHistory(ctx context.Context, uid int64) error {
 	} else if !locked {
 		return fmt.Errorf("无法获取锁")
 	}
+
 	// 当函数执行完毕，释放锁
 	defer func() {
 		if err := h.releaseLock(ctx, lockKey); err != nil {
 			h.l.Error("释放锁失败", zap.Error(err))
 		}
 	}()
+
 	// 删除zset
 	if err := h.client.Del(ctx, key).Err(); err != nil {
 		h.l.Error("删除历史记录失败", zap.Error(err))
 		return err
 	}
+
 	h.l.Info("所有历史记录已删除", zap.Int64("userID", uid))
+
 	return nil
 }
 
@@ -177,11 +211,13 @@ func (h *historyCache) acquireLock(ctx context.Context, lockKey string, ttl time
 	if err != nil {
 		return false, err
 	}
+
 	return resp, nil
 }
 
 // releaseLock 释放分布式锁，通过删除锁键来实现
 func (h *historyCache) releaseLock(ctx context.Context, lockKey string) error {
 	_, err := h.client.Del(ctx, lockKey).Result()
+
 	return err
 }

@@ -12,13 +12,11 @@ type Producer interface {
 }
 
 type ReadEvent struct {
-	PostId uint
-	Uid    int64
-}
-
-type BatchReadEvent struct {
-	PostId []uint
-	Uid    []int64
+	PostId  uint
+	Uid     int64
+	Title   string
+	Content string
+	PlateID int64
 }
 
 type SaramaSyncProducer struct {
