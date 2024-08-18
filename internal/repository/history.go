@@ -31,6 +31,7 @@ func (h *historyRepository) GetHistory(ctx context.Context, pagination domain.Pa
 	if err != nil {
 		return nil, err
 	}
+
 	return record, nil
 }
 
@@ -40,6 +41,7 @@ func (h *historyRepository) SetHistory(ctx context.Context, post []domain.Post) 
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -48,6 +50,7 @@ func (h *historyRepository) DeleteOneHistory(ctx context.Context, postId uint, u
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -56,6 +59,7 @@ func (h *historyRepository) DeleteAllHistory(ctx context.Context, uid int64) err
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -66,6 +70,7 @@ func createContentSummary(content string) string {
 	if len(runes) > limit {
 		return string(runes[:limit])
 	}
+
 	return content
 }
 

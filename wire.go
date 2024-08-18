@@ -84,6 +84,8 @@ func InitWebServer() *Cmd {
 		cache.NewHistoryCache,
 		cache.NewSMSCache,
 		cache.NewEmailCache,
+		cache.NewRelationCache,
+		cache.NewCheckCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
