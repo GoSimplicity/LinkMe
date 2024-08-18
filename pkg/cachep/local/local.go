@@ -47,6 +47,7 @@ func (cm *CacheManager) Get(ctx context.Context, key string, loader func() (inte
 
 		return json.Unmarshal(data, result)
 	}
+
 	// 尝试从 Redis 获取
 	data, err := cm.redisClient.Get(ctx, key).Bytes()
 	if err != nil {

@@ -86,6 +86,7 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 		go func() {
 			_ = p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10)
 		}()
+
 		return domain.Post{}, err
 	}
 

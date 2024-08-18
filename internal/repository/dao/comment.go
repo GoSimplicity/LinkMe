@@ -71,6 +71,7 @@ func (c *commentDAO) DeleteCommentById(ctx context.Context, commentId int64) err
 // GetMoreCommentsReply 获取更多评论回复
 func (c *commentDAO) GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]Comment, error) {
 	var comments []Comment
+
 	query := c.db.WithContext(ctx).Where("root_id = ?", rootId)
 	// 如果maxId > 0，添加id > maxId的条件
 	// 当页面初次加载时，不传 maxId 或 maxId 为 0，查询条件是 root_id = ?，这时会加载最早的 limit 条回复
@@ -78,16 +79,19 @@ func (c *commentDAO) GetMoreCommentsReply(ctx context.Context, rootId, maxId, li
 	if maxId > 0 {
 		query = query.Where("id > ?", maxId)
 	}
+
 	if err := query.Order("id ASC").Limit(int(limit)).Find(&comments).Error; err != nil {
 		c.l.Error("list replies failed", zap.Error(err))
 		return nil, err
 	}
+
 	return comments, nil
 }
 
 // FindCommentsByPostId 根据postID查找评论
 func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, minId, limit int64) ([]Comment, error) {
 	var comments []Comment
+
 	query := c.db.WithContext(ctx).Where("post_id = ? AND pid IS NULL", postId)
 	// 如果minId > 0，添加id < minId的条件
 	// 当页面初次加载时，不传 minId 或 minId 为 0，查询条件是 post_id = ? AND pid IS NULL，这时会加载最新的 limit 条评论
@@ -95,10 +99,12 @@ func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, min
 	if minId > 0 {
 		query = query.Where("id < ?", minId)
 	}
+
 	if err := query.Limit(int(limit)).Find(&comments).Error; err != nil {
 		c.l.Error("list comments failed", zap.Error(err))
 		return nil, err
 	}
+
 	return comments, nil
 }
 

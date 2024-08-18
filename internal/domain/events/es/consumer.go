@@ -53,6 +53,7 @@ func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 	for msg := range claim.Messages() {
 		h.r.Consume(sess, msg)
 	}
+
 	return nil
 }
 
