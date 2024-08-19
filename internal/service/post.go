@@ -29,15 +29,13 @@ type PostService interface {
 type postService struct {
 	repo            repository.PostRepository
 	producer        post.Producer
-	searchRepo      repository.SearchRepository
 	publishProducer publish.Producer
 	l               *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, searchRepo repository.SearchRepository, publishProducer publish.Producer) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, publishProducer publish.Producer) PostService {
 	return &postService{
 		repo:            repo,
-		searchRepo:      searchRepo,
 		l:               l,
 		producer:        p,
 		publishProducer: publishProducer,
@@ -107,9 +105,7 @@ func (p *postService) Publish(ctx context.Context, post domain.Post) error {
 // Withdraw 撤回帖子，移除线上数据库中的帖子
 func (p *postService) Withdraw(ctx context.Context, post domain.Post) error {
 	post.Status = domain.Withdrawn
-	if err := p.searchRepo.DeletePostIndex(ctx, post.ID); err != nil {
-		p.l.Error("delete post index failed", zap.Error(err))
-	}
+
 	return p.repo.UpdateStatus(ctx, post)
 }
 
@@ -180,14 +176,6 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 		Status:   domain.Deleted,
 		AuthorID: uid,
 	}
-
-	go func() {
-		err := p.searchRepo.DeletePostIndex(ctx, postId)
-		if err != nil {
-			p.l.Error("delete post index failed", zap.Error(err))
-			return
-		}
-	}()
 
 	return p.repo.Delete(ctx, res)
 }

@@ -7,6 +7,7 @@ import (
 	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
@@ -109,7 +110,8 @@ func InitWebServer() *Cmd {
 		cache2.NewCacheConsumer,
 		publish.NewPublishPostEventConsumer,
 		publish.NewSaramaSyncProducer,
-		check.NewSyncConsumer,
+		check.NewCheckConsumer,
+		es.NewEsConsumer,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)

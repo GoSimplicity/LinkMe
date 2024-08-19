@@ -15,12 +15,13 @@ type CheckCache interface {
 	GetCache(ctx context.Context, key string) (*domain.Check, error)
 	SetCache(ctx context.Context, key string, check domain.Check, ttl time.Duration) error
 	ClearCache(ctx context.Context, key string) error
+	DeleteKeysWithPattern(ctx context.Context, pattern string) error
 	GetCacheList(ctx context.Context, key string) ([]domain.Check, error)
 	SetCacheList(ctx context.Context, key string, checks []domain.Check, ttl time.Duration) error
 	GetCountCache(ctx context.Context, key string) (int64, error)
 	SetCountCache(ctx context.Context, key string, count int64, ttl time.Duration) error
 	GenerateCacheKey(id interface{}) string
-	GeneratePaginationCacheKey(prefix string, pagination domain.Pagination) string
+	GeneratePaginationCacheKey(pagination domain.Pagination) string
 	GenerateCountCacheKey() string
 }
 
@@ -71,6 +72,33 @@ func (c *checkCache) SetCache(ctx context.Context, key string, check domain.Chec
 // ClearCache 清除缓存中的指定键
 func (c *checkCache) ClearCache(ctx context.Context, key string) error {
 	return c.client.Del(ctx, key).Err()
+}
+
+func (c *checkCache) DeleteKeysWithPattern(ctx context.Context, pattern string) error {
+	var cursor uint64
+
+	for {
+		// 执行 SCAN 命令
+		keys, cursor, err := c.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return fmt.Errorf("failed to scan Redis keys: %w", err)
+		}
+
+		// 如果找到匹配的键，进行删除
+		if len(keys) > 0 {
+			if err := c.client.Del(ctx, keys...).Err(); err != nil {
+				return fmt.Errorf("failed to delete Redis keys: %w", err)
+			}
+			fmt.Printf("Deleted keys: %v\n", keys)
+		}
+
+		// 如果 cursor 为 0，说明遍历结束
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return nil
 }
 
 // GetCacheList 从缓存中获取审核记录列表
@@ -139,8 +167,8 @@ func (c *checkCache) GenerateCacheKey(id interface{}) string {
 }
 
 // GeneratePaginationCacheKey 生成分页查询的缓存键
-func (c *checkCache) GeneratePaginationCacheKey(prefix string, pagination domain.Pagination) string {
-	return fmt.Sprintf("%s:offset=%d:size=%d", prefix, *pagination.Offset, *pagination.Size)
+func (c *checkCache) GeneratePaginationCacheKey(pagination domain.Pagination) string {
+	return fmt.Sprintf("linkme:check:list:%d", pagination.Page)
 }
 
 // GenerateCountCacheKey 生成审核记录数量的缓存键
