@@ -65,6 +65,9 @@ func NewSyncConsumer(client sarama.Client, l *zap.Logger, db *gorm.DB, mongoClie
 
 func (r *SyncConsumer) Start(_ context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("sync_consumer_group", r.client)
+
+	r.l.Info("SyncConsumer 开始消费")
+
 	if err != nil {
 		return err
 	}

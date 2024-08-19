@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/IBM/sarama"
 	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
@@ -14,9 +15,10 @@ import (
 )
 
 type CheckConsumer struct {
-	client sarama.Client
-	l      *zap.Logger
-	repo   repository.PostRepository
+	client     sarama.Client
+	l          *zap.Logger
+	repo       repository.PostRepository
+	checkCache cache.CheckCache
 }
 
 type Event struct {
@@ -42,11 +44,12 @@ type consumerGroupHandler struct {
 	r *CheckConsumer
 }
 
-func NewSyncConsumer(client sarama.Client, l *zap.Logger, repo repository.PostRepository) *CheckConsumer {
+func NewCheckConsumer(client sarama.Client, l *zap.Logger, repo repository.PostRepository, checkCache cache.CheckCache) *CheckConsumer {
 	return &CheckConsumer{
-		client: client,
-		l:      l,
-		repo:   repo,
+		client:     client,
+		checkCache: checkCache,
+		l:          l,
+		repo:       repo,
 	}
 }
 
@@ -122,6 +125,13 @@ func (r *CheckConsumer) handlePost(ctx context.Context, check Check) error {
 		})
 	}
 
+	// 删除缓存并处理可能的错误
+	err := r.checkCache.DeleteKeysWithPattern(ctx, "linkme:check:list:*")
+	if err != nil {
+		r.l.Error("删除缓存失败", zap.Error(err))
+		return err
+	}
+
 	return nil
 }
 
@@ -177,6 +187,7 @@ func stringToNullTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
 		if err != nil {
 			return nil, err
 		}
+
 		return sql.NullTime{Time: parsedTime, Valid: true}, nil
 	}
 }

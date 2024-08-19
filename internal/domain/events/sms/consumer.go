@@ -26,10 +26,13 @@ func NewSMSConsumer(repo repository.SmsRepository, client sarama.Client, l *zap.
 
 func (s *SMSConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("sms_consumer_group", s.client)
+
 	s.l.Info("SMSConsumer 开始消费")
+
 	if err != nil {
 		return err
 	}
+
 	go func() {
 		attempts := 0
 		maxRetries := 3
@@ -47,6 +50,7 @@ func (s *SMSConsumer) Start(ctx context.Context) error {
 			s.l.Error("达到最大重试次数，退出消费")
 		}
 	}()
+
 	return nil
 }
 

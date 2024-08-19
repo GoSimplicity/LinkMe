@@ -11,6 +11,7 @@ import (
 	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
@@ -57,7 +58,7 @@ func InitWebServer() *Cmd {
 	postRepository := repository.NewPostRepository(postDAO, logger, cacheBloom, cacheManager)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
-	postService := service.NewPostService(postRepository, logger, postProducer, searchRepository, publishProducer)
+	postService := service.NewPostService(postRepository, logger, postProducer, publishProducer)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
 	interactiveCache := cache.NewInteractiveCache(cmdable)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
@@ -115,8 +116,9 @@ func InitWebServer() *Cmd {
 	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
 	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager, historyCache)
 	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
-	checkConsumer := check.NewSyncConsumer(client, logger, postRepository)
-	v2 := ioc.InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer)
+	checkConsumer := check.NewCheckConsumer(client, logger, postRepository, checkCache)
+	esConsumer := es.NewEsConsumer(client, logger, searchRepository, typedClient)
+	v2 := ioc.InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer, esConsumer)
 	cmd := &Cmd{
 		server:   engine,
 		Cron:     cron,

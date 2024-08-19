@@ -89,7 +89,7 @@ func (r *checkRepository) UpdateStatus(ctx context.Context, check domain.Check) 
 
 func (r *checkRepository) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
 	// 可以为分页查询添加缓存，生成缓存键
-	cacheKey := r.cache.GeneratePaginationCacheKey("FindAll", pagination)
+	cacheKey := r.cache.GeneratePaginationCacheKey(pagination)
 
 	// 尝试从缓存中获取
 	if cachedChecks, err := r.cache.GetCacheList(ctx, cacheKey); err == nil && cachedChecks != nil {

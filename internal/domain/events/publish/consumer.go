@@ -52,7 +52,9 @@ func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 // Start 启动消费者，并开始消费 Kafka 中的消息
 func (p *PublishPostEventConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("publish_event", p.client)
+
 	p.l.Info("PublishConsumer 开始消费")
+
 	if err != nil {
 		return err
 	}
