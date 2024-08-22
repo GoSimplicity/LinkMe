@@ -82,7 +82,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 // SignUp 用户注册
 func (uh *UserHandler) SignUp(ctx *gin.Context, req req.SignUpReq) (Result, error) {
 	// 验证邮箱格式
-	emailValid, err := uh.Email.MatchString(req.Email)
+	emailValid, err := uh.Email.MatchString(req.Username)
 	if err != nil {
 		return Result{
 			Code: UserServerErrorCode,
@@ -118,7 +118,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req req.SignUpReq) (Result, erro
 	}
 	// 尝试注册用户
 	err = uh.svc.SignUp(ctx.Request.Context(), domain.User{
-		Email:    req.Email,
+		Email:    req.Username,
 		Password: req.Password,
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func (uh *UserHandler) SignUp(ctx *gin.Context, req req.SignUpReq) (Result, erro
 
 // Login 登陆
 func (uh *UserHandler) Login(ctx *gin.Context, req req.LoginReq) (Result, error) {
-	du, err := uh.svc.Login(ctx, req.Email, req.Password)
+	du, err := uh.svc.Login(ctx, req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
@@ -251,7 +251,7 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req req.ChangeReq) (Resu
 		}, nil
 	}
 	// 修改密码
-	if err := uh.svc.ChangePassword(ctx.Request.Context(), req.Email, req.Password, req.NewPassword, req.ConfirmPassword); err != nil {
+	if err := uh.svc.ChangePassword(ctx.Request.Context(), req.Username, req.Password, req.NewPassword, req.ConfirmPassword); err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
 				Code: UserInvalidOrPasswordCode,
@@ -270,9 +270,9 @@ func (uh *UserHandler) ChangePassword(ctx *gin.Context, req req.ChangeReq) (Resu
 }
 
 // SendEmail 发送邮件
-func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.EmailReq) (Result, error) {
+func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.UsernameReq) (Result, error) {
 	// 验证邮箱格式
-	if emailValid, err := uh.Email.MatchString(req.Email); err != nil {
+	if emailValid, err := uh.Email.MatchString(req.Username); err != nil {
 		return Result{}, err
 	} else if !emailValid {
 		return Result{
@@ -281,7 +281,7 @@ func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.EmailReq) (Result, er
 		}, nil
 	}
 	// 发送邮件
-	if err := uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Email}); err != nil {
+	if err := uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Username}); err != nil {
 		return Result{}, err
 	}
 	return Result{
@@ -294,7 +294,7 @@ func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.EmailReq) (Result, er
 func (uh *UserHandler) WriteOff(ctx *gin.Context, req req.DeleteUserReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	// 删除用户
-	if err := uh.svc.DeleteUser(ctx, req.Email, req.Password, uc.Uid); err != nil {
+	if err := uh.svc.DeleteUser(ctx, req.Username, req.Password, uc.Uid); err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
 			return Result{
 				Code: UserInvalidOrPasswordCode,
