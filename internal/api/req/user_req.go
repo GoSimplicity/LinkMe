@@ -1,13 +1,13 @@
 package req
 
 type SignUpReq struct {
-	Email           string `json:"email"`
+	Username        string `json:"username"`
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirmPassword"`
 }
 
 type LoginReq struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -16,18 +16,18 @@ type SMSReq struct {
 }
 
 type ChangeReq struct {
-	Email           string `json:"email"`
+	Username        string `json:"username"`
 	Password        string `json:"password"`
 	NewPassword     string `json:"newPassword"`
 	ConfirmPassword string `json:"confirmPassword"`
 }
 
-type EmailReq struct {
-	Email string `json:"email"`
+type UsernameReq struct {
+	Username string `json:"username"`
 }
 
 type DeleteUserReq struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 type UpdateProfileReq struct {

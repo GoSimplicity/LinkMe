@@ -15,6 +15,7 @@ const (
 	BlockStatus               // 拉黑
 )
 
+// RelationDAO 定义了与用户关系相关的接口
 type RelationDAO interface {
 	ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error)
 	ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]Relation, error)
@@ -50,6 +51,7 @@ type RelationCount struct {
 	UpdatedAt     int64 `gorm:"column:updated_at"`                  // 更新时间
 }
 
+// NewRelationDAO 创建RelationDAO实例
 func NewRelationDAO(db *gorm.DB, l *zap.Logger) RelationDAO {
 	return &relationDAO{
 		db: db,
@@ -57,82 +59,63 @@ func NewRelationDAO(db *gorm.DB, l *zap.Logger) RelationDAO {
 	}
 }
 
+// getCurrentTime 获取当前时间戳（毫秒）
 func (r *relationDAO) getCurrentTime() int64 {
 	return time.Now().UnixMilli()
 }
 
+// ListFollowerRelations 获取关注者的关系列表
 func (r *relationDAO) ListFollowerRelations(ctx context.Context, followerID int64, pagination domain.Pagination) ([]Relation, error) {
 	var relations []Relation
-	intSize := int(*pagination.Size)
-	intOffset := int(*pagination.Offset)
 	if err := r.db.WithContext(ctx).
 		Where("follower_id = ? AND status = ?", followerID, FollowStatus).
-		Offset(intOffset).
-		Limit(intSize).
+		Offset(int(*pagination.Offset)).
+		Limit(int(*pagination.Size)).
 		Find(&relations).Error; err != nil {
+		r.l.Error("failed to list follower relations", zap.Error(err))
 		return nil, err
 	}
 	return relations, nil
 }
 
+// ListFolloweeRelations 获取被关注者的关系列表
 func (r *relationDAO) ListFolloweeRelations(ctx context.Context, followeeID int64, pagination domain.Pagination) ([]Relation, error) {
 	var relations []Relation
-	intSize := int(*pagination.Size)
-	intOffset := int(*pagination.Offset)
 	if err := r.db.WithContext(ctx).
 		Where("followee_id = ? AND status = ?", followeeID, FollowStatus).
-		Offset(intOffset).
-		Limit(intSize).
+		Offset(int(*pagination.Offset)).
+		Limit(int(*pagination.Size)).
 		Find(&relations).Error; err != nil {
+		r.l.Error("failed to list followee relations", zap.Error(err))
 		return nil, err
 	}
 	return relations, nil
 }
 
+// FollowUser 关注用户，并更新相关计数器
 func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int64) error {
 	now := r.getCurrentTime()
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 创建Relation记录
-		if err := tx.Create(&Relation{
+		newRelation := &Relation{
 			FollowerID: followerID,
 			FolloweeID: followeeID,
 			Status:     FollowStatus,
 			CreatedAt:  now,
 			UpdatedAt:  now,
-		}).Error; err != nil {
+		}
+		if err := tx.Create(newRelation).Error; err != nil {
 			return err
 		}
 
 		// 更新关注者的关注数
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"followee_count": gorm.Expr("followee_count + 1"),
-				"updated_at":     now,
-			}),
-		}).Create(&RelationCount{
-			UserID:        followerID,
-			FolloweeCount: 1, // 初始值设为1，确保计数器存在
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}).Error; err != nil {
+		if err := r.updateRelationCount(tx, followerID, "followee_count", 1, now); err != nil {
 			return err
 		}
 
 		// 更新被关注者的粉丝数
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"follower_count": gorm.Expr("follower_count + 1"),
-				"updated_at":     now,
-			}),
-		}).Create(&RelationCount{
-			UserID:        followeeID,
-			FollowerCount: 1, // 初始值设为1，确保计数器存在
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}).Error; err != nil {
+		if err := r.updateRelationCount(tx, followeeID, "follower_count", 1, now); err != nil {
 			return err
 		}
 
@@ -147,6 +130,36 @@ func (r *relationDAO) FollowUser(ctx context.Context, followerID, followeeID int
 	return nil
 }
 
+// CancelFollowUser 取消关注用户，并更新相关计数器
+func (r *relationDAO) CancelFollowUser(ctx context.Context, followerID, followeeID int64) error {
+	now := r.getCurrentTime()
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 删除Relation记录
+		if err := tx.Where("follower_id = ? AND followee_id = ? AND status = ?", followerID, followeeID, FollowStatus).
+			Delete(&Relation{}).Error; err != nil {
+			return err
+		}
+
+		// 更新关注者的关注数
+		if err := r.updateRelationCount(tx, followerID, "followee_count", -1, now); err != nil {
+			return err
+		}
+
+		// 更新被关注者的粉丝数
+		if err := r.updateRelationCount(tx, followeeID, "follower_count", -1, now); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		r.l.Error("failed to cancel follow user", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// UpdateStatus 更新关系状态
 func (r *relationDAO) UpdateStatus(ctx context.Context, followerID, followeeID int64, status bool) error {
 	if err := r.db.WithContext(ctx).Where("follower_id = ? AND followee_id = ?", followerID, followeeID).Updates(map[string]any{
 		"status":     status,
@@ -159,10 +172,11 @@ func (r *relationDAO) UpdateStatus(ctx context.Context, followerID, followeeID i
 	return nil
 }
 
+// FollowCount 获取用户的关注和粉丝数量
 func (r *relationDAO) FollowCount(ctx context.Context, userID int64) (RelationCount, error) {
 	var relationCount RelationCount
 
-	if err := r.db.WithContext(ctx).Where("user_id = ? AND status = ?", userID, FollowStatus).First(&relationCount).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&relationCount).Error; err != nil {
 		r.l.Error("failed to get follower count", zap.Error(err))
 		return RelationCount{}, err
 	}
@@ -170,52 +184,17 @@ func (r *relationDAO) FollowCount(ctx context.Context, userID int64) (RelationCo
 	return relationCount, nil
 }
 
-func (r *relationDAO) CancelFollowUser(ctx context.Context, followerID, followeeID int64) error {
-	now := r.getCurrentTime()
-
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 删除Relation记录
-		if err := tx.Where("follower_id = ? AND followee_id = ? AND status = ?", followerID, followeeID, FollowStatus).
-			Delete(&Relation{}).Error; err != nil {
-			return err
-		}
-
-		// 更新关注者的关注数
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"followee_count": gorm.Expr("followee_count - 1"),
-				"updated_at":     now,
-			}),
-		}).Create(&RelationCount{
-			UserID:        followerID,
-			FolloweeCount: 0, // 初始值设为0，确保计数器存在
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}).Error; err != nil {
-			return err
-		}
-
-		// 更新被关注者的粉丝数
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"follower_count": gorm.Expr("follower_count - 1"),
-				"updated_at":     now,
-			}),
-		}).Create(&RelationCount{
-			UserID:        followeeID,
-			FollowerCount: 0, // 初始值设为0，确保计数器存在
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		r.l.Error("failed to cancel follow user", zap.Error(err))
-		return err
-	}
-	return nil
+// updateRelationCount 更新关注或粉丝计数器
+func (r *relationDAO) updateRelationCount(tx *gorm.DB, userID int64, field string, delta int64, timestamp int64) error {
+	return tx.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			field:        gorm.Expr(field+" + ?", delta),
+			"updated_at": timestamp,
+		}),
+	}).Create(&RelationCount{
+		UserID:    userID,
+		CreatedAt: timestamp,
+		UpdatedAt: timestamp,
+	}).Error
 }
