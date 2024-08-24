@@ -156,7 +156,7 @@ func (uh *UserHandler) Login(ctx *gin.Context, req req.LoginReq) (Result, error)
 			Msg:  UserLoginFailure,
 		}, err
 	}
-	token, er := uh.ijwt.SetLoginToken(ctx, du.ID)
+	jwtToken, refreshToken, er := uh.ijwt.SetLoginToken(ctx, du.ID)
 	if er != nil {
 		return Result{
 			Code: UserServerErrorCode,
@@ -166,7 +166,10 @@ func (uh *UserHandler) Login(ctx *gin.Context, req req.LoginReq) (Result, error)
 	return Result{
 		Code: RequestsOK,
 		Msg:  UserLoginSuccess,
-		Data: token,
+		Data: map[string]string{
+			"jwt_token":     jwtToken,
+			"refresh_token": refreshToken,
+		},
 	}, nil
 }
 

@@ -19,12 +19,12 @@ var (
 )
 
 type Handler interface {
-	SetLoginToken(ctx *gin.Context, uid int64) (string, error)
+	SetLoginToken(ctx *gin.Context, uid int64) (string, string, error)
 	SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 	ExtractToken(ctx *gin.Context) string
 	CheckSession(ctx *gin.Context, ssid string) error
 	ClearToken(ctx *gin.Context) error
-	setRefreshToken(ctx *gin.Context, uid int64, ssid string) error
+	setRefreshToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 }
 
 type UserClaims struct {
@@ -56,12 +56,17 @@ func NewJWTHandler(c redis.Cmdable) Handler {
 }
 
 // SetLoginToken 设置长短Token
-func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, error) {
+func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, string, error) {
 	ssid := uuid.New().String()
-	if err := h.setRefreshToken(ctx, uid, ssid); err != nil {
-		return "", err
+	refreshToken, err := h.setRefreshToken(ctx, uid, ssid)
+	if err != nil {
+		return "", "", err
 	}
-	return h.SetJWTToken(ctx, uid, ssid)
+	jwtToken, err := h.SetJWTToken(ctx, uid, ssid)
+	if err != nil {
+		return "", "", err
+	}
+	return jwtToken, refreshToken, nil
 }
 
 // SetJWTToken 设置短Token
@@ -86,7 +91,7 @@ func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string,
 }
 
 // setRefreshToken 设置长Token
-func (h *handler) setRefreshToken(ctx *gin.Context, uid int64, ssid string) error {
+func (h *handler) setRefreshToken(_ *gin.Context, uid int64, ssid string) (string, error) {
 	rc := RefreshClaims{
 		Uid:  uid,
 		Ssid: ssid,
@@ -98,10 +103,9 @@ func (h *handler) setRefreshToken(ctx *gin.Context, uid int64, ssid string) erro
 	t := jwt.NewWithClaims(h.signingMethod, rc)
 	signedString, err := t.SignedString(Key2)
 	if err != nil {
-		return err
+		return "", err
 	}
-	ctx.Header("X-Refresh-Token", signedString)
-	return err
+	return signedString, nil
 }
 
 // ExtractToken 提取 Authorization 头部中的 Token
