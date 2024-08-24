@@ -55,7 +55,7 @@ func (c *commentRepository) ListComments(ctx context.Context, postId int64, minI
 		return nil, err
 	}
 
-	// 初始化返回的领域模型评论列表
+	// 初始化返回的评论列表
 	domainComments := make([]domain.Comment, 0, len(daoComments))
 	var errGroup errgroup.Group
 
