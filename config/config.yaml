@@ -1,14 +1,14 @@
 db:
-  dsn: "root:root@tcp(192.168.1.11:30882)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:root@tcp(100.64.1.1:30882)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 redis:
-  addr: "192.168.1.11:30884"
+  addr: "100.64.1.1:30884"
   filepath: "logs/linkme.json"
 mongodb:
-  addr: "mongodb://192.168.1.11:30883"
+  addr: "mongodb://100.64.1.1:30883"
 kafka:
-  addr: "192.168.1.11:30880"
+  addr: "100.64.1.1:30880"
 es:
-  addr: "http://192.168.1.11:30885"
+  addr: "http://100.64.1.1:30885"
 sms:
   tencent:
     secretId: ""
