@@ -1,13 +1,18 @@
 package api
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/api/req"
+	. "github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
+	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
 // LotteryDrawHandler 负责处理抽奖和秒杀相关的请求
 type LotteryDrawHandler struct {
-	Svc service.LotteryDrawService
+	svc service.LotteryDrawService
 }
 
 // RegisterRoutes 注册抽奖和秒杀的路由
@@ -17,51 +22,185 @@ func (lh *LotteryDrawHandler) RegisterRoutes(server *gin.Engine) {
 		// 抽奖相关的路由
 		lotteryGroup := apiGroup.Group("/lottery")
 		{
-			lotteryGroup.GET("/", lh.GetAllLotteryDraws)                     // 获取所有抽奖活动
-			lotteryGroup.POST("/", lh.CreateLotteryDraw)                     // 创建新的抽奖活动
-			lotteryGroup.GET("/:id", lh.GetLotteryDraw)                      // 获取指定ID的抽奖活动
-			lotteryGroup.POST("/:id/participate", lh.ParticipateLotteryDraw) // 参与抽奖活动
+			lotteryGroup.POST("/list", WrapBody(lh.ListLotteryDraws))              // 获取所有抽奖活动
+			lotteryGroup.POST("/create", WrapBody(lh.CreateLotteryDraw))           // 创建新的抽奖活动
+			lotteryGroup.GET("/:id", WrapQuery(lh.GetLotteryDraw))                 // 获取指定ID的抽奖活动
+			lotteryGroup.POST("/participate", WrapBody(lh.ParticipateLotteryDraw)) // 参与抽奖活动
 		}
 
 		// 秒杀相关的路由
 		secondKillGroup := apiGroup.Group("/secondKill")
 		{
-			secondKillGroup.GET("/", lh.GetAllSecondKillEvents)                // 获取所有秒杀活动
-			secondKillGroup.POST("/", lh.CreateSecondKillEvent)                // 创建新的秒杀活动
-			secondKillGroup.GET("/:id", lh.GetSecondKillEvent)                 // 获取指定ID的秒杀活动
-			secondKillGroup.POST("/:id/participate", lh.ParticipateSecondKill) // 参与秒杀活动
+			secondKillGroup.POST("/list", WrapBody(lh.ListKillEvents))               // 获取所有秒杀活动
+			secondKillGroup.POST("/create", WrapBody(lh.CreateSecondKillEvent))      // 创建新的秒杀活动
+			secondKillGroup.GET("/:id", WrapQuery(lh.GetSecondKillEvent))            // 获取指定ID的秒杀活动
+			secondKillGroup.POST("/participate", WrapBody(lh.ParticipateSecondKill)) // 参与秒杀活动
 		}
 	}
 }
 
-func (lh *LotteryDrawHandler) GetAllLotteryDraws(c *gin.Context) {
-	// TODO: 实现获取所有抽奖活动的逻辑
+// ListLotteryDraws 获取所有抽奖活动
+func (lh *LotteryDrawHandler) ListLotteryDraws(ctx *gin.Context, req req.ListLotteryDrawsReq) (Result, error) {
+	pagination := domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	}
+
+	ld, err := lh.svc.ListLotteryDraws(ctx, req.Status, pagination)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  ListLotteryDrawsError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  ListLotteryDrawsSuccess,
+		Data: ld,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) CreateLotteryDraw(c *gin.Context) {
-	// TODO: 实现创建抽奖活动的逻辑
+// CreateLotteryDraw 创建新的抽奖活动
+func (lh *LotteryDrawHandler) CreateLotteryDraw(ctx *gin.Context, req req.CreateLotteryDrawReq) (Result, error) {
+	input := domain.LotteryDraw{
+		Name:        req.Name,
+		Description: req.Description,
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+	}
+
+	err := lh.svc.CreateLotteryDraw(ctx, domain.LotteryDraw{
+		Name:        input.Name,
+		Description: input.Description,
+		StartTime:   input.StartTime,
+		EndTime:     input.EndTime,
+		Status:      domain.LotteryStatusPending,
+	})
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  CreateLotteryDrawError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  CreateLotteryDrawSuccess,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) GetLotteryDraw(c *gin.Context) {
-	// TODO: 实现获取单个抽奖活动的逻辑
+// GetLotteryDraw 获取指定ID的抽奖活动
+func (lh *LotteryDrawHandler) GetLotteryDraw(ctx *gin.Context, req req.GetLotteryDrawReq) (Result, error) {
+	ld, err := lh.svc.GetLotteryDrawByID(ctx, req.ID)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  GetLotteryDrawError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  GetLotteryDrawSuccess,
+		Data: ld,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) ParticipateLotteryDraw(c *gin.Context) {
-	// TODO: 实现参与抽奖的逻辑
+// ParticipateLotteryDraw 参与抽奖活动
+func (lh *LotteryDrawHandler) ParticipateLotteryDraw(ctx *gin.Context, req req.ParticipateLotteryDrawReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+
+	err := lh.svc.ParticipateLotteryDraw(ctx, req.ActivityID, uc.Uid)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  ParticipateLotteryDrawError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  ParticipateLotteryDrawSuccess,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) GetAllSecondKillEvents(c *gin.Context) {
-	// TODO: 实现获取所有秒杀活动的逻辑
+// ListKillEvents 获取所有秒杀活动
+func (lh *LotteryDrawHandler) ListKillEvents(ctx *gin.Context, req req.GetAllSecondKillEventsReq) (Result, error) {
+	pagination := domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	}
+
+	ke, err := lh.svc.ListSecondKillEvents(ctx, req.Status, pagination)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  ListSecondKillEventsError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  ListSecondKillEventsSuccess,
+		Data: ke,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) CreateSecondKillEvent(c *gin.Context) {
-	// TODO: 实现创建秒杀活动的逻辑
+// CreateSecondKillEvent 创建新的秒杀活动
+func (lh *LotteryDrawHandler) CreateSecondKillEvent(ctx *gin.Context, req req.CreateSecondKillEventReq) (Result, error) {
+	input := domain.SecondKillEvent{
+		Name:        req.Name,
+		Description: req.Description,
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+	}
+
+	err := lh.svc.CreateSecondKillEvent(ctx, input)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  CreateSecondKillEventError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  CreateSecondKillEventSuccess,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) GetSecondKillEvent(c *gin.Context) {
-	// TODO: 实现获取单个秒杀活动的逻辑
+// GetSecondKillEvent 获取指定ID的秒杀活动
+func (lh *LotteryDrawHandler) GetSecondKillEvent(ctx *gin.Context, req req.GetSecondKillEventReq) (Result, error) {
+	ke, err := lh.svc.GetSecondKillEventByID(ctx, req.ID)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  GetSecondKillEventError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  GetSecondKillEventSuccess,
+		Data: ke,
+	}, nil
 }
 
-func (lh *LotteryDrawHandler) ParticipateSecondKill(c *gin.Context) {
-	// TODO: 实现参与秒杀的逻辑
+// ParticipateSecondKill 参与秒杀活动
+func (lh *LotteryDrawHandler) ParticipateSecondKill(ctx *gin.Context, req req.ParticipateSecondKillReq) (Result, error) {
+	uc := ctx.MustGet("user").(ijwt.UserClaims)
+
+	err := lh.svc.ParticipateSecondKill(ctx, req.ActivityID, uc.Uid)
+	if err != nil {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  ParticipateSecondKillError,
+		}, err
+	}
+
+	return Result{
+		Code: RequestsOK,
+		Msg:  ParticipateSecondKillSuccess,
+	}, nil
 }
