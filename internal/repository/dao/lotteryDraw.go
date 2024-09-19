@@ -14,8 +14,8 @@ type LotteryDrawDAO interface {
 	// GetLotteryDrawByID 根据ID获取指定的抽奖活动
 	GetLotteryDrawByID(id string) (LotteryDrawModel, error)
 
-	// GetAllLotteryDraws 获取所有抽奖活动
-	GetAllLotteryDraws() ([]LotteryDrawModel, error)
+	// ListLotteryDraws 获取所有抽奖活动
+	ListLotteryDraws() ([]LotteryDrawModel, error)
 
 	// 秒杀相关的方法
 
@@ -25,8 +25,8 @@ type LotteryDrawDAO interface {
 	// GetSecondKillEventByID 根据ID获取指定的秒杀活动
 	GetSecondKillEventByID(id string) (SecondKillEventModel, error)
 
-	// GetAllSecondKillEvents 获取所有秒杀活动
-	GetAllSecondKillEvents() ([]SecondKillEventModel, error)
+	// ListSecondKillEvents 获取所有秒杀活动
+	ListSecondKillEvents() ([]SecondKillEventModel, error)
 
 	// 参与者相关的方法
 
@@ -41,7 +41,7 @@ type lotteryDrawDAO struct {
 
 // LotteryDrawModel 表示数据库中的抽奖活动模型
 type LotteryDrawModel struct {
-	ID           string             `gorm:"primaryKey;autoIncrement"`                                            // 抽奖活动的唯一标识符
+	ID           int                `gorm:"primaryKey;autoIncrement"`                                            // 抽奖活动的唯一标识符
 	Name         string             `gorm:"column:name;not null"`                                                // 抽奖活动名称
 	Description  string             `gorm:"column:description;type:text"`                                        // 抽奖活动描述
 	StartTime    int64              `gorm:"column:start_time;not null"`                                          // 活动开始时间（UNIX 时间戳）
@@ -54,7 +54,7 @@ type LotteryDrawModel struct {
 
 // SecondKillEventModel 表示数据库中的秒杀活动模型
 type SecondKillEventModel struct {
-	ID           string             `gorm:"primaryKey;autoIncrement"`                                            // 秒杀活动的唯一标识符
+	ID           int                `gorm:"primaryKey;autoIncrement"`                                            // 秒杀活动的唯一标识符
 	Name         string             `gorm:"column:name;not null"`                                                // 秒杀活动名称
 	Description  string             `gorm:"column:description;type:text"`                                        // 秒杀活动描述
 	StartTime    int64              `gorm:"column:start_time;not null"`                                          // 活动开始时间（UNIX 时间戳）
@@ -67,9 +67,9 @@ type SecondKillEventModel struct {
 
 // ParticipantModel 表示数据库中的参与者记录模型
 type ParticipantModel struct {
-	ID             string `gorm:"primaryKey;autoIncrement"`        // 参与记录的唯一标识符
+	ID             int    `gorm:"primaryKey;autoIncrement"`        // 参与记录的唯一标识符
 	ActivityID     string `gorm:"column:activity_id;not null"`     // 关联的活动ID（抽奖或秒杀）
-	UserID         string `gorm:"column:user_id;not null"`         // 参与者的用户ID
+	UserID         int64  `gorm:"column:user_id;not null"`         // 参与者的用户ID
 	ParticipatedAt int64  `gorm:"column:participated_at;not null"` // 参与时间（UNIX 时间戳）
 }
 
@@ -90,7 +90,7 @@ func (l *lotteryDrawDAO) GetLotteryDrawByID(id string) (LotteryDrawModel, error)
 	panic("implement me")
 }
 
-func (l *lotteryDrawDAO) GetAllLotteryDraws() ([]LotteryDrawModel, error) {
+func (l *lotteryDrawDAO) ListLotteryDraws() ([]LotteryDrawModel, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -105,7 +105,7 @@ func (l *lotteryDrawDAO) GetSecondKillEventByID(id string) (SecondKillEventModel
 	panic("implement me")
 }
 
-func (l *lotteryDrawDAO) GetAllSecondKillEvents() ([]SecondKillEventModel, error) {
+func (l *lotteryDrawDAO) ListSecondKillEvents() ([]SecondKillEventModel, error) {
 	//TODO implement me
 	panic("implement me")
 }
