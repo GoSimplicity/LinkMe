@@ -1,7 +1,11 @@
 package domain
 
+import "errors"
+
 // LotteryStatus 定义了抽奖活动的可能状态
 type LotteryStatus string
+
+var ErrNotFound = errors.New("record not found")
 
 const (
 	LotteryStatusPending   LotteryStatus = "pending"   // 待开始

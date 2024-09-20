@@ -15,6 +15,12 @@ type LotteryDrawHandler struct {
 	svc service.LotteryDrawService
 }
 
+func NewLotteryDrawHandler(svc service.LotteryDrawService) *LotteryDrawHandler {
+	return &LotteryDrawHandler{
+		svc: svc,
+	}
+}
+
 // RegisterRoutes 注册抽奖和秒杀的路由
 func (lh *LotteryDrawHandler) RegisterRoutes(server *gin.Engine) {
 	apiGroup := server.Group("/api")
