@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: linkme-record-grafana
-  name: linkme-record-grafana
+    app: linkme-grafana
+  name: linkme-grafana
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: linkme-record-grafana
+      app: linkmed-grafana
   template:
     metadata:
       labels:
-        app: linkme-record-grafana
+        app: linkme-grafana
     spec:
       containers:
         - image: grafana/grafana:latest
@@ -23,3 +23,18 @@ spec:
           ports:
             - containerPort: 3000
           imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkme-grafana
+spec:
+  selector:
+    app: linkme-grafana
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+      nodePort: 30900
+      name: "3000"
+  type: NodePort
