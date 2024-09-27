@@ -25,9 +25,11 @@ const (
 // Participant 表示参与者的记录，适用于抽奖和秒杀活动
 type Participant struct {
 	ID             string // 参与记录的唯一标识符
-	ActivityID     int    // 关联的活动ID（可以是抽奖或秒杀活动）
-	UserID         int64  // 参与者的用户ID
-	ParticipatedAt int64  // UNIX 时间戳，表示参与时间
+	LotteryID      *int   // 关联的活动ID（可以是抽奖或秒杀活动）
+	SecondKillID   *int
+	ActivityType   string
+	UserID         int64 // 参与者的用户ID
+	ParticipatedAt int64 // UNIX 时间戳，表示参与时间
 }
 
 // LotteryDraw 表示一个抽奖活动

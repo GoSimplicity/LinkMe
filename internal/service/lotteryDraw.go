@@ -42,6 +42,8 @@ func NewLotteryDrawService(repo repository.LotteryDrawRepository) LotteryDrawSer
 
 // ListLotteryDraws 获取所有抽奖活动
 func (l *lotteryDrawService) ListLotteryDraws(ctx context.Context, status string, pagination domain.Pagination) ([]domain.LotteryDraw, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
 	lotteryDraws, err := l.repo.ListLotteryDraws(ctx, status, pagination)
 	if err != nil {
 		return nil, err
