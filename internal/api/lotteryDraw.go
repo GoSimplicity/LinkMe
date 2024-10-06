@@ -114,7 +114,7 @@ func (lh *LotteryDrawHandler) GetLotteryDraw(ctx *gin.Context, req req.GetLotter
 }
 
 // ParticipateLotteryDraw 参与抽奖活动
-func (lh *LotteryDrawHandler) ParticipateLotteryDraw(ctx *gin.Context, req req.ParticipateLotteryDrawReq) (Result, error) {
+func (lh *LotteryDrawHandler) ParticipateLotteryDraw(ctx *gin.Context, req req.ParticipateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 
 	err := lh.svc.ParticipateLotteryDraw(ctx, req.ActivityID, uc.Uid)
@@ -194,7 +194,7 @@ func (lh *LotteryDrawHandler) GetSecondKillEvent(ctx *gin.Context, req req.GetSe
 }
 
 // ParticipateSecondKill 参与秒杀活动
-func (lh *LotteryDrawHandler) ParticipateSecondKill(ctx *gin.Context, req req.ParticipateSecondKillReq) (Result, error) {
+func (lh *LotteryDrawHandler) ParticipateSecondKill(ctx *gin.Context, req req.ParticipateReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 
 	err := lh.svc.ParticipateSecondKill(ctx, req.ActivityID, uc.Uid)

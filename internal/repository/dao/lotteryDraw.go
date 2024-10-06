@@ -22,6 +22,13 @@ type LotteryDrawDAO interface {
 	HasUserParticipatedInSecondKill(ctx context.Context, id int, userID int64) (bool, error)
 
 	AddParticipant(ctx context.Context, model Participant) error
+
+	ListPendingLotteryDraws(ctx context.Context, currentTime int64) ([]LotteryDraw, error)
+	UpdateLotteryDrawStatus(ctx context.Context, id int, status string) error
+	ListPendingSecondKillEvents(ctx context.Context, currentTime int64) ([]SecondKillEvent, error)
+	UpdateSecondKillEventStatus(ctx context.Context, id int, status string) error
+	ListActiveLotteryDraws(ctx context.Context, currentTime int64) ([]LotteryDraw, error)
+	ListActiveSecondKillEvents(ctx context.Context, currentTime int64) ([]SecondKillEvent, error)
 }
 
 type lotteryDrawDAO struct {
@@ -263,4 +270,90 @@ func (l *lotteryDrawDAO) AddParticipant(ctx context.Context, model Participant) 
 	}
 
 	return nil
+}
+
+// ListPendingLotteryDraws 获取所有待激活的抽奖活动
+func (l *lotteryDrawDAO) ListPendingLotteryDraws(ctx context.Context, currentTime int64) ([]LotteryDraw, error) {
+	var lotteryDraws []LotteryDraw
+
+	if err := l.db.WithContext(ctx).
+		Preload("Participants").
+		Where("status = ? AND start_time <= ?", domain.LotteryStatusPending, currentTime).
+		Find(&lotteryDraws).Error; err != nil {
+		l.l.Error("获取待激活抽奖活动失败", zap.Error(err))
+		return nil, err
+	}
+
+	return lotteryDraws, nil
+}
+
+// UpdateLotteryDrawStatus 更新抽奖活动的状态
+func (l *lotteryDrawDAO) UpdateLotteryDrawStatus(ctx context.Context, id int, status string) error {
+	if err := l.db.WithContext(ctx).
+		Model(&LotteryDraw{}).
+		Where("id = ?", id).
+		Update("status", status).Error; err != nil {
+		l.l.Error("更新抽奖活动状态失败", zap.Int("ID", id), zap.String("status", status), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// ListPendingSecondKillEvents 获取所有待激活的秒杀活动
+func (l *lotteryDrawDAO) ListPendingSecondKillEvents(ctx context.Context, currentTime int64) ([]SecondKillEvent, error) {
+	var secondKillEvents []SecondKillEvent
+
+	if err := l.db.WithContext(ctx).
+		Preload("Participants").
+		Where("status = ? AND start_time <= ?", domain.SecondKillStatusPending, currentTime).
+		Find(&secondKillEvents).Error; err != nil {
+		l.l.Error("获取待激活秒杀活动失败", zap.Error(err))
+		return nil, err
+	}
+
+	return secondKillEvents, nil
+}
+
+// UpdateSecondKillEventStatus 更新秒杀活动的状态
+func (l *lotteryDrawDAO) UpdateSecondKillEventStatus(ctx context.Context, id int, status string) error {
+	if err := l.db.WithContext(ctx).
+		Model(&SecondKillEvent{}).
+		Where("id = ?", id).
+		Update("status", status).Error; err != nil {
+		l.l.Error("更新秒杀活动状态失败", zap.Int("ID", id), zap.String("status", status), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// ListActiveLotteryDraws 获取所有进行中的抽奖活动
+func (l *lotteryDrawDAO) ListActiveLotteryDraws(ctx context.Context, currentTime int64) ([]LotteryDraw, error) {
+	var lotteryDraws []LotteryDraw
+
+	if err := l.db.WithContext(ctx).
+		Preload("Participants").
+		Where("status = ? AND start_time <= ? AND end_time >= ?", domain.LotteryStatusActive, currentTime, currentTime).
+		Find(&lotteryDraws).Error; err != nil {
+		l.l.Error("获取进行中的抽奖活动失败", zap.Error(err))
+		return nil, err
+	}
+
+	return lotteryDraws, nil
+}
+
+// ListActiveSecondKillEvents 获取所有进行中的秒杀活动
+func (l *lotteryDrawDAO) ListActiveSecondKillEvents(ctx context.Context, currentTime int64) ([]SecondKillEvent, error) {
+	var secondKillEvents []SecondKillEvent
+
+	if err := l.db.WithContext(ctx).
+		Preload("Participants").
+		Where("status = ? AND start_time <= ? AND end_time >= ?", domain.SecondKillStatusActive, currentTime, currentTime).
+		Find(&secondKillEvents).Error; err != nil {
+		l.l.Error("获取进行中的秒杀活动失败", zap.Error(err))
+		return nil, err
+	}
+
+	return secondKillEvents, nil
 }
