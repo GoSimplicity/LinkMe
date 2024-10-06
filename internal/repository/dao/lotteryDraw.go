@@ -155,7 +155,7 @@ func (l *lotteryDrawDAO) HasUserParticipatedInLottery(ctx context.Context, id in
 
 	if err := l.db.WithContext(ctx).
 		Model(&Participant{}).
-		Where("activity_id = ? AND user_id = ?", id, userID).
+		Where("lottery_id = ? AND user_id = ?", id, userID).
 		Count(&count).Error; err != nil {
 		l.l.Error("检查用户是否已参与抽奖活动失败", zap.Error(err))
 		return false, err
@@ -245,7 +245,7 @@ func (l *lotteryDrawDAO) HasUserParticipatedInSecondKill(ctx context.Context, id
 
 	if err := l.db.WithContext(ctx).
 		Model(&Participant{}).
-		Where("activity_id = ? AND user_id = ?", id, userID).
+		Where("second_kill_id = ? AND user_id = ?", id, userID).
 		Count(&count).Error; err != nil {
 		l.l.Error("检查用户是否已参与秒杀活动失败", zap.Error(err))
 		return false, err

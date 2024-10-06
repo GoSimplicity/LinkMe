@@ -101,7 +101,7 @@ func (r *lotteryDrawRepository) HasUserParticipatedInLottery(ctx context.Context
 }
 
 // AddLotteryParticipant 添加用户抽奖参与记录，并更新缓存
-func (r *lotteryDrawRepository) AddLotteryParticipant(ctx context.Context, dp domain.Participant) error {
+func (r *lotteryDrawRepository) AddLotteryParticipant(ctx context.Context /**/, dp domain.Participant) error {
 	err := r.dao.AddParticipant(ctx, convertToDAOParticipant(dp))
 	if err != nil {
 		return err
