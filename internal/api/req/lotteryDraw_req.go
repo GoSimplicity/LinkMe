@@ -20,8 +20,8 @@ type GetLotteryDrawReq struct {
 	ID int `uri:"id"` // 抽奖活动的唯一标识符
 }
 
-// ParticipateLotteryDrawReq 定义参与抽奖活动的请求参数
-type ParticipateLotteryDrawReq struct {
+// ParticipateReq 定义参与抽奖活动的请求参数
+type ParticipateReq struct {
 	ActivityID int `json:"activityId"` // 抽奖活动的唯一标识符
 }
 
@@ -43,9 +43,4 @@ type CreateSecondKillEventReq struct {
 // GetSecondKillEventReq 定义获取指定ID秒杀活动的请求参数
 type GetSecondKillEventReq struct {
 	ID int `uri:"id"` // 秒杀活动的唯一标识符
-}
-
-// ParticipateSecondKillReq 定义参与秒杀活动的请求参数
-type ParticipateSecondKillReq struct {
-	ActivityID int `json:"activityId"` // 秒杀活动的唯一标识符
 }
