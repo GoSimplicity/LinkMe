@@ -30,7 +30,7 @@ func (lh *LotteryDrawHandler) RegisterRoutes(server *gin.Engine) {
 		{
 			lotteryGroup.POST("/list", WrapBody(lh.ListLotteryDraws))              // 获取所有抽奖活动
 			lotteryGroup.POST("/create", WrapBody(lh.CreateLotteryDraw))           // 创建新的抽奖活动
-			lotteryGroup.GET("/:id", WrapQuery(lh.GetLotteryDraw))                 // 获取指定ID的抽奖活动
+			lotteryGroup.GET("/:id", WrapParam(lh.GetLotteryDraw))                 // 获取指定ID的抽奖活动
 			lotteryGroup.POST("/participate", WrapBody(lh.ParticipateLotteryDraw)) // 参与抽奖活动
 		}
 

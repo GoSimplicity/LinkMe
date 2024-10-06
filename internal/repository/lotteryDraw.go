@@ -101,16 +101,16 @@ func (r *lotteryDrawRepository) HasUserParticipatedInLottery(ctx context.Context
 }
 
 // AddLotteryParticipant 添加用户抽奖参与记录，并更新缓存
-func (r *lotteryDrawRepository) AddLotteryParticipant(ctx context.Context, dp domain.Participant) error {
+func (r *lotteryDrawRepository) AddLotteryParticipant(ctx context.Context /**/, dp domain.Participant) error {
 	err := r.dao.AddParticipant(ctx, convertToDAOParticipant(dp))
 	if err != nil {
 		return err
 	}
 
 	// 更新缓存：获取当前活动并更新缓存
-	lotteryDraw, err := r.GetLotteryDrawByID(ctx, dp.ActivityID)
+	lotteryDraw, err := r.GetLotteryDrawByID(ctx, *dp.LotteryID)
 	if err != nil {
-		r.logger.Error("添加参与者后获取抽奖活动失败，无法更新缓存", zap.Error(err), zap.Int("ActivityID", dp.ActivityID))
+		r.logger.Error("添加参与者后获取抽奖活动失败，无法更新缓存", zap.Error(err), zap.Int("ActivityID", *dp.LotteryID))
 		return err
 	}
 
@@ -186,9 +186,9 @@ func (r *lotteryDrawRepository) AddSecondKillParticipant(ctx context.Context, dp
 	}
 
 	// 更新缓存：获取当前活动并更新缓存
-	secondKillEvent, err := r.GetSecondKillEventByID(ctx, dp.ActivityID)
+	secondKillEvent, err := r.GetSecondKillEventByID(ctx, *dp.SecondKillID)
 	if err != nil {
-		r.logger.Error("添加参与者后获取秒杀活动失败，无法更新缓存", zap.Error(err), zap.Int("ActivityID", dp.ActivityID))
+		r.logger.Error("添加参与者后获取秒杀活动失败，无法更新缓存", zap.Error(err), zap.Int("ActivityID", *dp.SecondKillID))
 		return err
 	}
 
@@ -275,7 +275,8 @@ func convertToDomainSecondKillEvents(daoSecondKillEvents []dao.SecondKillEvent) 
 func convertToDAOParticipant(p domain.Participant) dao.Participant {
 	return dao.Participant{
 		ID:             p.ID,
-		ActivityID:     p.ActivityID,
+		LotteryID:      p.LotteryID,
+		SecondKillID:   p.SecondKillID,
 		UserID:         p.UserID,
 		ParticipatedAt: p.ParticipatedAt,
 	}
@@ -299,7 +300,8 @@ func convertToDAOParticipants(domainParticipants []domain.Participant) []dao.Par
 func convertToDomainParticipant(p dao.Participant) domain.Participant {
 	return domain.Participant{
 		ID:             p.ID,
-		ActivityID:     p.ActivityID,
+		LotteryID:      p.LotteryID,
+		SecondKillID:   p.SecondKillID,
 		UserID:         p.UserID,
 		ParticipatedAt: p.ParticipatedAt,
 	}

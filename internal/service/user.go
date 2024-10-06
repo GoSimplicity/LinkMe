@@ -59,14 +59,16 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	}
 	u.Password = string(hash)
 	// 将用户信息输入到搜索库中
-	err = us.searchRepo.InputUser(ctx, domain.UserSearch{
-		Email:    u.Email,
-		Id:       u.ID,
-		Nickname: u.Profile.NickName,
-	})
-	if err != nil {
-		us.l.Error("failed to input user to search repo", zap.Error(err))
-	}
+	go func() {
+		err = us.searchRepo.InputUser(ctx, domain.UserSearch{
+			Email:    u.Email,
+			Id:       u.ID,
+			Nickname: u.Profile.NickName,
+		})
+		if err != nil {
+			us.l.Error("failed to input user to search repo", zap.Error(err))
+		}
+	}()
 	// 创建用户
 	return us.repo.CreateUser(ctx, u)
 }

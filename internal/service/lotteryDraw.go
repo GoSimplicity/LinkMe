@@ -42,6 +42,8 @@ func NewLotteryDrawService(repo repository.LotteryDrawRepository) LotteryDrawSer
 
 // ListLotteryDraws 获取所有抽奖活动
 func (l *lotteryDrawService) ListLotteryDraws(ctx context.Context, status string, pagination domain.Pagination) ([]domain.LotteryDraw, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
 	lotteryDraws, err := l.repo.ListLotteryDraws(ctx, status, pagination)
 	if err != nil {
 		return nil, err
@@ -130,7 +132,7 @@ func (l *lotteryDrawService) ParticipateLotteryDraw(ctx context.Context, id int,
 	// 创建参与记录
 	participant := domain.Participant{
 		ID:             generateUUID(),
-		ActivityID:     id,
+		LotteryID:      &id,
 		UserID:         userID,
 		ParticipatedAt: currentTime,
 	}
@@ -146,6 +148,8 @@ func (l *lotteryDrawService) ParticipateLotteryDraw(ctx context.Context, id int,
 
 // ListSecondKillEvents 获取所有秒杀活动
 func (l *lotteryDrawService) ListSecondKillEvents(ctx context.Context, status string, pagination domain.Pagination) ([]domain.SecondKillEvent, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
 	secondKillEvents, err := l.repo.ListSecondKillEvents(ctx, status, pagination)
 	if err != nil {
 		return nil, err
@@ -233,7 +237,7 @@ func (l *lotteryDrawService) ParticipateSecondKill(ctx context.Context, id int, 
 	// 创建参与记录
 	participant := domain.Participant{
 		ID:             generateUUID(),
-		ActivityID:     id,
+		SecondKillID:   &id,
 		UserID:         userID,
 		ParticipatedAt: currentTime,
 	}
