@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"net/http"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 
 	"github.com/GoSimplicity/LinkMe/config"
 	"github.com/gin-gonic/gin"

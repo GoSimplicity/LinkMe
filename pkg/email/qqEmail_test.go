@@ -1,8 +1,9 @@
 package qqEmail
 
 import (
-	"LinkMe/utils"
 	"testing"
+
+	"github.com/GoSimplicity/LinkMe/utils"
 )
 
 func TestQQEmail(t *testing.T) {
