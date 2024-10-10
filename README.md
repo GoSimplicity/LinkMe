@@ -10,7 +10,7 @@ http://www.simplecloud.top/（前端重构中...暂时停用）
 超级管理员：admin/admin
 
 ## 项目部署文档
-![启动文档](https://github.com/GoSimplicity/LinkMe/blob/main/doc/LinkMe%E9%A1%B9%E7%9B%AE%E5%90%AF%E5%8A%A8%E6%96%87%E6%A1%A3.md)
+[启动文档](./doc/LinkMe项目启动文档.md)
 
 ## 微服务项目地址
 https://github.com/GoSimplicity/LinkMe-microservices
