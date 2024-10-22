@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// LotteryDrawService 定义了抽奖和秒杀活动的服务接口
 type LotteryDrawService interface {
 	// 抽奖活动相关方法
 	ListLotteryDraws(ctx context.Context, status string, pagination domain.Pagination) ([]domain.LotteryDraw, error)
@@ -31,7 +30,6 @@ type LotteryDrawService interface {
 	Close() error
 }
 
-// lotteryDrawService 是 LotteryDrawService 的具体实现
 type lotteryDrawService struct {
 	repo repository.LotteryDrawRepository
 	l    *zap.Logger
@@ -56,7 +54,6 @@ const (
 	maxSecondKillConcurrency = 1000
 )
 
-// NewLotteryDrawService 创建并返回一个新的 LotteryDrawService 实例
 func NewLotteryDrawService(repo repository.LotteryDrawRepository, l *zap.Logger) LotteryDrawService {
 	ctx, cancel := context.WithCancel(context.Background())
 	service := &lotteryDrawService{

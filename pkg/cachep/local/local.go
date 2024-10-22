@@ -10,17 +10,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// CacheManager 包含本地缓存和 Redis 客户端
 type CacheManager struct {
-	localCache  *cache.Cache
+	localCache  *cache.Cache // 本地缓存
 	redisClient redis.Cmdable
 }
 
-// NewLocalCacheManager 创建并初始化一个 CacheManager 实例
 func NewLocalCacheManager(redisClient redis.Cmdable) *CacheManager {
-	localCache := cache.New(5*time.Minute, 10*time.Minute)
-
-	return &CacheManager{localCache: localCache, redisClient: redisClient}
+	return &CacheManager{
+		localCache:  cache.New(5*time.Minute, 10*time.Minute), // 默认缓存 5 分钟
+		redisClient: redisClient,
+	}
 }
 
 // Set 缓存数据到本地缓存和 Redis

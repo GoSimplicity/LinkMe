@@ -84,7 +84,7 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 	if err != nil {
 		// 如果数据库查询失败，缓存空对象
 		go func() {
-			_ = p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10)
+			_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Second*10)
 		}()
 
 		return domain.Post{}, err
@@ -92,7 +92,7 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 
 	// 将获取到的数据异步缓存
 	go func() {
-		if _, cacheErr := bloom.QueryData(p.cb, context.Background(), cacheKey, toDomainPost(dp), time.Minute*10); cacheErr != nil {
+		if _, cacheErr := bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10); cacheErr != nil {
 			p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
 		}
 	}()
@@ -150,7 +150,6 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 		// 在后台异步刷新缓存
 		go p.refreshCacheAsync(ctx, cacheKey, posts)
 
-		// 返回从数据库加载的数据
 		return posts, nil
 	}, &cachedPosts)
 	if err != nil {
@@ -225,6 +224,7 @@ func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+// isEmpty 判断帖子是否为空
 func isEmpty(post domain.Post) bool {
 	return reflect.DeepEqual(post, domain.Post{})
 }

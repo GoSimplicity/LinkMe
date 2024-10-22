@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
@@ -12,13 +11,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// CacheBloom 包含布隆过滤器和 Redis 客户端
 type CacheBloom struct {
 	bf     *bloom.BloomFilter
 	client redis.Cmdable
 }
 
-// NewCacheBloom 创建并初始化一个 CacheBloom 实例
 func NewCacheBloom(client redis.Cmdable) *CacheBloom {
 	return &CacheBloom{
 		bf:     bloom.NewWithEstimates(1000000, 0.01),
@@ -42,7 +39,6 @@ func QueryData[T any](cb *CacheBloom, ctx context.Context, key string, data T, t
 
 	// 检查缓存
 	cachedData, err := cb.client.Get(ctx, key).Result()
-
 	if err != nil {
 		// 判断错误是否为redis.Nil，即缓存不存在
 		if errors.Is(err, redis.Nil) {
@@ -111,7 +107,6 @@ func (cb *CacheBloom) rebuildBloomFilter(ctx context.Context) {
 	// 从 Redis 获取所有键并将它们添加到新的布隆过滤器中
 	keys, err := cb.client.Keys(ctx, "*").Result()
 	if err != nil {
-		fmt.Println("获取 Redis 键失败:", err)
 		return
 	}
 
@@ -121,7 +116,6 @@ func (cb *CacheBloom) rebuildBloomFilter(ctx context.Context) {
 
 	// 用新的布隆过滤器替换旧的布隆过滤器
 	cb.bf = newBF
-	fmt.Println("布隆过滤器重建成功")
 }
 
 // isNil 使用反射检查值是否为 nil
