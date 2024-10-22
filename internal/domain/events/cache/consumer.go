@@ -68,6 +68,7 @@ func (r *CacheConsumer) Start(_ context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	go func() {
 		for {
 			if err := cg.Consume(context.Background(), []string{"linkme_binlog"}, &consumerGroupHandler{r: r}); err != nil {
@@ -76,6 +77,7 @@ func (r *CacheConsumer) Start(_ context.Context) error {
 			}
 		}
 	}()
+
 	return nil
 }
 
@@ -123,7 +125,7 @@ func (r *CacheConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Co
 
 // handlePost 根据状态处理帖子
 func (r *CacheConsumer) handlePost(ctx context.Context, post Post) error {
-	pipe := r.redis.Pipeline() // 开启Redis管道
+	pipe := r.redis.Pipeline() // 开启Redis管道 批量执行多个任务 提高性能
 
 	if post.Status == domain.Published {
 		// 删除公共详细缓存
@@ -164,6 +166,8 @@ func (r *CacheConsumer) DeleteKeysWithPattern(ctx context.Context, pattern strin
 
 	for {
 		// 执行 SCAN 命令
+		// SCAN 命令的匹配规则是基于通配符
+		// 这里会返回最多100个key 并返回一个游标cursor继续扫描
 		keys, cursor, err = r.redis.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			r.l.Error("Failed to scan Redis keys", zap.Error(err))
@@ -191,10 +195,10 @@ func (r *CacheConsumer) DeleteKeysWithPattern(ctx context.Context, pattern strin
 // 自定义解析数据配置
 func decodeEventDataToPosts(data interface{}, posts *[]Post) error {
 	config := &mapstructure.DecoderConfig{
-		Result:           posts,
-		TagName:          "mapstructure",
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+		Result:           posts,          // 结果保存在 posts 中
+		TagName:          "mapstructure", // 使用 mapstructure 标签
+		WeaklyTypedInput: true,           // 允许使用未导出字段
+		DecodeHook: mapstructure.ComposeDecodeHookFunc( // 自定义解码钩子
 			stringToTimeHookFunc("2006-01-02 15:04:05.999"),
 			stringToNullTimeHookFunc("2006-01-02 15:04:05.999"),
 		),

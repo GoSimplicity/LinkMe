@@ -122,6 +122,7 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 
 	// 将查询结果反序列化为 PostSearch 对象
 	var posts []PostSearch
+
 	for _, hit := range searchResult.Hits.Hits {
 		var post PostSearch
 		if err := json.Unmarshal(hit.Source, &post); err != nil {

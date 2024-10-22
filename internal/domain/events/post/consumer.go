@@ -37,23 +37,15 @@ func (i *ReadEventConsumer) Start(_ context.Context) error {
 	i.l.Info("PostConsumer 开始消费")
 
 	go func() {
-		attempts := 0   // 当前重试次数
-		maxRetries := 3 // 最大重试次数
-
-		for attempts < maxRetries {
+		for {
 			// 启动消费者组并开始消费指定主题 read_post 的消息
 			er := cg.Consume(context.Background(), []string{TopicReadEvent}, samarap.NewBatchHandler[ReadEvent](i.l, i.BatchConsume))
 			if er != nil {
-				i.l.Error("消费错误", zap.Error(er), zap.Int("重试次数", attempts+1))
-				attempts++
-				time.Sleep(time.Second * time.Duration(attempts)) // 退避策略，每次重试后等待的时间增加
+				i.l.Error("消费错误", zap.Error(er))
+				time.Sleep(time.Second * time.Duration(5)) // 退避策略，每次重试后等待的时间增加
 				continue
 			}
 			break
-		}
-
-		if attempts >= maxRetries {
-			i.l.Error("达到最大重试次数，退出消费")
 		}
 	}()
 
@@ -62,12 +54,9 @@ func (i *ReadEventConsumer) Start(_ context.Context) error {
 
 // BatchConsume 处理函数，处理批次消息
 func (i *ReadEventConsumer) BatchConsume(_ []*sarama.ConsumerMessage, events []ReadEvent) error {
-	// 提前计算需要的上下文超时时间
-	//ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel() // 确保上下文在函数结束时被取消
 
-	// 提前分配内存，避免循环内的重复分配
 	posts := make([]domain.Post, len(events))
 	bizs := make([]string, len(events))
 	bizIds := make([]uint, len(events))

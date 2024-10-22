@@ -11,12 +11,12 @@ type searchRepository struct {
 }
 
 type SearchRepository interface {
-	SearchPosts(ctx context.Context, keywords []string) ([]domain.PostSearch, error)
-	SearchUsers(ctx context.Context, keywords []string) ([]domain.UserSearch, error)
-	InputUser(ctx context.Context, user domain.UserSearch) error
-	InputPost(ctx context.Context, post domain.PostSearch) error
-	DeleteUserIndex(ctx context.Context, userId int64) error
-	DeletePostIndex(ctx context.Context, postId uint) error
+	SearchPosts(ctx context.Context, keywords []string) ([]domain.PostSearch, error) // 搜索文章
+	SearchUsers(ctx context.Context, keywords []string) ([]domain.UserSearch, error) // 搜索用户
+	InputUser(ctx context.Context, user domain.UserSearch) error                     // 处理输入用户
+	InputPost(ctx context.Context, post domain.PostSearch) error                     // 处理输入文章
+	DeleteUserIndex(ctx context.Context, userId int64) error                         // 删除用户索引
+	DeletePostIndex(ctx context.Context, postId uint) error                          // 删除文章索引
 }
 
 func NewSearchRepository(dao dao.SearchDAO) SearchRepository {

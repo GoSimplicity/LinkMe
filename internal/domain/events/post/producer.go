@@ -32,9 +32,12 @@ func (s *SaramaSyncProducer) ProduceReadEvent(evt ReadEvent) error {
 	if err != nil {
 		return err
 	}
+
+	// 创建消息
 	_, _, err = s.producer.SendMessage(&sarama.ProducerMessage{
-		Topic: TopicReadEvent,
-		Value: sarama.StringEncoder(val),
+		Topic: TopicReadEvent,            // 订阅主题
+		Value: sarama.StringEncoder(val), // 消息内容
 	})
+
 	return err
 }
