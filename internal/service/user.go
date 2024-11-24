@@ -82,11 +82,13 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 	} else if err != nil {
 		return domain.User{}, err
 	}
+
 	// 验证密码
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
+
 	return u, nil
 }
 

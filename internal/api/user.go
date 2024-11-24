@@ -50,7 +50,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	// 初始化Casbin中间件
 	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce)
 	// 创建用户组路由
-	userGroup := server.Group("/api/users")
+	userGroup := server.Group("/api/user")
 	// 用户注册
 	userGroup.POST("/signup", WrapBody(uh.SignUp))
 	// 用户登录

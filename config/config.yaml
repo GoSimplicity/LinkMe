@@ -4,7 +4,7 @@ redis:
   addr: "localhost:6379"
   filepath: "logs/linkme.json"
 mongodb:
-  addr: "mongodb://100.64.1.1:27017"
+  addr: "mongodb://localhost:27017"
 kafka:
   addr: "localhost:9092"
 es:

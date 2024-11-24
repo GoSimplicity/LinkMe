@@ -4,7 +4,7 @@
 //go:build !wireinject
 // +build !wireinject
 
-package main
+package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
@@ -16,11 +16,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
+	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/ioc"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/GoSimplicity/LinkMe/utils/jwt"
@@ -33,25 +33,25 @@ import (
 // Injectors from wire.go:
 
 func InitWebServer() *Cmd {
-	db := ioc.InitDB()
-	node := ioc.InitializeSnowflakeNode()
-	logger := ioc.InitLogger()
-	enforcer := ioc.InitCasbin(db)
+	db := InitDB()
+	node := InitializeSnowflakeNode()
+	logger := InitLogger()
+	enforcer := InitCasbin(db)
 	userDAO := dao.NewUserDAO(db, node, logger, enforcer)
-	cmdable := ioc.InitRedis()
+	cmdable := InitRedis()
 	userCache := cache.NewUserCache(cmdable)
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
-	typedClient := ioc.InitES()
+	typedClient := InitES()
 	searchDAO := dao.NewSearchDAO(db, typedClient, logger)
 	searchRepository := repository.NewSearchRepository(searchDAO)
 	userService := service.NewUserService(userRepository, logger, searchRepository)
 	handler := jwt.NewJWTHandler(cmdable)
-	client := ioc.InitSaramaClient()
-	syncProducer := ioc.InitSyncProducer(client)
+	client := InitSaramaClient()
+	syncProducer := InitSyncProducer(client)
 	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
 	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
 	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
-	mongoClient := ioc.InitMongoDB()
+	mongoClient := InitMongoDB()
 	postDAO := dao.NewPostDAO(db, logger, mongoClient)
 	cacheBloom := bloom.NewCacheBloom(cmdable)
 	cacheManager := local.NewLocalCacheManager(cmdable)
@@ -75,7 +75,7 @@ func InitWebServer() *Cmd {
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository)
 	checkHandler := api.NewCheckHandler(checkService, enforcer)
-	v := ioc.InitMiddlewares(handler, logger)
+	v := InitMiddlewares(handler, logger)
 	permissionDAO := dao.NewPermissionDAO(enforcer, logger, db)
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(permissionRepository, logger)
@@ -106,12 +106,12 @@ func InitWebServer() *Cmd {
 	lotteryDrawRepository := repository.NewLotteryDrawRepository(lotteryDrawDAO, logger)
 	lotteryDrawService := service.NewLotteryDrawService(lotteryDrawRepository, logger)
 	lotteryDrawHandler := api.NewLotteryDrawHandler(lotteryDrawService)
-	engine := ioc.InitWebServer(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler, lotteryDrawHandler)
-	cron := ioc.InitRanking(logger, rankingService)
+	engine := InitWeb(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler, lotteryDrawHandler)
+	cron := InitRanking(logger, rankingService)
 	readEventConsumer := post.NewReadEventConsumer(interactiveRepository, client, logger, historyRepository)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
-	tencentSms := ioc.InitSms()
+	tencentSms := InitSms()
 	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
 	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
 	emailCache := cache.NewEmailCache(cmdable)
@@ -122,11 +122,13 @@ func InitWebServer() *Cmd {
 	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
 	checkConsumer := check.NewCheckConsumer(client, logger, postRepository, checkCache)
 	esConsumer := es.NewEsConsumer(client, logger, searchRepository, typedClient)
-	v2 := ioc.InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer, esConsumer)
+	v2 := InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer, esConsumer)
+	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	cmd := &Cmd{
-		server:   engine,
+		Server:   engine,
 		Cron:     cron,
-		consumer: v2,
+		Consumer: v2,
+		Mock:     mockUserRepository,
 	}
 	return cmd
 }
