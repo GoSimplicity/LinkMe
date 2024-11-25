@@ -35,14 +35,14 @@ type User struct {
 	CreateTime   int64  `gorm:"column:created_at;type:bigint"`       // 创建时间，Unix时间戳
 	UpdatedTime  int64  `gorm:"column:updated_at;type:bigint"`       // 更新时间，Unix时间戳
 	DeletedTime  int64  `gorm:"column:deleted_at;type:bigint;index"` // 删除时间，Unix时间戳，用于软删除
-	Email        string `gorm:"type:varchar(100);uniqueIndex"`       // 邮箱地址，唯一
-	PasswordHash string `gorm:"not null"`                            // 密码哈希值，不能为空
+	Username     string `gorm:"type:varchar(100);uniqueIndex"`
+	PasswordHash string `gorm:"not null"` // 密码哈希值，不能为空
 }
 
 func (m *mockUserRepository) MockUser() error {
 	var existingUser User
 
-	if err := m.db.Where("email = ?", "admin").First(&existingUser).Error; err == nil {
+	if err := m.db.Where("username = ?", "admin").First(&existingUser).Error; err == nil {
 		m.l.Info("user already exists, skipping creation", zap.String("email", "admin"))
 		return nil
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -55,7 +55,7 @@ func (m *mockUserRepository) MockUser() error {
 		panic(err)
 	}
 	user := User{
-		Email:        "admin",
+		Username:     "admin",
 		PasswordHash: string(hash),
 	}
 	user.ID = 1

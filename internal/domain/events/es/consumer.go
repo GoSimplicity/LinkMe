@@ -54,6 +54,7 @@ type Post struct {
 // User 结构体表示用户的数据结构
 type User struct {
 	ID        int64   `mapstructure:"id"`
+	Username  string  `mapstructure:"username"`
 	Phone     *string `mapstructure:"phone"`
 	Email     string  `mapstructure:"email"`
 	Password  string  `mapstructure:"password"`
@@ -201,9 +202,8 @@ func (r *EsConsumer) pushOrUpdateUserIndex(ctx context.Context, user User) error
 	}
 
 	err = r.rs.InputUser(ctx, domain.UserSearch{
-		Id:    user.ID,
-		Email: user.Email,
-		// 可以继续填充其他字段
+		Id:       user.ID,
+		Username: user.Username,
 	})
 	if err != nil {
 		r.l.Error("创建索引失败", zap.Int64("id", user.ID), zap.Error(err))

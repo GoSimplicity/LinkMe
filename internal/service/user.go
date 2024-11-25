@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
@@ -10,29 +11,20 @@ import (
 )
 
 var (
-	// ErrDuplicateEmail 表示邮箱重复错误
-	ErrDuplicateEmail = repository.ErrDuplicateEmail
+	// ErrDuplicateUsername 表示用户名重复错误
+	ErrDuplicateUsername = repository.ErrDuplicateUsername
 	// ErrInvalidUserOrPassword 表示用户名或密码错误
-	ErrInvalidUserOrPassword = errors.New("username or password is incorrect")
+	ErrInvalidUserOrPassword = errors.New("用户名或密码错误")
 )
 
-// UserService 定义用户服务接口
 type UserService interface {
-	// SignUp 用户注册
 	SignUp(ctx context.Context, u domain.User) error
-	// Login 用户登录
-	Login(ctx context.Context, email string, password string) (domain.User, error)
-	// ChangePassword 修改密码
-	ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error
-	// DeleteUser 删除用户
-	DeleteUser(ctx context.Context, email string, password string, uid int64) error
-	// UpdateProfile 更新用户资料
+	Login(ctx context.Context, username string, password string) (domain.User, error)
+	ChangePassword(ctx context.Context, username string, password string, newPassword string, confirmPassword string) error
+	DeleteUser(ctx context.Context, username string, password string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
-	// GetProfileByUserID 通过用户ID获取用户资料
 	GetProfileByUserID(ctx context.Context, UserID int64) (domain.Profile, error)
-	// ListUser 获取用户列表
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
-	// GetUserCount 获取用户总数
 	GetUserCount(ctx context.Context) (int64, error)
 }
 
@@ -50,42 +42,50 @@ func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo re
 	}
 }
 
-// SignUp 注册逻辑
+// SignUp 用户注册
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
-	// 生成密码哈希值
-	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-	if err != nil {
+	if err := u.ValidateEmail(); err != nil {
 		return err
 	}
-	u.Password = string(hash)
-	// 将用户信息输入到搜索库中
+
+	if err := u.ValidatePassword(); err != nil {
+		return err
+	}
+
+	if err := u.HashPassword(); err != nil {
+		return err
+	}
+
+	// 异步更新搜索索引
 	go func() {
-		err = us.searchRepo.InputUser(ctx, domain.UserSearch{
-			Email:    u.Email,
+		ctx := context.Background()
+		err := us.searchRepo.InputUser(ctx, domain.UserSearch{
+			Username: u.Username,
 			Id:       u.ID,
 			Nickname: u.Profile.NickName,
 		})
 		if err != nil {
-			us.l.Error("failed to input user to search repo", zap.Error(err))
+			us.l.Error("更新搜索索引失败",
+				zap.String("用户名", u.Username),
+				zap.Error(err))
 		}
 	}()
-	// 创建用户
+
 	return us.repo.CreateUser(ctx, u)
 }
 
-// Login 登陆逻辑
-func (us *userService) Login(ctx context.Context, email string, password string) (domain.User, error) {
-	// 根据邮箱查找用户
-	u, err := us.repo.FindByEmail(ctx, email)
-	if errors.Is(err, repository.ErrUserNotFound) {
-		return domain.User{}, err
-	} else if err != nil {
+// Login 用户登录
+func (us *userService) Login(ctx context.Context, username string, password string) (domain.User, error) {
+	if username == "" || password == "" {
+		return domain.User{}, errors.New("用户名和密码不能为空")
+	}
+
+	u, err := us.repo.FindByUsername(ctx, username)
+	if err != nil {
 		return domain.User{}, err
 	}
 
-	// 验证密码
-	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
-	if err != nil {
+	if err := u.VerifyPassword(password); err != nil {
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 
@@ -93,98 +93,111 @@ func (us *userService) Login(ctx context.Context, email string, password string)
 }
 
 // ChangePassword 修改密码
-func (us *userService) ChangePassword(ctx context.Context, email string, password string, newPassword string, confirmPassword string) error {
-	// 根据邮箱查找用户
-	u, err := us.repo.FindByEmail(ctx, email)
+func (us *userService) ChangePassword(ctx context.Context, username string, password string, newPassword string, confirmPassword string) error {
+	if newPassword != confirmPassword {
+		return errors.New("新密码与确认密码不匹配")
+	}
+
+	u, err := us.repo.FindByUsername(ctx, username)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return err
-		}
 		return err
 	}
-	// 验证当前密码
-	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
+
+	if err := u.VerifyPassword(password); err != nil {
 		return ErrInvalidUserOrPassword
 	}
-	// 生成新密码哈希值
+
 	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	// 更新密码
-	if er := us.repo.ChangePassword(ctx, email, string(newHash)); er != nil {
-		return er
-	}
-	return nil
+
+	return us.repo.ChangePassword(ctx, username, string(newHash))
 }
 
 // DeleteUser 删除用户
-func (us *userService) DeleteUser(ctx context.Context, email string, password string, uid int64) error {
-	// 根据邮箱查找用户
-	u, err := us.repo.FindByEmail(ctx, email)
+func (us *userService) DeleteUser(ctx context.Context, username string, password string, uid int64) error {
+	u, err := us.repo.FindByUsername(ctx, username)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return err
-		}
 		return err
 	}
-	// 验证密码
-	if er := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); er != nil {
+
+	if err := u.VerifyPassword(password); err != nil {
 		return ErrInvalidUserOrPassword
 	}
-	// 删除用户
-	err = us.repo.DeleteUser(ctx, email, uid)
-	if err != nil {
+
+	u.MarkAsDeleted()
+
+	if err := us.repo.DeleteUser(ctx, username, uid); err != nil {
 		return err
 	}
-	// 从搜索库中删除用户索引
-	err = us.searchRepo.DeleteUserIndex(ctx, uid)
-	if err != nil {
-		us.l.Error("failed to delete user from search repo", zap.Error(err))
-	}
+
+	// 异步删除搜索索引
+	go func() {
+		ctx := context.Background()
+		if err := us.searchRepo.DeleteUserIndex(ctx, uid); err != nil {
+			us.l.Error("从搜索引擎中删除用户失败",
+				zap.Int64("用户ID", uid),
+				zap.Error(err))
+		}
+	}()
 
 	return nil
 }
 
 // UpdateProfile 更新用户资料
 func (us *userService) UpdateProfile(ctx context.Context, profile domain.Profile) error {
-	// 根据用户ID查找用户
-	user, _ := us.repo.FindByID(ctx, profile.UserID)
-	// 如果昵称发生变化，更新搜索库中的用户信息
-	if user.Profile.NickName != profile.NickName {
-		err := us.searchRepo.InputUser(ctx, domain.UserSearch{
-			Id:       profile.UserID,
-			Nickname: profile.NickName,
-		})
-		if err != nil {
-			us.l.Error("failed to input user to search repo", zap.Error(err))
-		}
+	user, err := us.repo.FindByID(ctx, profile.UserID)
+	if err != nil {
+		return err
 	}
-	// 更新用户资料
+
+	if user.Profile.NickName != profile.NickName {
+		// 异步更新搜索索引
+		go func() {
+			ctx := context.Background()
+			err := us.searchRepo.InputUser(ctx, domain.UserSearch{
+				Id:       profile.UserID,
+				Nickname: profile.NickName,
+			})
+			if err != nil {
+				us.l.Error("更新用户搜索索引失败",
+					zap.Int64("用户ID", profile.UserID),
+					zap.Error(err))
+			}
+		}()
+	}
+
 	return us.repo.UpdateProfile(ctx, profile)
 }
 
-// GetProfileByUserID 根据用户ID获取用户资料
-func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (profile domain.Profile, err error) {
-	// 从仓库中获取用户资料
+// GetProfileByUserID 获取用户资料
+func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (domain.Profile, error) {
+	if UserID <= 0 {
+		return domain.Profile{}, errors.New("无效的用户ID")
+	}
+
 	return us.repo.GetProfile(ctx, UserID)
 }
 
 // ListUser 获取用户列表
 func (us *userService) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
-	// 计算偏移量
+	if pagination.Page <= 0 || *pagination.Size <= 0 {
+		return nil, errors.New("无效的分页参数")
+	}
+
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
-	// 从仓库中获取用户列表
+
 	return us.repo.ListUser(ctx, pagination)
 }
 
 // GetUserCount 获取用户总数
 func (us *userService) GetUserCount(ctx context.Context) (int64, error) {
-	// 从仓库中获取用户总数
 	count, err := us.repo.GetUserCount(ctx)
 	if err != nil {
 		return -1, err
 	}
+
 	return count, nil
 }

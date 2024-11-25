@@ -45,9 +45,6 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.DELETE("/delete/:postId", WrapParam(ph.DeletePost))                                   // 使用 DELETE 方法删除特定帖子
 	postGroup.POST("/like", WrapBody(ph.Like))                                                      // 点赞
 	postGroup.POST("/collect", WrapBody(ph.Collect))                                                // 收藏
-	postGroup.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(200, "hello")
-	})
 }
 
 func (ph *PostHandler) Edit(ctx *gin.Context, req req.EditReq) (Result, error) {
