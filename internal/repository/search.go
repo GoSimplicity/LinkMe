@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 )
@@ -63,7 +64,7 @@ func (s *searchRepository) toDaoPostSearch(domainPosts domain.PostSearch) dao.Po
 
 func (s *searchRepository) toDaoUserSearch(domainUsers domain.UserSearch) dao.UserSearch {
 	return dao.UserSearch{
-		Email:    domainUsers.Email,
+		Username: domainUsers.Username,
 		Id:       domainUsers.Id,
 		Nickname: domainUsers.Nickname,
 	}
@@ -87,7 +88,7 @@ func (s *searchRepository) toDomainUserSearch(daoUsers []dao.UserSearch) []domai
 	domainUsers := make([]domain.UserSearch, len(daoUsers))
 	for i, daoUser := range daoUsers {
 		domainUsers[i] = domain.UserSearch{
-			Email:    daoUser.Email,
+			Username: daoUser.Username,
 			Id:       daoUser.Id,
 			Nickname: daoUser.Nickname,
 		}

@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
@@ -43,7 +44,7 @@ type PostSearch struct {
 
 type UserSearch struct {
 	Id       int64  `json:"id"`
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Nickname string `json:"nickname"`
 	Phone    string `json:"phone"`
 }
