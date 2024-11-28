@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
+	"strconv"
+	"time"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	bloom "github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"gorm.io/gorm"
-	"reflect"
-	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -54,7 +55,8 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (uint, er
 
 	id, err := p.dao.Insert(ctx, fromDomainPost(post))
 	if err != nil {
-		return 0, err
+		p.l.Error("创建帖子失败", zap.Error(err))
+		return 0, fmt.Errorf("创建帖子失败: %w", err)
 	}
 
 	return id, nil
@@ -62,11 +64,20 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (uint, er
 
 // Update 更新帖子
 func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
-	return p.dao.UpdateById(ctx, fromDomainPost(post))
+	if err := p.dao.UpdateById(ctx, fromDomainPost(post)); err != nil {
+		p.l.Error("更新帖子失败", zap.Error(err), zap.Uint("post_id", post.ID))
+		return fmt.Errorf("更新帖子失败: %w", err)
+	}
+	return nil
 }
 
+// UpdateStatus 更新帖子状态
 func (p *postRepository) UpdateStatus(ctx context.Context, post domain.Post) error {
-	return p.dao.UpdateStatus(ctx, fromDomainPost(post))
+	if err := p.dao.UpdateStatus(ctx, fromDomainPost(post)); err != nil {
+		p.l.Error("更新帖子状态失败", zap.Error(err), zap.Uint("post_id", post.ID))
+		return fmt.Errorf("更新帖子状态失败: %w", err)
+	}
+	return nil
 }
 
 // GetPostById 获取帖子详细信息
@@ -84,18 +95,22 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 	if err != nil {
 		// 如果数据库查询失败，缓存空对象
 		go func() {
-			_ = p.cb.SetEmptyCache(ctx, cacheKey, time.Second*10)
+			if err := p.cb.SetEmptyCache(ctx, cacheKey, time.Second*10); err != nil {
+				p.l.Error("设置空缓存失败", zap.Error(err))
+			}
 		}()
 
-		return domain.Post{}, err
+		p.l.Error("获取帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
 	}
 
 	// 将获取到的数据异步缓存
-	go func() {
-		if _, cacheErr := bloom.QueryData(p.cb, ctx, cacheKey, toDomainPost(dp), time.Minute*10); cacheErr != nil {
-			p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
+	go func(ctx context.Context) {
+		newCtx := context.Background()
+		if err := p.cb.SetEmptyCache(newCtx, cacheKey, time.Second*10); err != nil {
+			p.l.Error("设置空缓存失败", zap.Error(err))
 		}
-	}()
+	}(ctx)
 
 	return toDomainPost(dp), nil
 }
@@ -115,15 +130,18 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId uint) 
 	if err != nil {
 		// 如果数据库查询失败，缓存空对象
 		go func() {
-			_ = p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10)
+			if err := p.cb.SetEmptyCache(context.Background(), cacheKey, time.Second*10); err != nil {
+				p.l.Error("设置空缓存失败", zap.Error(err))
+			}
 		}()
-		return domain.Post{}, err
+		p.l.Error("获取已发布帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		return domain.Post{}, fmt.Errorf("获取已发布帖子失败: %w", err)
 	}
 
 	// 将获取到的数据异步缓存
 	go func() {
 		if _, cacheErr := bloom.QueryData(p.cb, context.Background(), cacheKey, toDomainListPubPost(dp), time.Minute*10); cacheErr != nil {
-			p.l.Warn("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
+			p.l.Error("更新布隆过滤器和缓存失败", zap.Error(cacheErr))
 		}
 	}()
 
@@ -133,7 +151,6 @@ func (p *postRepository) GetPublishedPostById(ctx context.Context, postId uint) 
 // ListPosts 获取作者帖子的列表，使用热点数据永不过期的策略
 func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	cacheKey := fmt.Sprintf("post:pri:list:%d:%d", pagination.Uid, pagination.Page)
-
 	var cachedPosts []domain.Post
 
 	err := p.cl.Get(ctx, cacheKey, func() (interface{}, error) {
@@ -141,50 +158,55 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 		pub, err := p.dao.List(ctx, pagination)
 		if err != nil {
 			// 如果数据库查询失败，缓存空对象以防止缓存穿透
-			_ = p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*10)
-			return nil, err
+			if err := p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*10); err != nil {
+				p.l.Error("设置空缓存失败", zap.Error(err))
+			}
+			p.l.Error("获取帖子列表失败", zap.Error(err))
+			return nil, fmt.Errorf("获取帖子列表失败: %w", err)
 		}
 
 		posts := fromDomainSlicePost(pub)
-
-		// 在后台异步刷新缓存
-		go p.refreshCacheAsync(ctx, cacheKey, posts)
-
 		return posts, nil
 	}, &cachedPosts)
 	if err != nil {
-		p.l.Warn("获取数据失败", zap.Error(err))
-		return nil, err
+		p.l.Error("获取数据失败", zap.Error(err))
+		return nil, fmt.Errorf("获取数据失败: %w", err)
 	}
 
 	return cachedPosts, nil
 }
 
-// ListPublishedPosts 获取已发布的帖子列表，使用热点数据永不过期的策略
+// ListPublishedPosts 获取已发布的帖子列表
 func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	cacheKey := fmt.Sprintf("post:pub:list:%d", pagination.Page)
-
 	var cachedPosts []domain.Post
 
 	err := p.cl.Get(ctx, cacheKey, func() (interface{}, error) {
 		// 如果缓存未命中，从数据库中加载数据
 		pub, err := p.dao.ListPub(ctx, pagination)
 		if err != nil {
-			// 如果数据库查询失败，缓存空对象以防止缓存穿透
-			_ = p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*5)
-			return nil, err
+			p.l.Error("从数据库获取已发布帖子列表失败", zap.Error(err))
+			// 如果数据库查询失败，缓存空对象以防止缓存穿透,使用较短的过期时间
+			if err := p.cl.SetEmptyCache(ctx, cacheKey, time.Minute*5); err != nil {
+				p.l.Error("设置空缓存失败", zap.Error(err))
+			}
+			return nil, fmt.Errorf("从数据库获取已发布帖子列表失败: %w", err)
+		}
+
+		if len(pub) == 0 {
+			p.l.Info("没有找到已发布的帖子")
+			return []domain.Post{}, nil
 		}
 
 		posts := fromDomainSlicePubPostList(pub)
-
-		// 在后台异步刷新缓存
-		go p.refreshCacheAsync(ctx, cacheKey, posts)
-
 		return posts, nil
 	}, &cachedPosts)
+
 	if err != nil {
-		p.l.Warn("获取数据失败", zap.Error(err))
-		return nil, err
+		p.l.Error("获取已发布帖子列表失败",
+			zap.Error(err),
+			zap.Int("page", pagination.Page))
+		return nil, fmt.Errorf("获取已发布帖子列表失败: %w", err)
 	}
 
 	return cachedPosts, nil
@@ -192,14 +214,19 @@ func (p *postRepository) ListPublishedPosts(ctx context.Context, pagination doma
 
 // Delete 删除帖子
 func (p *postRepository) Delete(ctx context.Context, post domain.Post) error {
-	return p.dao.DeleteById(ctx, fromDomainPost(post))
+	if err := p.dao.DeleteById(ctx, fromDomainPost(post)); err != nil {
+		p.l.Error("删除帖子失败", zap.Error(err), zap.Uint("post_id", post.ID))
+		return fmt.Errorf("删除帖子失败: %w", err)
+	}
+	return nil
 }
 
 // ListAllPost 列出所有帖子
 func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	posts, err := p.dao.ListAllPost(ctx, pagination)
 	if err != nil {
-		return nil, err
+		p.l.Error("获取所有帖子失败", zap.Error(err))
+		return nil, fmt.Errorf("获取所有帖子失败: %w", err)
 	}
 	return fromDomainSlicePost(posts), nil
 }
@@ -208,7 +235,8 @@ func (p *postRepository) ListAllPost(ctx context.Context, pagination domain.Pagi
 func (p *postRepository) GetPost(ctx context.Context, postId uint) (domain.Post, error) {
 	post, err := p.dao.GetPost(ctx, postId)
 	if err != nil {
-		return domain.Post{}, err
+		p.l.Error("获取帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
 	}
 
 	return toDomainPost(post), nil
@@ -218,7 +246,8 @@ func (p *postRepository) GetPost(ctx context.Context, postId uint) (domain.Post,
 func (p *postRepository) GetPostCount(ctx context.Context) (int64, error) {
 	count, err := p.dao.GetPostCount(ctx)
 	if err != nil {
-		return 0, err
+		p.l.Error("获取帖子数量失败", zap.Error(err))
+		return 0, fmt.Errorf("获取帖子数量失败: %w", err)
 	}
 
 	return count, nil
@@ -229,16 +258,7 @@ func isEmpty(post domain.Post) bool {
 	return reflect.DeepEqual(post, domain.Post{})
 }
 
-// refreshCacheAsync 异步刷新缓存，确保热点数据的实时性
-func (p *postRepository) refreshCacheAsync(ctx context.Context, cacheKey string, data interface{}) {
-	// 设置较长的过期时间
-	err := p.cl.Set(ctx, cacheKey, data, 24*time.Hour)
-	if err != nil {
-		p.l.Warn("异步刷新缓存失败", zap.Error(err))
-	}
-}
-
-// 将领域层对象转为dao层对象
+// fromDomainPost 将领域层对象转为dao层对象
 func fromDomainPost(p domain.Post) dao.Post {
 	return dao.Post{
 		Model:        gorm.Model{ID: p.ID},
@@ -254,9 +274,9 @@ func fromDomainPost(p domain.Post) dao.Post {
 	}
 }
 
-// 将dao层对象转为领域层对象
+// fromDomainSlicePubPostList 将dao层对象转为领域层对象
 func fromDomainSlicePubPostList(post []dao.ListPubPost) []domain.Post {
-	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
+	domainPosts := make([]domain.Post, len(post))
 	for i, repoPost := range post {
 		domainPosts[i] = domain.Post{
 			ID:           repoPost.ID,
@@ -275,9 +295,9 @@ func fromDomainSlicePubPostList(post []dao.ListPubPost) []domain.Post {
 	return domainPosts
 }
 
-// 将dao层对象转为领域层对象
+// fromDomainSlicePost 将dao层对象转为领域层对象
 func fromDomainSlicePost(post []dao.Post) []domain.Post {
-	domainPosts := make([]domain.Post, len(post)) // 创建与输入切片等长的domain.Post切片
+	domainPosts := make([]domain.Post, len(post))
 	for i, repoPost := range post {
 		domainPosts[i] = domain.Post{
 			ID:           repoPost.ID,
@@ -297,7 +317,7 @@ func fromDomainSlicePost(post []dao.Post) []domain.Post {
 	return domainPosts
 }
 
-// 将dao层转化为领域层
+// toDomainPost 将dao层转化为领域层
 func toDomainPost(post dao.Post) domain.Post {
 	return domain.Post{
 		ID:           post.ID,
@@ -316,7 +336,7 @@ func toDomainPost(post dao.Post) domain.Post {
 	}
 }
 
-// 将dao层转化为领域层
+// toDomainListPubPost 将dao层转化为领域层
 func toDomainListPubPost(post dao.ListPubPost) domain.Post {
 	return domain.Post{
 		ID:           post.ID,
