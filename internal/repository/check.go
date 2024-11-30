@@ -92,7 +92,12 @@ func (r *checkRepository) FindAll(ctx context.Context, pagination domain.Paginat
 	cacheKey := r.cache.GeneratePaginationCacheKey(pagination)
 
 	// 尝试从缓存中获取
-	if cachedChecks, err := r.cache.GetCacheList(ctx, cacheKey); err == nil && cachedChecks != nil {
+	cachedChecks, err := r.cache.GetCacheList(ctx, cacheKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if cachedChecks != nil {
 		r.l.Info("Cache hit for FindAll", zap.String("key", cacheKey))
 		return cachedChecks, nil
 	}
