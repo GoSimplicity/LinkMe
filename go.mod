@@ -9,7 +9,6 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/casbin/casbin/v2 v2.93.0
 	github.com/casbin/gorm-adapter/v3 v3.25.0
-	github.com/dlclark/regexp2 v1.11.0
 	github.com/elastic/go-elasticsearch/v8 v8.14.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
