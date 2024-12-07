@@ -69,7 +69,7 @@ services:
       - "9200:9200"
       - "9300:9300"
   canal:
-    image: canal/canal-server
+    image: canal/canal-server:1.1.6
     container_name: linkme-canal
     environment:
       - CANAL_IP=canal-server

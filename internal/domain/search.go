@@ -1,11 +1,12 @@
 package domain
 
 type PostSearch struct {
-	Id      uint
-	Title   string
-	Status  uint8
-	Content string
-	Tags    []string
+	Id       uint
+	Title    string
+	AuthorId int64
+	Status   uint8
+	Content  string
+	Tags     []string
 }
 
 type UserSearch struct {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"strconv"
@@ -19,6 +21,9 @@ const (
 )
 
 type SearchDAO interface {
+	CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error
+	CreatePostIndex(ctx context.Context, properties ...interface{}) error
+	CreateUserIndex(ctx context.Context, properties ...interface{}) error
 	SearchPosts(ctx context.Context, keywords []string) ([]PostSearch, error)
 	SearchUsers(ctx context.Context, keywords []string) ([]UserSearch, error)
 	InputUser(ctx context.Context, user UserSearch) error
@@ -34,11 +39,12 @@ type searchDAO struct {
 }
 
 type PostSearch struct {
-	Id      uint     `json:"id"`
-	Title   string   `json:"title"`
-	Status  uint8    `json:"status"`
-	Content string   `json:"content"`
-	Tags    []string `json:"tags"`
+	Id       uint     `json:"id"`
+	Title    string   `json:"title"`
+	AuthorId int64    `json:"author_id"`
+	Status   uint8    `json:"status"`
+	Content  string   `json:"content"`
+	Tags     []string `json:"tags"`
 }
 
 type UserSearch struct {
@@ -57,75 +63,105 @@ func NewSearchDAO(db *gorm.DB, client *elasticsearch.TypedClient, l *zap.Logger)
 	}
 }
 
+// CreateIndex 创建一个新的index, 可指定mapping属性
+func (s *searchDAO) CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error {
+	if success, err := s.client.Indices.Exists(indexName).IsSuccess(ctx); success || err != nil {
+		if err != nil {
+			s.l.Error("Failed to check if index exists", zap.Error(err))
+		}
+		return nil
+	}
+
+	prop := map[string]types.Property{}
+	if len(properties) != 0 {
+		if p, ok := properties[0].(map[string]types.Property); ok {
+			prop = p
+		} else {
+			s.l.Info("invalid properties type", zap.Any("properties", properties))
+		}
+	}
+
+	_, err := s.client.Indices.Create(indexName).Request(&create.Request{
+		Mappings: &types.TypeMapping{
+			Properties: prop,
+		},
+	}).Do(ctx)
+	if err != nil {
+		s.l.Error("create index failed", zap.Error(err))
+	}
+	return nil
+}
+
+// CreatePostIndex 创建post的es索引
+func (s *searchDAO) CreatePostIndex(ctx context.Context, properties ...interface{}) error {
+	var prop = map[string]types.Property{}
+	if len(properties) != 0 {
+		prop = properties[0].(map[string]types.Property)
+	} else {
+		prop = map[string]types.Property{
+			"id":        types.NewUnsignedLongNumberProperty(),
+			"title":     types.NewTextProperty(),
+			"author.id": types.NewLongNumberProperty(),
+			"status":    types.NewByteNumberProperty(),
+			"content":   types.NewTextProperty(),
+			"tags":      types.NewKeywordProperty(),
+		}
+	}
+
+	return s.CreateIndex(ctx, PostIndex, prop)
+}
+
+func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface{}) error {
+	var prop = map[string]types.Property{}
+	if len(properties) != 0 {
+		prop = properties[0].(map[string]types.Property)
+	} else {
+		prop = map[string]types.Property{
+			"id":       types.NewUnsignedLongNumberProperty(),
+			"email":    types.NewKeywordProperty(),
+			"nickname": types.NewTextProperty(),
+			"phone":    types.NewKeywordProperty(),
+		}
+	}
+	return s.CreateIndex(ctx, UserIndex, prop)
+}
+
 // SearchPosts 根据关键词搜索帖子，返回匹配的结果
 func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostSearch, error) {
 	queryString := strings.Join(keywords, " ")
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"must": []interface{}{
-					map[string]interface{}{
-						"term": map[string]interface{}{
-							"status.keyword": "Published", // 仅匹配发布状态的帖子
-						},
+
+	query := types.NewQuery()
+	query.Bool = &types.BoolQuery{
+		Must: []types.Query{
+			types.Query{
+				Term: map[string]types.TermQuery{
+					"status.keyword": {
+						Value: "Published",
 					},
-					map[string]interface{}{
-						"multi_match": map[string]interface{}{
-							"query":  queryString,
-							"fields": []string{"title", "content"}, // 在标题和内容中搜索
-						},
-					},
+				},
+			},
+			types.Query{
+				MultiMatch: &types.MultiMatchQuery{
+					Query:  queryString,
+					Fields: []string{"title", "content"},
 				},
 			},
 		},
 	}
 
-	// 序列化查询 JSON
-	queryBytes, err := json.Marshal(query)
-	if err != nil {
-		s.l.Error("Failed to serialize search query", zap.Error(err))
-		return nil, err
-	}
-
-	// 创建搜索请求
-	req := esapi.SearchRequest{
-		Index: []string{PostIndex},
-		Body:  strings.NewReader(string(queryBytes)),
-	}
-
-	// 执行搜索请求
-	resp, err := req.Do(ctx, s.client)
+	// 创建并执行搜索请求
+	resp, err := s.client.Search().Index(PostIndex).Query(query).Do(ctx)
 	if err != nil {
 		s.l.Error("Search request failed", zap.Error(err))
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// 检查并处理响应中的错误
-	if resp.IsError() {
-		return nil, s.handleElasticsearchError(resp)
-	}
-
-	// 解析响应结果
-	var searchResult struct {
-		Hits struct {
-			Hits []struct {
-				Source json.RawMessage `json:"_source"`
-			} `json:"hits"`
-		} `json:"hits"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		s.l.Error("Failed to decode search response", zap.Error(err))
 		return nil, err
 	}
 
 	// 将查询结果反序列化为 PostSearch 对象
 	var posts []PostSearch
 
-	for _, hit := range searchResult.Hits.Hits {
+	for _, hit := range resp.Hits.Hits {
 		var post PostSearch
-		if err := json.Unmarshal(hit.Source, &post); err != nil {
+		if err := json.Unmarshal(hit.Source_, &post); err != nil {
 			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
 			return nil, err
 		}
@@ -136,72 +172,78 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 	return posts, nil
 }
 
+func (s *searchDAO) ListAllPostsWithAuthorId(ctx context.Context, authorid string) ([]PostSearch, error) {
+	query := types.NewQuery()
+	query.Term = map[string]types.TermQuery{
+		"author.id": {
+			Value: authorid,
+		},
+	}
+
+	//创建并执行搜索请求
+	resp, err := s.client.Search().Index(PostIndex).Query(query).Do(ctx)
+	if err != nil {
+		s.l.Error("Search request failed", zap.Error(err))
+		return nil, err
+	}
+
+	// 将查询结果反序列化为 PostSearch 对象
+	var posts []PostSearch
+
+	for _, hit := range resp.Hits.Hits {
+		var post PostSearch
+		if err := json.Unmarshal(hit.Source_, &post); err != nil {
+			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	s.l.Info("Successfully completed ListAllPostsWithAuthor", zap.Int("resultCount", len(posts)))
+	return posts, nil
+}
+
 // SearchUsers 根据关键词搜索用户，返回匹配的结果
 func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserSearch, error) {
 	queryString := strings.Join(keywords, " ")
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"should": []interface{}{
-					map[string]interface{}{
-						"match": map[string]interface{}{
-							"email": queryString, // 邮箱匹配查询
-						},
+
+	query := types.NewQuery()
+	query.Bool = &types.BoolQuery{
+		Should: []types.Query{
+			types.Query{
+				Match: map[string]types.MatchQuery{
+					"email": types.MatchQuery{
+						Query: queryString,
 					},
-					map[string]interface{}{
-						"match": map[string]interface{}{
-							"nickname": queryString, // 昵称匹配查询
-						},
+				},
+			},
+			types.Query{
+				Match: map[string]types.MatchQuery{
+					"nickname": types.MatchQuery{
+						Query: queryString,
 					},
-					map[string]interface{}{
-						"match": map[string]interface{}{
-							"phone": queryString, // 电话匹配查询
-						},
+				},
+			},
+			types.Query{
+				Match: map[string]types.MatchQuery{
+					"phone": types.MatchQuery{
+						Query: queryString,
 					},
 				},
 			},
 		},
 	}
 
-	queryBytes, err := json.Marshal(query)
-	if err != nil {
-		s.l.Error("Failed to serialize search query", zap.Error(err))
-		return nil, err
-	}
-
-	req := esapi.SearchRequest{
-		Index: []string{UserIndex},
-		Body:  strings.NewReader(string(queryBytes)),
-	}
-
-	resp, err := req.Do(ctx, s.client)
+	resp, err := s.client.Search().Index(UserIndex).Query(query).Do(ctx)
 	if err != nil {
 		s.l.Error("Search request failed", zap.Error(err))
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.IsError() {
-		return nil, s.handleElasticsearchError(resp)
-	}
-
-	var searchResult struct {
-		Hits struct {
-			Hits []struct {
-				Source json.RawMessage `json:"_source"`
-			} `json:"hits"`
-		} `json:"hits"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		s.l.Error("Failed to decode search response", zap.Error(err))
-		return nil, err
-	}
 
 	var users []UserSearch
-	for _, hit := range searchResult.Hits.Hits {
+	for _, hit := range resp.Hits.Hits {
 		var user UserSearch
-		if err := json.Unmarshal(hit.Source, &user); err != nil {
+		if err := json.Unmarshal(hit.Source_, &user); err != nil {
 			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
 			return nil, err
 		}
