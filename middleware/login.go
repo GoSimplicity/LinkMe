@@ -22,12 +22,12 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Request.URL.Path
 		// 如果请求的路径是下述路径，则不进行token验证
-		if path == "/api/users/signup" ||
-			path == "/api/users/login" ||
-			path == "/api/users/refresh_token" ||
-			path == "/api/users/change_password" ||
-			path == "/api/users/send_sms" ||
-			path == "/api/users/send_email" {
+		if path == "/api/user/signup" ||
+			path == "/api/user/login" ||
+			path == "/api/user/refresh_token" ||
+			path == "/api/user/change_password" ||
+			path == "/api/user/send_sms" ||
+			path == "/api/user/send_email" {
 			return
 		}
 		// 从请求中提取token

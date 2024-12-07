@@ -1,13 +1,15 @@
-package main
+package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
+	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 )
 
 type Cmd struct {
-	server   *gin.Engine
+	Server   *gin.Engine
 	Cron     *cron.Cron
-	consumer []events.Consumer
+	Consumer []events.Consumer
+	Mock     mock.MockUserRepository
 }

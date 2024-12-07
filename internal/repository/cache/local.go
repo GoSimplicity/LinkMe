@@ -3,10 +3,16 @@ package cache
 import (
 	"context"
 	"errors"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+)
+
+var (
+	ErrCacheEmpty   = errors.New("local cache is empty")
+	ErrCacheExpired = errors.New("local cache expired")
 )
 
 type RankingLocalCache interface {
@@ -30,31 +36,41 @@ func NewRankingLocalCache() RankingLocalCache {
 
 // Set 设置缓存内容并更新过期时间
 func (r *rankingLocalCache) Set(ctx context.Context, arts []domain.Post) error {
+	if len(arts) == 0 {
+		return ErrCacheEmpty
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.topN = arts // 设置缓存内容
+
+	r.topN = make([]domain.Post, len(arts))
+	copy(r.topN, arts) // 深拷贝避免外部修改
 	r.ddl = time.Now().Add(r.expiration)
-	log.Printf("Cache set with %d posts, expires at %s", len(arts), r.ddl)
+
+	log.Printf("已设置缓存，共 %d 篇文章，过期时间为 %s", len(arts), r.ddl)
 	return nil
 }
 
 // Get 获取缓存内容，如果缓存已过期或为空则返回错误
 func (r *rankingLocalCache) Get(ctx context.Context) ([]domain.Post, error) {
 	r.mu.RLock()
-	defer r.mu.RUnlock() // 函数退出时释放读锁
+	defer r.mu.RUnlock()
 
 	if len(r.topN) == 0 {
-		log.Println("Local cache is empty.")
-		return nil, errors.New("local cache is empty")
+		log.Println("本地缓存为空")
+		return nil, ErrCacheEmpty
 	}
 
-	if r.ddl.Before(time.Now()) {
-		log.Println("Local cache expired.")
-		return nil, errors.New("local cache expired")
+	if time.Now().After(r.ddl) {
+		log.Println("本地缓存已过期")
+		return nil, ErrCacheExpired
 	}
 
-	log.Printf("Cache hit with %d posts", len(r.topN))
-	return r.topN, nil
+	result := make([]domain.Post, len(r.topN))
+	copy(result, r.topN) // 返回副本避免外部修改
+
+	log.Printf("缓存命中，共 %d 篇文章", len(result))
+	return result, nil
 }
 
 // ForceGet 强制获取缓存内容，即使缓存已过期也返回
@@ -63,10 +79,13 @@ func (r *rankingLocalCache) ForceGet(ctx context.Context) ([]domain.Post, error)
 	defer r.mu.RUnlock()
 
 	if len(r.topN) == 0 {
-		log.Println("Force get: local cache is empty.")
-		return nil, errors.New("local cache is empty")
+		log.Println("强制获取：本地缓存为空")
+		return nil, ErrCacheEmpty
 	}
 
-	log.Printf("Force get: cache hit with %d posts", len(r.topN))
-	return r.topN, nil
+	result := make([]domain.Post, len(r.topN))
+	copy(result, r.topN) // 返回副本避免外部修改
+
+	log.Printf("强制获取：缓存命中，共 %d 篇文章", len(result))
+	return result, nil
 }

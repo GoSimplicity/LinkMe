@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/GoSimplicity/LinkMe/ioc"
 	"net/http"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
@@ -21,10 +22,9 @@ func Init() {
 	config.InitViper()
 
 	// 初始化 Web 服务器和其他组件
-	cmd := InitWebServer()
+	cmd := ioc.InitWebServer()
 
-	// 设置请求头打印路由
-	server := cmd.server
+	server := cmd.Server
 	server.GET("/headers", printHeaders)
 
 	// 启动 Prometheus 监控
@@ -35,7 +35,7 @@ func Init() {
 	}()
 
 	// 启动消费者
-	for _, s := range cmd.consumer {
+	for _, s := range cmd.Consumer {
 		go func(consumer events.Consumer) { // 将每个消费者启动放入goroutine中并发执行
 			if err := consumer.Start(context.Background()); err != nil {
 				zap.L().Error("Failed to start consumer", zap.Error(err))
@@ -45,6 +45,11 @@ func Init() {
 
 	// 启动定时任务
 	cmd.Cron.Start()
+
+	// 启动 Mock 数据
+	if err := cmd.Mock.MockUser(); err != nil {
+		zap.L().Fatal("Failed to mock data", zap.Error(err))
+	}
 
 	// 启动 Web 服务器
 	if err := server.Run(":9999"); err != nil {

@@ -1,6 +1,6 @@
 //go:build wireinject
 
-package main
+package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
@@ -12,11 +12,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
+	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/ioc"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
@@ -26,20 +26,20 @@ import (
 
 func InitWebServer() *Cmd {
 	wire.Build(
-		ioc.InitDB,
-		ioc.InitWebServer,
-		ioc.InitMiddlewares,
-		ioc.InitRedis,
-		ioc.InitLogger,
-		ioc.InitMongoDB,
-		ioc.InitSaramaClient,
-		ioc.InitConsumers,
-		ioc.InitSyncProducer,
-		ioc.InitializeSnowflakeNode,
-		ioc.InitCasbin,
-		ioc.InitSms,
-		ioc.InitRanking,
-		ioc.InitES,
+		InitDB,
+		InitWeb,
+		InitMiddlewares,
+		InitRedis,
+		InitLogger,
+		InitMongoDB,
+		InitSaramaClient,
+		InitConsumers,
+		InitSyncProducer,
+		InitializeSnowflakeNode,
+		InitCasbin,
+		InitSms,
+		InitRanking,
+		InitES,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
@@ -116,6 +116,7 @@ func InitWebServer() *Cmd {
 		publish.NewSaramaSyncProducer,
 		check.NewCheckConsumer,
 		es.NewEsConsumer,
+		mock.NewMockUserRepository,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)
