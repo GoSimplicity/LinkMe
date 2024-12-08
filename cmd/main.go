@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"github.com/GoSimplicity/LinkMe/ioc"
 	"net/http"
+
+	"github.com/GoSimplicity/LinkMe/ioc"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 
@@ -44,7 +45,7 @@ func Init() {
 	}
 
 	// 启动定时任务
-	cmd.Cron.Start()
+	// cmd.Cron.Start()
 
 	// 启动 Mock 数据
 	if err := cmd.Mock.MockUser(); err != nil {

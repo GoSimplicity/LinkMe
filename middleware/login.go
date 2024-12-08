@@ -5,6 +5,7 @@ import (
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/spf13/viper"
 )
 
 type JWTMiddleware struct {
@@ -34,7 +35,7 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		tokenStr := m.ExtractToken(ctx)
 		var uc ijwt.UserClaims
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
-			return ijwt.Key1, nil
+			return []byte(viper.GetString("jwt.auth_key")), nil
 		})
 		if err != nil {
 			// token 错误

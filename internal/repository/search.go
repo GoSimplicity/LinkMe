@@ -66,7 +66,7 @@ func (s *searchRepository) toDaoUserSearch(domainUsers domain.UserSearch) dao.Us
 	return dao.UserSearch{
 		Username: domainUsers.Username,
 		Id:       domainUsers.Id,
-		Nickname: domainUsers.Nickname,
+		RealName: domainUsers.RealName,
 	}
 }
 
@@ -90,7 +90,7 @@ func (s *searchRepository) toDomainUserSearch(daoUsers []dao.UserSearch) []domai
 		domainUsers[i] = domain.UserSearch{
 			Username: daoUser.Username,
 			Id:       daoUser.Id,
-			Nickname: daoUser.Nickname,
+			RealName: daoUser.RealName,
 		}
 	}
 	return domainUsers

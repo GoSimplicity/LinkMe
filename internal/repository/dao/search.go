@@ -52,7 +52,7 @@ type PostSearch struct {
 type UserSearch struct {
 	Id       int64  `json:"id"`
 	Username string `json:"username"`
-	Nickname string `json:"nickname"`
+	RealName string `json:"real_name"`
 	Phone    string `json:"phone"`
 }
 

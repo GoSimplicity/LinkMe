@@ -3,6 +3,7 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"github.com/spf13/viper"
 	"strings"
 	"time"
 
@@ -12,17 +13,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var (
-	Key1   = []byte("ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l")
-	Key2   = []byte("sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2")
-	IssUer = "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
-)
-
 type Handler interface {
 	SetLoginToken(ctx *gin.Context, uid int64) (string, string, error)
 	SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 	ExtractToken(ctx *gin.Context) string
 	CheckSession(ctx *gin.Context, ssid string) error
+	VerifyRefreshToken(ctx *gin.Context, token string) (bool, *RefreshClaims, error)
 	ClearToken(ctx *gin.Context) error
 	setRefreshToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 }
@@ -42,16 +38,24 @@ type RefreshClaims struct {
 }
 
 type handler struct {
-	client        redis.Cmdable
-	signingMethod jwt.SigningMethod
-	rcExpiration  time.Duration
+	client         redis.Cmdable
+	signingMethod  jwt.SigningMethod
+	rcExpiration   time.Duration
+	AuthExpiration time.Duration
+	Issuer         string
+	AuthKey        []byte
+	RefreshKey     []byte
 }
 
 func NewJWTHandler(c redis.Cmdable) Handler {
 	return &handler{
-		client:        c,
-		signingMethod: jwt.SigningMethodHS512,
-		rcExpiration:  time.Hour * 24 * 7,
+		client:         c,
+		signingMethod:  jwt.SigningMethodHS512,
+		rcExpiration:   time.Hour * viper.GetDuration("jwt.refresh_expire"),
+		AuthExpiration: time.Minute * viper.GetDuration("jwt.auth_expire"),
+		AuthKey:        []byte(viper.GetString("jwt.auth_key")),
+		RefreshKey:     []byte(viper.GetString("jwt.refresh_key")),
+		Issuer:         viper.GetString("jwt.issuer"),
 	}
 }
 
@@ -77,13 +81,13 @@ func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string,
 		UserAgent:   ctx.GetHeader("User-Agent"),
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-			Issuer:    IssUer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.AuthExpiration)),
+			Issuer:    h.Issuer,
 		},
 	}
 	token := jwt.NewWithClaims(h.signingMethod, uc)
 	// 进行签名
-	signedString, err := token.SignedString(Key1)
+	signedString, err := token.SignedString(h.AuthKey)
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +105,7 @@ func (h *handler) setRefreshToken(_ *gin.Context, uid int64, ssid string) (strin
 		},
 	}
 	t := jwt.NewWithClaims(h.signingMethod, rc)
-	signedString, err := t.SignedString(Key2)
+	signedString, err := t.SignedString(h.RefreshKey)
 	if err != nil {
 		return "", err
 	}
@@ -137,17 +141,19 @@ func (h *handler) CheckSession(ctx *gin.Context, ssid string) error {
 
 // ClearToken 清空token
 func (h *handler) ClearToken(ctx *gin.Context) error {
-	ctx.Header("X-Refresh-Token", "")
 	uc := ctx.MustGet("user").(UserClaims)
 	// 获取 refresh token
 	refreshTokenString := ctx.GetHeader("X-Refresh-Token")
 	if refreshTokenString == "" {
 		return errors.New("missing refresh token")
 	}
+
+	ctx.Header("X-Refresh-Token", "")
+
 	// 解析 refresh token
 	refreshClaims := &RefreshClaims{}
 	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, refreshClaims, func(token *jwt.Token) (interface{}, error) {
-		return Key2, nil
+		return h.RefreshKey, nil
 	})
 	if err != nil || !refreshToken.Valid {
 		return errors.New("invalid refresh token")
@@ -158,4 +164,31 @@ func (h *handler) ClearToken(ctx *gin.Context) error {
 		return er
 	}
 	return nil
+}
+
+// VerifyRefreshToken 验证refresh token
+func (h *handler) VerifyRefreshToken(ctx *gin.Context, token string) (bool, *RefreshClaims, error) {
+	// 解析refresh token
+	refreshClaims := &RefreshClaims{}
+	refreshToken, err := jwt.ParseWithClaims(token, refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return h.RefreshKey, nil
+	})
+
+	// 检查解析和验证结果
+	if err != nil || !refreshToken.Valid {
+		return false, nil, errors.New("无效的refresh token")
+	}
+
+	// 检查token是否在黑名单中
+	exists, err := h.client.Exists(ctx, fmt.Sprintf("linkme:user:ssid:%s", refreshClaims.Ssid)).Result()
+	if err != nil {
+		return false, nil, fmt.Errorf("检查token状态失败: %v", err)
+	}
+
+	// 如果token在黑名单中,说明已经失效
+	if exists > 0 {
+		return false, nil, errors.New("refresh token已失效")
+	}
+
+	return true, refreshClaims, nil
 }

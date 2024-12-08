@@ -10,12 +10,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/middleware"
-	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	"github.com/GoSimplicity/LinkMe/utils"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type UserHandler struct {
@@ -41,328 +40,286 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce)
 	userGroup := server.Group("/api/user")
 
-	userGroup.POST("/signup", WrapBody(uh.SignUp))                                      // 用户注册
-	userGroup.POST("/login", WrapBody(uh.Login))                                        // 用户登录
-	userGroup.POST("/login_sms", WrapBody(uh.LoginSMS))                                 // 短信登录
-	userGroup.POST("/send_sms", WrapBody(uh.SendSMS))                                   // 发送短信验证码
-	userGroup.POST("/send_email", WrapBody(uh.SendEmail))                               // 发送邮件验证码
-	userGroup.POST("/logout", WrapNoParam(uh.Logout))                                   // 用户登出
-	userGroup.POST("/refresh_token", WrapBody(uh.RefreshToken))                         // 刷新令牌
-	userGroup.POST("/change_password", WrapBody(uh.ChangePassword))                     // 修改密码
-	userGroup.DELETE("/write_off", WrapBody(uh.WriteOff))                               // 注销用户
-	userGroup.GET("/profile", WrapQuery(uh.GetProfile))                                 // 获取用户资料
-	userGroup.POST("/update_profile", WrapBody(uh.UpdateProfileByID))                   // 更新用户资料
-	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), WrapBody(uh.ListUser))      // 获取用户列表（管理员使用）
-	userGroup.GET("/stats", casbinMiddleware.CheckCasbin(), WrapQuery(uh.GetUserCount)) // 获取用户统计（管理员使用）
+	userGroup.POST("/signup", uh.SignUp)                                 // 用户注册
+	userGroup.POST("/login", uh.Login)                                   // 用户登录
+	userGroup.POST("/login_sms", uh.LoginSMS)                            // 短信登录
+	userGroup.POST("/send_sms", uh.SendSMS)                              // 发送短信验证码
+	userGroup.POST("/send_email", uh.SendEmail)                          // 发送邮件验证码
+	userGroup.POST("/logout", uh.Logout)                                 // 用户登出
+	userGroup.POST("/refresh_token", uh.RefreshToken)                    // 刷新令牌
+	userGroup.POST("/change_password", uh.ChangePassword)                // 修改密码
+	userGroup.DELETE("/write_off", uh.WriteOff)                          // 注销用户
+	userGroup.GET("/profile", uh.GetProfile)                             // 获取用户资料
+	userGroup.POST("/update_profile", uh.UpdateProfileByID)              // 更新用户资料
+	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), uh.ListUser) // 获取用户列表（管理员使用）
+	userGroup.GET("/codes", uh.GetCodes)                                 // 获取权限码
 }
 
 // SignUp 用户注册
-func (uh *UserHandler) SignUp(ctx *gin.Context, req req.SignUpReq) (Result, error) {
-	// 验证密码是否一致
+func (uh *UserHandler) SignUp(ctx *gin.Context) {
+	var req req.SignUpReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	if req.Password != req.ConfirmPassword {
-		return Result{
-			Code: UserPasswordMismatchErrorCode,
-			Msg:  UserPasswordMismatchError,
-		}, nil
+		apiresponse.ErrorWithMessage(ctx, UserPasswordMismatchError)
+		return
 	}
 
 	// 尝试注册用户
 	err := uh.svc.SignUp(ctx.Request.Context(), domain.User{
-		Email:    req.Username,
+		Username: req.Username,
 		Password: req.Password,
 	})
 
-	// 根据错误类型返回不同的响应
-	switch {
-	case err == nil:
-		return Result{
-			Code: RequestsOK,
-			Msg:  UserSignUpSuccess,
-		}, nil
-	case errors.Is(err, service.ErrDuplicateUsername):
-		return Result{
-			Code: UserEmailConflictErrorCode,
-			Msg:  UserEmailConflictError,
-		}, nil
-	case err.Error() == "invalid email format":
-		return Result{
-			Code: UserEmailFormatErrorCode,
-			Msg:  UserEmailFormatError,
-		}, nil
-	case err.Error() == "invalid password format":
-		return Result{
-			Code: UserPasswordFormatErrorCode,
-			Msg:  UserPasswordFormatError,
-		}, nil
-	default:
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserSignUpFailure,
-		}, err
+	if err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
 	}
+
+	apiresponse.Success(ctx)
 }
 
 // Login 用户登录
-func (uh *UserHandler) Login(ctx *gin.Context, req req.LoginReq) (Result, error) {
+func (uh *UserHandler) Login(ctx *gin.Context) {
+	var req req.LoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	// 登录验证
 	du, err := uh.svc.Login(ctx, req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
-			return Result{
-				Code: UserInvalidOrPasswordCode,
-				Msg:  UserLoginFailure,
-			}, nil
+			apiresponse.ErrorWithMessage(ctx, UserLoginFailure)
+			return
 		}
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserLoginFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserLoginFailure)
+		return
 	}
 
 	// 生成令牌
 	jwtToken, refreshToken, err := uh.ijwt.SetLoginToken(ctx, du.ID)
 	if err != nil {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserLoginFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserLoginFailure)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserLoginSuccess,
-		Data: map[string]string{
-			"jwt_token":     jwtToken,
-			"refresh_token": refreshToken,
-		},
-	}, nil
+	apiresponse.SuccessWithData(ctx, map[string]string{
+		"accessToken":  jwtToken,
+		"refreshToken": refreshToken,
+	})
 }
 
 // Logout 用户登出
-func (uh *UserHandler) Logout(ctx *gin.Context) (Result, error) {
+func (uh *UserHandler) Logout(ctx *gin.Context) {
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserLogoutFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserLogoutFailure)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserLogoutSuccess,
-	}, nil
+
+	apiresponse.Success(ctx)
 }
 
 // RefreshToken 刷新令牌
-func (uh *UserHandler) RefreshToken(ctx *gin.Context, _ req.RefreshTokenReq) (Result, error) {
-	var rc ijwt.RefreshClaims
-	tokenString := uh.ijwt.ExtractToken(ctx)
-
-	// 解析并验证令牌
-	token, err := jwt.ParseWithClaims(tokenString, &rc, func(token *jwt.Token) (interface{}, error) {
-		return ijwt.Key2, nil
-	})
-	if err != nil || token == nil || !token.Valid {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserRefreshTokenFailure,
-		}, err
+func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
+	var req req.RefreshTokenReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
 	}
 
-	// 验证会话
-	if err = uh.ijwt.CheckSession(ctx, rc.Ssid); err != nil {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserRefreshTokenFailure,
-		}, err
+	var rc ijwt.RefreshClaims
+
+	// 验证refresh token
+	if ok, claims, err := uh.ijwt.VerifyRefreshToken(ctx, req.RefreshToken); !ok || err != nil {
+		apiresponse.ErrorWithMessage(ctx, UserRefreshTokenFailure)
+		return
+	} else {
+		rc = *claims
 	}
 
 	// 刷新令牌
 	tokenStr, err := uh.ijwt.SetJWTToken(ctx, rc.Uid, rc.Ssid)
 	if err != nil {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserRefreshTokenFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserRefreshTokenFailure)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserRefreshTokenSuccess,
-		Data: tokenStr,
-	}, nil
+	apiresponse.SuccessWithData(ctx, tokenStr)
 }
 
 // SendSMS 发送短信验证码
-func (uh *UserHandler) SendSMS(ctx *gin.Context, req req.SMSReq) (Result, error) {
+func (uh *UserHandler) SendSMS(ctx *gin.Context) {
+	var req req.SMSReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	if !utils.IsValidNumber(req.Number) {
-		return Result{
-			Code: SMSNumberErr,
-			Msg:  "无效的手机号码",
-		}, nil
+		apiresponse.ErrorWithMessage(ctx, "无效的手机号码")
+		return
 	}
 
 	if err := uh.smsProducer.ProduceSMSCode(ctx, sms.SMSCodeEvent{Number: req.Number}); err != nil {
-		return Result{}, err
+		apiresponse.ErrorWithMessage(ctx, "发送短信验证码失败")
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserSendSMSCodeSuccess,
-	}, nil
+	apiresponse.Success(ctx)
 }
 
 // ChangePassword 修改密码
-func (uh *UserHandler) ChangePassword(ctx *gin.Context, req req.ChangeReq) (Result, error) {
+func (uh *UserHandler) ChangePassword(ctx *gin.Context) {
+	var req req.ChangeReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	if req.NewPassword != req.ConfirmPassword {
-		return Result{
-			Code: UserInvalidInputCode,
-			Msg:  UserPasswordMismatchError,
-		}, nil
+		apiresponse.ErrorWithMessage(ctx, UserPasswordMismatchError)
+		return
 	}
 
 	err := uh.svc.ChangePassword(ctx.Request.Context(), req.Username, req.Password, req.NewPassword, req.ConfirmPassword)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
-			return Result{
-				Code: UserInvalidOrPasswordCode,
-				Msg:  UserPasswordChangeFailure,
-			}, nil
+			apiresponse.ErrorWithMessage(ctx, UserPasswordChangeFailure)
+			return
 		}
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserPasswordChangeFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserPasswordChangeFailure)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserPasswordChangeSuccess,
-	}, nil
+	apiresponse.Success(ctx)
 }
 
 // SendEmail 发送邮件验证码
-func (uh *UserHandler) SendEmail(ctx *gin.Context, req req.UsernameReq) (Result, error) {
-	if err := uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Username}); err != nil {
-		return Result{}, err
+func (uh *UserHandler) SendEmail(ctx *gin.Context) {
+	var req req.UsernameReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserSendEmailCodeSuccess,
-	}, nil
+	if err := uh.emailProducer.ProduceEmail(ctx, email.EmailEvent{Email: req.Username}); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "发送邮件验证码失败")
+		return
+	}
+
+	apiresponse.Success(ctx)
 }
 
 // WriteOff 注销用户
-func (uh *UserHandler) WriteOff(ctx *gin.Context, req req.DeleteUserReq) (Result, error) {
+func (uh *UserHandler) WriteOff(ctx *gin.Context) {
+	var req req.DeleteUserReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 
 	// 删除用户
 	if err := uh.svc.DeleteUser(ctx, req.Username, req.Password, uc.Uid); err != nil {
 		if errors.Is(err, service.ErrInvalidUserOrPassword) {
-			return Result{
-				Code: UserInvalidOrPasswordCode,
-				Msg:  UserDeletedFailure,
-			}, nil
+			apiresponse.ErrorWithMessage(ctx, UserDeletedFailure)
+			return
 		}
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserDeletedFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserDeletedFailure)
+		return
 	}
 
 	// 清除令牌
 	if err := uh.ijwt.ClearToken(ctx); err != nil {
-		return Result{}, err
+		apiresponse.ErrorWithMessage(ctx, "清除令牌失败")
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserDeletedSuccess,
-	}, nil
+	apiresponse.Success(ctx)
 }
 
 // GetProfile 获取用户资料
-func (uh *UserHandler) GetProfile(ctx *gin.Context, _ req.GetProfileReq) (Result, error) {
+func (uh *UserHandler) GetProfile(ctx *gin.Context) {
+	var req req.GetProfileReq
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 
 	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
 	if err != nil {
-		return Result{
-			Code: UserServerErrorCode,
-			Msg:  UserProfileGetFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserProfileGetFailure)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserProfileGetSuccess,
-		Data: profile,
-	}, nil
+	apiresponse.SuccessWithData(ctx, profile)
 }
 
 // UpdateProfileByID 更新用户资料
-func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context, req req.UpdateProfileReq) (Result, error) {
+func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context) {
+	var req req.UpdateProfileReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 
 	err := uh.svc.UpdateProfile(ctx, domain.Profile{
-		NickName: req.NickName,
+		RealName: req.RealName,
 		Avatar:   req.Avatar,
 		About:    req.About,
 		Birthday: req.Birthday,
 		UserID:   uc.Uid,
 	})
 	if err != nil {
-		return Result{
-			Code: UserInvalidOrProfileErrorCode,
-			Msg:  UserProfileUpdateFailure,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserProfileUpdateFailure)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserProfileUpdateSuccess,
-	}, nil
+	apiresponse.Success(ctx)
 }
 
 // LoginSMS 短信登录
-func (uh *UserHandler) LoginSMS(ctx *gin.Context, req req.LoginSMSReq) (Result, error) {
+func (uh *UserHandler) LoginSMS(ctx *gin.Context) {
+	var req req.LoginSMSReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
 	// TODO: 实现短信登录逻辑
-	return Result{}, nil
+	apiresponse.Success(ctx)
 }
 
 // ListUser 获取用户列表（管理员使用）
-func (uh *UserHandler) ListUser(ctx *gin.Context, req req.ListUserReq) (Result, error) {
+func (uh *UserHandler) ListUser(ctx *gin.Context) {
+	var req req.ListUserReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
 	users, err := uh.svc.ListUser(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
 	})
 	if err != nil {
-		return Result{
-			Code: UserListErrorCode,
-			Msg:  UserListError,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, UserListError)
+		return
 	}
 
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserListSuccess,
-		Data: users,
-	}, nil
+	apiresponse.SuccessWithData(ctx, users)
 }
 
-// GetUserCount 获取用户统计（管理员使用）
-func (uh *UserHandler) GetUserCount(ctx *gin.Context, _ req.GetUserCountReq) (Result, error) {
-	count, err := uh.svc.GetUserCount(ctx)
-	if err != nil {
-		return Result{
-			Code: UserGetCountErrorCode,
-			Msg:  UserGetCountError,
-		}, err
-	}
-
-	return Result{
-		Code: RequestsOK,
-		Msg:  UserGetCountSuccess,
-		Data: count,
-	}, nil
+// GetCodes 获取权限码
+func (uh *UserHandler) GetCodes(ctx *gin.Context) {
+	apiresponse.Success(ctx)
 }

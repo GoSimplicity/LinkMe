@@ -12,6 +12,6 @@ type PostSearch struct {
 type UserSearch struct {
 	Id       int64
 	Username string
-	Nickname string
+	RealName string
 	Phone    *string
 }
