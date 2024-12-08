@@ -1,3 +1,9 @@
+jwt:
+  auth_key: "ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l"
+  refresh_key: "sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2"
+  issuer: "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
+  auth_expire: 30 # 分钟
+  refresh_expire: 150 # 小时
 db:
   dsn: "root:root@tcp(192.168.5.11:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 redis:

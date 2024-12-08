@@ -135,9 +135,11 @@ func (uh *UserHandler) RefreshToken(ctx *gin.Context) {
 	var rc ijwt.RefreshClaims
 
 	// 验证refresh token
-	if ok, err := uh.ijwt.VerifyRefreshToken(ctx, req.RefreshToken); !ok || err != nil {
+	if ok, claims, err := uh.ijwt.VerifyRefreshToken(ctx, req.RefreshToken); !ok || err != nil {
 		apiresponse.ErrorWithMessage(ctx, UserRefreshTokenFailure)
 		return
+	} else {
+		rc = *claims
 	}
 
 	// 刷新令牌
