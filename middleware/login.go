@@ -24,7 +24,6 @@ func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 		// 如果请求的路径是下述路径，则不进行token验证
 		if path == "/api/user/signup" ||
 			path == "/api/user/login" ||
-			path == "/api/user/refresh_token" ||
 			path == "/api/user/change_password" ||
 			path == "/api/user/send_sms" ||
 			path == "/api/user/send_email" {

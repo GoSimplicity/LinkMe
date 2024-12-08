@@ -23,6 +23,7 @@ type Handler interface {
 	SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 	ExtractToken(ctx *gin.Context) string
 	CheckSession(ctx *gin.Context, ssid string) error
+	VerifyRefreshToken(ctx *gin.Context, token string) (bool, error)
 	ClearToken(ctx *gin.Context) error
 	setRefreshToken(ctx *gin.Context, uid int64, ssid string) (string, error)
 }
@@ -158,4 +159,31 @@ func (h *handler) ClearToken(ctx *gin.Context) error {
 		return er
 	}
 	return nil
+}
+
+// VerifyRefreshToken 验证refresh token
+func (h *handler) VerifyRefreshToken(ctx *gin.Context, token string) (bool, error) {
+	// 解析refresh token
+	refreshClaims := &RefreshClaims{}
+	refreshToken, err := jwt.ParseWithClaims(token, refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return Key2, nil
+	})
+
+	// 检查解析和验证结果
+	if err != nil || !refreshToken.Valid {
+		return false, errors.New("无效的refresh token")
+	}
+
+	// 检查token是否在黑名单中
+	exists, err := h.client.Exists(ctx, fmt.Sprintf("linkme:user:ssid:%s", refreshClaims.Ssid)).Result()
+	if err != nil {
+		return false, fmt.Errorf("检查token状态失败: %v", err)
+	}
+
+	// 如果token在黑名单中,说明已经失效
+	if exists > 0 {
+		return false, errors.New("refresh token已失效")
+	}
+
+	return true, nil
 }

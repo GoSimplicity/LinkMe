@@ -24,8 +24,7 @@ type UserService interface {
 	DeleteUser(ctx context.Context, username string, password string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, UserID int64) (domain.Profile, error)
-	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
-	GetUserCount(ctx context.Context) (int64, error)
+	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error)
 }
 
 type userService struct {
@@ -44,7 +43,7 @@ func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo re
 
 // SignUp 用户注册
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
-	if err := u.ValidateEmail(); err != nil {
+	if err := u.ValidateUsername(); err != nil {
 		return err
 	}
 
@@ -62,7 +61,7 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 		err := us.searchRepo.InputUser(ctx, domain.UserSearch{
 			Username: u.Username,
 			Id:       u.ID,
-			Nickname: u.Profile.NickName,
+			RealName: u.Profile.RealName,
 		})
 		if err != nil {
 			us.l.Error("更新搜索索引失败",
@@ -152,13 +151,13 @@ func (us *userService) UpdateProfile(ctx context.Context, profile domain.Profile
 		return err
 	}
 
-	if user.Profile.NickName != profile.NickName {
+	if user.Profile.RealName != profile.RealName {
 		// 异步更新搜索索引
 		go func() {
 			ctx := context.Background()
 			err := us.searchRepo.InputUser(ctx, domain.UserSearch{
 				Id:       profile.UserID,
-				Nickname: profile.NickName,
+				RealName: profile.RealName,
 			})
 			if err != nil {
 				us.l.Error("更新用户搜索索引失败",
@@ -181,7 +180,7 @@ func (us *userService) GetProfileByUserID(ctx context.Context, UserID int64) (do
 }
 
 // ListUser 获取用户列表
-func (us *userService) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
+func (us *userService) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error) {
 	if pagination.Page <= 0 || *pagination.Size <= 0 {
 		return nil, errors.New("无效的分页参数")
 	}
@@ -190,14 +189,4 @@ func (us *userService) ListUser(ctx context.Context, pagination domain.Paginatio
 	pagination.Offset = &offset
 
 	return us.repo.ListUser(ctx, pagination)
-}
-
-// GetUserCount 获取用户总数
-func (us *userService) GetUserCount(ctx context.Context) (int64, error) {
-	count, err := us.repo.GetUserCount(ctx)
-	if err != nil {
-		return -1, err
-	}
-
-	return count, nil
 }

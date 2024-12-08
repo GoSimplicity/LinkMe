@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
@@ -22,9 +23,8 @@ type UserRepository interface {
 	ChangePassword(ctx context.Context, username string, newPassword string) error
 	DeleteUser(ctx context.Context, username string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
-	GetProfile(ctx context.Context, UserId int64) (domain.Profile, error)
-	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error)
-	GetUserCount(ctx context.Context) (int64, error)
+	GetProfile(ctx context.Context, UserID int64) (domain.Profile, error)
+	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error)
 }
 
 type userRepository struct {
@@ -53,11 +53,13 @@ func (ur *userRepository) ChangePassword(ctx context.Context, username string, n
 	user, err := ur.dao.FindByUsername(ctx, username)
 	if err != nil {
 		ur.l.Error("密码修改后获取用户信息失败", zap.Error(err))
-		return nil
+		return err
 	}
 
 	// 异步设置缓存
 	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		if err := ur.cache.Set(ctx, toDomainUser(user)); err != nil {
 			ur.l.Error("密码修改后更新缓存失败", zap.Error(err))
 		}
@@ -76,7 +78,6 @@ func (ur *userRepository) FindByID(ctx context.Context, id int64) (domain.User, 
 	// 尝试从缓存中获取用户
 	du, err := ur.cache.Get(ctx, id)
 	if err == nil {
-		// 在缓存中找到数据，直接返回
 		return du, nil
 	}
 
@@ -131,7 +132,6 @@ func (ur *userRepository) DeleteUser(ctx context.Context, username string, uid i
 		ctx := context.Background()
 		du, err := ur.cache.Get(ctx, uid)
 		if err == nil {
-			// 如果缓存存在,则删除
 			if err := ur.cache.Set(ctx, domain.User{ID: du.ID, Deleted: true}); err != nil {
 				ur.l.Error("删除用户后更新缓存失败", zap.Error(err))
 			}
@@ -147,9 +147,10 @@ func (ur *userRepository) UpdateProfile(ctx context.Context, profile domain.Prof
 	if err != nil {
 		return err
 	}
-	
+
 	// 异步更新缓存
 	go func() {
+		ctx := context.Background()
 		du, err := ur.cache.Get(ctx, profile.UserID)
 		if err == nil {
 			du.Profile = profile
@@ -163,8 +164,8 @@ func (ur *userRepository) UpdateProfile(ctx context.Context, profile domain.Prof
 }
 
 // GetProfile 通过用户ID获取用户资料
-func (ur *userRepository) GetProfile(ctx context.Context, UserId int64) (domain.Profile, error) {
-	profile, err := ur.dao.GetProfileByUserID(ctx, UserId)
+func (ur *userRepository) GetProfile(ctx context.Context, UserID int64) (domain.Profile, error) {
+	profile, err := ur.dao.GetProfileByUserID(ctx, UserID)
 	if err != nil {
 		ur.l.Error("获取用户资料失败", zap.Error(err))
 		return domain.Profile{}, err
@@ -174,7 +175,7 @@ func (ur *userRepository) GetProfile(ctx context.Context, UserId int64) (domain.
 }
 
 // ListUser 获取用户列表
-func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfileAndRule, error) {
+func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error) {
 	users, err := ur.dao.ListUser(ctx, pagination)
 	if err != nil {
 		ur.l.Error("获取用户列表失败", zap.Error(err))
@@ -184,17 +185,7 @@ func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagina
 	return users, nil
 }
 
-// GetUserCount 获取用户总数
-func (ur *userRepository) GetUserCount(ctx context.Context) (int64, error) {
-	count, err := ur.dao.GetUserCount(ctx)
-	if err != nil {
-		return -1, err
-	}
-
-	return count, nil
-}
-
-// 将领域层对象转为dao层对象
+// fromDomainUser 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) dao.User {
 	return dao.User{
 		ID:           u.ID,
@@ -207,7 +198,7 @@ func fromDomainUser(u domain.User) dao.User {
 	}
 }
 
-// 将dao层对象转为领域层对象
+// toDomainUser 将dao层对象转为领域层对象
 func toDomainUser(u dao.User) domain.User {
 	return domain.User{
 		ID:          u.ID,

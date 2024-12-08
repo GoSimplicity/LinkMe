@@ -31,7 +31,7 @@ type DeleteUserReq struct {
 	Password string `json:"password"`
 }
 type UpdateProfileReq struct {
-	NickName string `json:"nickName"` // 昵称
+	RealName string `json:"realName"` // 真实姓名
 	Avatar   string `json:"avatar"`   // 头像URL
 	About    string `json:"about"`    // 个人简介
 	Birthday string `json:"birthday"` // 生日
@@ -53,6 +53,7 @@ type LogoutReq struct {
 }
 
 type RefreshTokenReq struct {
+	RefreshToken string `json:"refreshToken"`
 }
 
 type GetProfileReq struct {
