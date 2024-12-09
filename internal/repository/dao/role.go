@@ -2,151 +2,765 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"time"
+
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"strconv"
 )
+
+const (
+	DeletedNo  = 0 // 未删除
+	DeletedYes = 1 // 已删除
+)
+
+var (
+	ErrMenuNotFound = errors.New("菜单不存在")
+	ErrInvalidMenu  = errors.New("无效的菜单参数")
+)
+
+// Menu 菜单模型
+type Menu struct {
+	ID         int64   `json:"id" gorm:"primaryKey;column:id;comment:菜单ID"`
+	Name       string  `json:"name" gorm:"column:name;type:varchar(50);not null;comment:菜单显示名称"`
+	ParentID   int64   `json:"parent_id" gorm:"column:parent_id;default:0;comment:上级菜单ID,0表示顶级菜单"`
+	Path       string  `json:"path" gorm:"column:path;type:varchar(255);not null;comment:前端路由访问路径"`
+	Component  string  `json:"component" gorm:"column:component;type:varchar(255);not null;comment:前端组件文件路径"`
+	Icon       string  `json:"icon" gorm:"column:icon;type:varchar(50);default:'';comment:菜单显示图标"`
+	SortOrder  int     `json:"sort_order" gorm:"column:sort_order;default:0;comment:菜单显示顺序,数值越小越靠前"`
+	RouteName  string  `json:"route_name" gorm:"column:route_name;type:varchar(50);not null;comment:前端路由名称,需唯一"`
+	Hidden     int     `json:"hidden" gorm:"column:hidden;type:tinyint(1);default:0;comment:菜单是否隐藏(0:显示 1:隐藏)"`
+	CreateTime int64   `json:"create_time" gorm:"column:create_time;autoCreateTime;comment:记录创建时间戳"`
+	UpdateTime int64   `json:"update_time" gorm:"column:update_time;autoUpdateTime;comment:记录最后更新时间戳"`
+	IsDeleted  int     `json:"is_deleted" gorm:"column:is_deleted;type:tinyint(1);default:0;comment:逻辑删除标记(0:未删除 1:已删除)"`
+	Children   []*Menu `json:"children" gorm:"-"`
+}
+
+// Api API模型
+type Api struct {
+	ID          int64  `json:"id" gorm:"primaryKey;column:id;comment:主键ID"`
+	Name        string `json:"name" gorm:"column:name;type:varchar(50);not null;comment:API名称"`
+	Path        string `json:"path" gorm:"column:path;type:varchar(255);not null;comment:API路径"`
+	Method      int    `json:"method" gorm:"column:method;type:tinyint(1);not null;comment:HTTP请求方法(1:GET,2:POST,3:PUT,4:DELETE)"`
+	Description string `json:"description" gorm:"column:description;type:varchar(500);comment:API描述"`
+	Version     string `json:"version" gorm:"column:version;type:varchar(20);default:v1;comment:API版本"`
+	Category    int    `json:"category" gorm:"column:category;type:tinyint(1);not null;comment:API分类(1:系统,2:业务)"`
+	IsPublic    int    `json:"is_public" gorm:"column:is_public;type:tinyint(1);default:0;comment:是否公开(0:否,1:是)"`
+	CreateTime  int64  `json:"create_time" gorm:"column:create_time;autoCreateTime;comment:创建时间"`
+	UpdateTime  int64  `json:"update_time" gorm:"column:update_time;autoUpdateTime;comment:更新时间"`
+	IsDeleted   int    `json:"is_deleted" gorm:"column:is_deleted;type:tinyint(1);default:0;comment:是否删除(0:否,1:是)"`
+}
+
+// Role 角色模型
+type Role struct {
+	ID          int64  `json:"id" gorm:"primaryKey;column:id;comment:主键ID"`
+	Name        string `json:"name" gorm:"column:name;type:varchar(50);not null;unique;comment:角色名称"`
+	Description string `json:"description" gorm:"column:description;type:varchar(255);comment:角色描述"`
+	RoleType    int    `json:"role_type" gorm:"column:role_type;type:tinyint(1);not null;comment:角色类型(1:系统角色,2:自定义角色)"`
+	IsDefault   int    `json:"is_default" gorm:"column:is_default;type:tinyint(1);default:0;comment:是否为默认角色(0:否,1:是)"`
+	CreateTime  int64  `json:"create_time" gorm:"column:create_time;autoCreateTime;comment:创建时间"`
+	UpdateTime  int64  `json:"update_time" gorm:"column:update_time;autoUpdateTime;comment:更新时间"`
+	IsDeleted   int    `json:"is_deleted" gorm:"column:is_deleted;type:tinyint(1);default:0;comment:是否删除(0:否,1:是)"`
+}
 
 // PermissionDAO 定义了权限数据库访问接口
 type PermissionDAO interface {
-	GetPermissions(ctx context.Context) ([]domain.Permission, error)
-	AssignPermission(ctx context.Context, userName string, path string, method string) error
-	AssignRoleToUser(ctx context.Context, userName, roleName string) error
-	RemovePermission(ctx context.Context, userName string, path string, method string) error
-	RemoveRoleFromUser(ctx context.Context, userName, roleName string) error
+	// 菜单管理
+	CreateMenu(ctx context.Context, menu *Menu) error
+	GetMenuById(ctx context.Context, id int) (*Menu, error)
+	UpdateMenu(ctx context.Context, menu *Menu) error
+	DeleteMenu(ctx context.Context, id int) error
+	ListMenus(ctx context.Context, page, pageSize int) ([]*Menu, int, error)
+	GetMenuTree(ctx context.Context) ([]*Menu, error)
+
+	// API接口管理
+	CreateApi(ctx context.Context, api *Api) error
+	GetApiById(ctx context.Context, id int) (*Api, error)
+	UpdateApi(ctx context.Context, api *Api) error
+	DeleteApi(ctx context.Context, id int) error
+	ListApis(ctx context.Context, page, pageSize int) ([]*Api, int, error)
+
+	// 角色管理
+	CreateRole(ctx context.Context, role *Role) error
+	GetRoleById(ctx context.Context, id int) (*Role, error)
+	UpdateRole(ctx context.Context, role *Role) error
+	DeleteRole(ctx context.Context, id int) error
+	ListRoles(ctx context.Context, page, pageSize int) ([]*Role, int, error)
+	AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error
+	AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error
+	RemoveUserPermissions(ctx context.Context, userId int) error
+	RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error
 }
 
 // permissionDAO 是 PermissionDAO 的实现
 type permissionDAO struct {
-	db *gorm.DB
-	ce *casbin.Enforcer
-	l  *zap.Logger
+	db       *gorm.DB
+	l        *zap.Logger
+	enforcer *casbin.Enforcer
 }
 
 // NewPermissionDAO 创建一个新的 PermissionDAO
-func NewPermissionDAO(ce *casbin.Enforcer, l *zap.Logger, db *gorm.DB) PermissionDAO {
+func NewPermissionDAO(db *gorm.DB, l *zap.Logger, enforcer *casbin.Enforcer) PermissionDAO {
 	return &permissionDAO{
-		db: db,
-		ce: ce,
-		l:  l,
+		db:       db,
+		l:        l,
+		enforcer: enforcer,
 	}
 }
 
-// GetPermissions 获取指定用户的权限列表
-func (d *permissionDAO) GetPermissions(ctx context.Context) ([]domain.Permission, error) {
-	var policies []domain.Permission
-	err := d.db.WithContext(ctx).Table("casbin_rule").Find(&policies).Error
-	if err != nil {
+func (p permissionDAO) CreateMenu(ctx context.Context, menu *Menu) error {
+	if menu == nil {
+		return ErrInvalidMenu
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 检查父菜单是否存在
+		if menu.ParentID != 0 {
+			var count int64
+			if err := tx.Model(&Menu{}).Where("id = ? AND is_deleted = ?", menu.ParentID, DeletedNo).Count(&count).Error; err != nil {
+				return fmt.Errorf("检查父菜单失败: %v", err)
+			}
+			if count == 0 {
+				return errors.New("父菜单不存在")
+			}
+		}
+
+		now := time.Now().Unix()
+		menu.CreateTime = now
+		menu.UpdateTime = now
+
+		return tx.Create(menu).Error
+	})
+}
+
+func (p permissionDAO) GetMenuById(ctx context.Context, id int) (*Menu, error) {
+	if id <= 0 {
+		return nil, errors.New("无效的菜单ID")
+	}
+
+	var menu Menu
+	if err := p.db.WithContext(ctx).Where("id = ? AND is_deleted = ?", id, DeletedNo).First(&menu).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrMenuNotFound
+		}
+		return nil, fmt.Errorf("查询菜单失败: %v", err)
+	}
+
+	return &menu, nil
+}
+
+func (p permissionDAO) UpdateMenu(ctx context.Context, menu *Menu) error {
+	if menu == nil {
+		return errors.New("菜单对象不能为空")
+	}
+	if menu.ID <= 0 {
+		return errors.New("无效的菜单ID")
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 检查父菜单是否存在且不能将菜单设置为自己的子菜单
+		if menu.ParentID != 0 {
+			if menu.ParentID == menu.ID {
+				return errors.New("不能将菜单设置为自己的子菜单")
+			}
+			var count int64
+			if err := tx.Model(&Menu{}).Where("id = ? AND is_deleted = ?", menu.ParentID, DeletedNo).Count(&count).Error; err != nil {
+				return fmt.Errorf("检查父菜单失败: %v", err)
+			}
+			if count == 0 {
+				return errors.New("父菜单不存在")
+			}
+		}
+
+		updates := map[string]interface{}{
+			"name":        menu.Name,
+			"parent_id":   menu.ParentID,
+			"path":        menu.Path,
+			"component":   menu.Component,
+			"icon":        menu.Icon,
+			"sort_order":  menu.SortOrder,
+			"route_name":  menu.RouteName,
+			"hidden":      menu.Hidden,
+			"update_time": time.Now().Unix(),
+		}
+
+		result := tx.Model(&Menu{}).
+			Where("id = ? AND is_deleted = ?", menu.ID, DeletedNo).
+			Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("更新菜单失败: %v", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("菜单不存在或已被删除")
+		}
+
+		return nil
+	})
+}
+
+func (p permissionDAO) DeleteMenu(ctx context.Context, id int) error {
+	if id <= 0 {
+		return errors.New("无效的菜单ID")
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 检查是否有子菜单
+		var count int64
+		if err := tx.Model(&Menu{}).Where("parent_id = ? AND is_deleted = ?", id, DeletedNo).Count(&count).Error; err != nil {
+			return fmt.Errorf("检查子菜单失败: %v", err)
+		}
+		if count > 0 {
+			return errors.New("存在子菜单,不能删除")
+		}
+
+		updates := map[string]interface{}{
+			"is_deleted":  DeletedYes,
+			"update_time": time.Now().Unix(),
+		}
+		result := tx.Model(&Menu{}).Where("id = ? AND is_deleted = ?", id, DeletedNo).Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("删除菜单失败: %v", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrMenuNotFound
+		}
+		return nil
+	})
+}
+
+func (p permissionDAO) ListMenus(ctx context.Context, page, pageSize int) ([]*Menu, int, error) {
+	if page <= 0 || pageSize <= 0 {
+		return nil, 0, errors.New("无效的分页参数")
+	}
+
+	var menus []*Menu
+	var total int64
+
+	db := p.db.WithContext(ctx).Model(&Menu{}).Where("is_deleted = ?", DeletedNo)
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("获取菜单总数失败: %v", err)
+	}
+
+	// 获取分页数据
+	offset := (page - 1) * pageSize
+	if err := db.Offset(offset).Limit(pageSize).Order("sort_order ASC, id DESC").Find(&menus).Error; err != nil {
+		return nil, 0, fmt.Errorf("查询菜单列表失败: %v", err)
+	}
+
+	return menus, int(total), nil
+}
+
+func (p permissionDAO) GetMenuTree(ctx context.Context) ([]*Menu, error) {
+	// 预分配合适的初始容量
+	menus := make([]*Menu, 0, 50)
+
+	// 使用索引字段优化查询
+	if err := p.db.WithContext(ctx).
+		Select("id, name, parent_id, path, component, icon, sort_order, route_name, hidden, create_time, update_time").
+		Where("is_deleted = ?", DeletedNo).
+		Order("sort_order ASC, id ASC").
+		Find(&menus).Error; err != nil {
+		return nil, fmt.Errorf("查询菜单列表失败: %v", err)
+	}
+
+	// 预分配map容量
+	menuMap := make(map[int64]*Menu, len(menus))
+	rootMenus := make([]*Menu, 0, len(menus)/3)
+
+	// 单次遍历构建树形结构
+	for _, menu := range menus {
+		// 初始化Children切片
+		menu.Children = make([]*Menu, 0, 4)
+		menuMap[menu.ID] = menu
+
+		if menu.ParentID == 0 {
+			rootMenus = append(rootMenus, menu)
+		} else if parent, exists := menuMap[menu.ParentID]; exists {
+			parent.Children = append(parent.Children, menu)
+		}
+	}
+
+	return rootMenus, nil
+}
+
+func (p permissionDAO) CreateApi(ctx context.Context, api *Api) error {
+	if api == nil {
+		return gorm.ErrRecordNotFound
+	}
+
+	api.CreateTime = time.Now().Unix()
+	api.UpdateTime = time.Now().Unix()
+
+	return p.db.WithContext(ctx).Create(api).Error
+}
+
+func (p permissionDAO) GetApiById(ctx context.Context, id int) (*Api, error) {
+	var api Api
+
+	if err := p.db.WithContext(ctx).Where("id = ? AND is_deleted = 0", id).First(&api).Error; err != nil {
 		return nil, err
 	}
-	return policies, nil
+
+	return &api, nil
 }
 
-// AssignPermission 分配权限给指定用户
-func (d *permissionDAO) AssignPermission(ctx context.Context, userName, path, method string) error {
-	userID, err := d.getUserIDByEmail(ctx, userName)
-	if err != nil {
-		return err
+func (p permissionDAO) UpdateApi(ctx context.Context, api *Api) error {
+	if api == nil {
+		return gorm.ErrRecordNotFound
 	}
-	// 将 userID 转换为字符串
-	userIDStr := strconv.FormatInt(userID, 10)
-	ok, err := d.ce.AddPolicy(userIDStr, path, method)
-	if err != nil {
-		d.l.Error("failed to add policy", zap.Error(err))
-		return err
+
+	updates := map[string]interface{}{
+		"name":        api.Name,
+		"path":        api.Path,
+		"method":      api.Method,
+		"description": api.Description,
+		"version":     api.Version,
+		"category":    api.Category,
+		"is_public":   api.IsPublic,
+		"update_time": time.Now().Unix(),
 	}
-	if !ok {
-		d.l.Error("policy already exists", zap.Error(err))
-		return fmt.Errorf("policy already exists for user %d, path %s, method %s", userID, path, method)
+
+	return p.db.WithContext(ctx).
+		Model(&Api{}).
+		Where("id = ? AND is_deleted = 0", api.ID).
+		Updates(updates).Error
+}
+
+func (p permissionDAO) DeleteApi(ctx context.Context, id int) error {
+	updates := map[string]interface{}{
+		"is_deleted":  1,
+		"update_time": time.Now().Unix(),
 	}
+
+	return p.db.WithContext(ctx).Model(&Api{}).Where("id = ? AND is_deleted = 0", id).Updates(updates).Error
+}
+
+func (p permissionDAO) ListApis(ctx context.Context, page, pageSize int) ([]*Api, int, error) {
+	var apis []*Api
+	var total int64
+
+	db := p.db.WithContext(ctx).Model(&Api{}).Where("is_deleted = 0")
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	offset := (page - 1) * pageSize
+	if err := db.Offset(offset).Limit(pageSize).Order("id ASC").Find(&apis).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return apis, int(total), nil
+}
+
+func (p permissionDAO) CreateRole(ctx context.Context, role *Role) error {
+	if role == nil {
+		return errors.New("角色对象不能为空")
+	}
+
+	if role.Name == "" {
+		return errors.New("角色名称不能为空")
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 检查角色名是否已存在
+		var count int64
+		if err := tx.Model(&Role{}).Where("name = ? AND is_deleted = ?", role.Name, 0).Count(&count).Error; err != nil {
+			return fmt.Errorf("检查角色名称失败: %v", err)
+		}
+		if count > 0 {
+			return errors.New("角色名称已存在")
+		}
+
+		// 设置创建时间和更新时间
+		now := time.Now().Unix()
+		role.CreateTime = now
+		role.UpdateTime = now
+		role.IsDeleted = 0
+
+		// 创建角色
+		if err := tx.Create(role).Error; err != nil {
+			return fmt.Errorf("创建角色失败: %v", err)
+		}
+
+		return nil
+	})
+}
+
+func (p permissionDAO) GetRoleById(ctx context.Context, id int) (*Role, error) {
+	if id <= 0 {
+		return nil, errors.New("无效的角色ID")
+	}
+
+	var role Role
+	if err := p.db.WithContext(ctx).Where("id = ? AND is_deleted = ?", id, 0).First(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("查询角色失败: %v", err)
+	}
+
+	return &role, nil
+}
+
+func (p permissionDAO) UpdateRole(ctx context.Context, role *Role) error {
+	if role == nil {
+		return errors.New("角色对象不能为空")
+	}
+	if role.ID <= 0 {
+		return errors.New("无效的角色ID")
+	}
+	if role.Name == "" {
+		return errors.New("角色名称不能为空")
+	}
+
+	// 检查角色名是否已被其他角色使用
+	var count int64
+	if err := p.db.WithContext(ctx).Model(&Role{}).
+		Where("name = ? AND id != ? AND is_deleted = ?", role.Name, role.ID, 0).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("检查角色名称失败: %v", err)
+	}
+	if count > 0 {
+		return errors.New("角色名称已被使用")
+	}
+
+	updates := map[string]interface{}{
+		"name":        role.Name,
+		"description": role.Description,
+		"role_type":   role.RoleType,
+		"is_default":  role.IsDefault,
+		"update_time": time.Now().Unix(),
+	}
+
+	result := p.db.WithContext(ctx).
+		Model(&Role{}).
+		Where("id = ? AND is_deleted = ?", role.ID, 0).
+		Updates(updates)
+	if result.Error != nil {
+		return fmt.Errorf("更新角色失败: %v", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("角色不存在或已被删除")
+	}
+
 	return nil
 }
 
-// AssignRoleToUser 分配角色给指定用户
-func (d *permissionDAO) AssignRoleToUser(ctx context.Context, userName, roleName string) error {
-	userID, err := d.getUserIDByEmail(ctx, userName)
-	if err != nil {
-		d.l.Error("failed to get user ID", zap.Error(err))
-		return err
+func (p permissionDAO) DeleteRole(ctx context.Context, id int) error {
+	if id <= 0 {
+		return errors.New("无效的角色ID")
 	}
-	roleID, err := d.getUserIDByEmail(ctx, roleName)
-	if err != nil {
-		d.l.Error("failed to get user ID", zap.Error(err))
-		return err
+
+	// 检查是否为默认角色
+	var role Role
+	if err := p.db.WithContext(ctx).Where("id = ? AND is_deleted = ?", id, 0).First(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("角色不存在")
+		}
+		return fmt.Errorf("查询角色失败: %v", err)
 	}
-	// 将 userID 转换为字符串
-	userIDStr := strconv.FormatInt(userID, 10)
-	roleIDStr := strconv.FormatInt(roleID, 10)
-	// 分配角色给用户
-	ok, err := d.ce.AddGroupingPolicy(userIDStr, roleIDStr)
-	if err != nil {
-		d.l.Error("failed to add role to user", zap.Error(err))
-		return err
+
+	if role.IsDefault == 1 {
+		return errors.New("默认角色不能删除")
 	}
-	if !ok {
-		d.l.Error("role already assigned to user", zap.Error(err))
-		return fmt.Errorf("role %s already assigned to user %s", roleName, userName)
+
+	updates := map[string]interface{}{
+		"is_deleted":  1,
+		"update_time": time.Now().Unix(),
 	}
+
+	result := p.db.WithContext(ctx).Model(&Role{}).Where("id = ? AND is_deleted = ?", id, 0).Updates(updates)
+	if result.Error != nil {
+		return fmt.Errorf("删除角色失败: %v", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("角色不存在或已被删除")
+	}
+
+	// 删除角色关联的权限
+	if _, err := p.enforcer.DeleteRole(role.Name); err != nil {
+		return fmt.Errorf("删除角色权限失败: %v", err)
+	}
+
 	return nil
 }
 
-// RemovePermission 移除指定用户的权限
-func (d *permissionDAO) RemovePermission(ctx context.Context, userName, path, method string) error {
-	userID, err := d.getUserIDByEmail(ctx, userName)
-	if err != nil {
-		return err
+func (p permissionDAO) ListRoles(ctx context.Context, page, pageSize int) ([]*Role, int, error) {
+	if page <= 0 || pageSize <= 0 {
+		return nil, 0, errors.New("无效的分页参数")
 	}
-	// 将 userID 转换为字符串
-	userIDStr := strconv.FormatInt(userID, 10)
-	ok, err := d.ce.RemovePolicy(userIDStr, path, method)
-	if err != nil {
-		d.l.Error("failed to remove policy", zap.Error(err))
-		return err
+
+	var roles []*Role
+	var total int64
+
+	db := p.db.WithContext(ctx).Model(&Role{}).Where("is_deleted = ?", 0)
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("获取角色总数失败: %v", err)
 	}
-	if !ok {
-		d.l.Error("policy does not exist", zap.Error(err))
-		return fmt.Errorf("policy does not exist for user %d, path %s, method %s", userID, path, method)
+
+	// 获取分页数据
+	offset := (page - 1) * pageSize
+	if err := db.Offset(offset).Limit(pageSize).Order("id ASC").Find(&roles).Error; err != nil {
+		return nil, 0, fmt.Errorf("获取角色列表失败: %v", err)
 	}
-	return nil
+
+	return roles, int(total), nil
 }
 
-// RemoveRoleFromUser 移除指定用户的角色
-func (d *permissionDAO) RemoveRoleFromUser(ctx context.Context, userName, roleName string) error {
-	userID, err := d.getUserIDByEmail(ctx, userName)
+func (p permissionDAO) AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error {
+	const batchSize = 1000
+
+	if roleId <= 0 {
+		return errors.New("无效的角色ID")
+	}
+
+	// 检查角色是否存在
+	role, err := p.GetRoleById(ctx, roleId)
 	if err != nil {
-		d.l.Error("failed to get user ID", zap.Error(err))
-		return err
+		return fmt.Errorf("获取角色失败: %v", err)
 	}
-	roleID, err := d.getUserIDByEmail(ctx, roleName)
-	if err != nil {
-		d.l.Error("failed to get role ID", zap.Error(err))
-		return err
+	if role == nil {
+		return errors.New("角色不存在")
 	}
-	// 将 userID 和 roleID 转换为字符串
-	userIDStr := strconv.FormatInt(userID, 10)
-	roleIDStr := strconv.FormatInt(roleID, 10)
-	// 移除用户的角色
-	ok, err := d.ce.RemoveGroupingPolicy(userIDStr, roleIDStr)
-	if err != nil {
-		d.l.Error("failed to remove role from user", zap.Error(err))
-		return err
-	}
-	if !ok {
-		d.l.Error("role not assigned to user", zap.Error(err))
-		return fmt.Errorf("role %s not assigned to user %s", roleName, userName)
-	}
-	return nil
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 删除原有的casbin规则
+		if _, err := p.enforcer.DeleteRolesForUser(role.Name); err != nil {
+			return fmt.Errorf("删除原有权限失败: %v", err)
+		}
+
+		// 添加菜单权限
+		if err := p.assignMenuPermissions(role.Name, menuIds, batchSize); err != nil {
+			return err
+		}
+
+		// 添加API权限
+		if err := p.assignAPIPermissions(ctx, role.Name, apiIds, batchSize); err != nil {
+			return err
+		}
+
+		// 加载最新的策略
+		if err := p.enforcer.LoadPolicy(); err != nil {
+			return fmt.Errorf("加载策略失败: %v", err)
+		}
+
+		return nil
+	})
 }
 
-// getUserIDByEmail 根据用户的邮箱获取用户ID
-func (d *permissionDAO) getUserIDByEmail(ctx context.Context, email string) (int64, error) {
-	var user User
-	if err := d.db.WithContext(ctx).Model(&User{}).Where("email = ?", email).Select("id").First(&user).Error; err != nil {
-		d.l.Error("failed to get user by email", zap.Error(err))
-		return 0, err
+func (p permissionDAO) AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
 	}
-	return user.ID, nil
+
+	if len(roleIds) == 0 {
+		return nil
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 获取角色信息
+		var roles []*Role
+		if err := tx.Where("id IN ? AND is_deleted = ?", roleIds, 0).Find(&roles).Error; err != nil {
+			return fmt.Errorf("获取角色信息失败: %v", err)
+		}
+
+		if len(roles) == 0 {
+			return errors.New("未找到有效的角色")
+		}
+
+		// 构建casbin规则
+		policies := make([][]string, 0, len(roles))
+		for _, role := range roles {
+			policies = append(policies, []string{fmt.Sprintf("%d", userId), role.Name})
+		}
+
+		// 添加用户角色关联
+		if _, err := p.enforcer.AddGroupingPolicies(policies); err != nil {
+			return fmt.Errorf("添加用户角色关联失败: %v", err)
+		}
+
+		// 加载最新的策略
+		if err := p.enforcer.LoadPolicy(); err != nil {
+			return fmt.Errorf("加载策略失败: %v", err)
+		}
+
+		return nil
+	})
+}
+
+func (p permissionDAO) RemoveUserPermissions(ctx context.Context, userId int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 移除用户所有角色关联
+		_, err := p.enforcer.RemoveFilteredGroupingPolicy(0, fmt.Sprintf("%d", userId))
+		if err != nil {
+			return fmt.Errorf("移除用户角色关联失败: %v", err)
+		}
+
+		// 刷新casbin策略
+		if err := p.enforcer.LoadPolicy(); err != nil {
+			return fmt.Errorf("刷新权限策略失败: %v", err)
+		}
+
+		return nil
+	})
+}
+
+func (p permissionDAO) RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	if len(roleIds) == 0 {
+		return nil
+	}
+
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 获取角色信息
+		var roles []*Role
+		if err := tx.Where("id IN ? AND is_deleted = ?", roleIds, 0).Find(&roles).Error; err != nil {
+			return fmt.Errorf("获取角色信息失败: %v", err)
+		}
+
+		if len(roles) == 0 {
+			return errors.New("未找到有效的角色")
+		}
+
+		// 构建需要移除的规则
+		policies := make([][]string, 0, len(roles))
+		for _, role := range roles {
+			policies = append(policies, []string{fmt.Sprintf("%d", userId), role.Name})
+		}
+
+		// 移除用户角色关联
+		if _, err := p.enforcer.RemoveGroupingPolicies(policies); err != nil {
+			return fmt.Errorf("移除用户角色关联失败: %v", err)
+		}
+
+		// 加载最新的策略
+		if err := p.enforcer.LoadPolicy(); err != nil {
+			return fmt.Errorf("加载策略失败: %v", err)
+		}
+
+		return nil
+	})
+}
+
+// assignMenuPermissions 分配菜单权限
+func (p permissionDAO) assignMenuPermissions(roleName string, menuIds []int, batchSize int) error {
+	if roleName == "" {
+		return errors.New("角色名称不能为空")
+	}
+
+	// 如果菜单ID列表为空,直接返回
+	if len(menuIds) == 0 {
+		return nil
+	}
+
+	// 构建casbin策略规则
+	policies := make([][]string, 0, len(menuIds))
+	for _, menuId := range menuIds {
+		if menuId <= 0 {
+			return fmt.Errorf("无效的菜单ID: %d", menuId)
+		}
+		policies = append(policies, []string{roleName, fmt.Sprintf("menu:%d", menuId), "read"})
+	}
+
+	// 批量添加策略
+	return p.batchAddPolicies(policies, batchSize)
+}
+
+// assignAPIPermissions 分配API权限
+func (p permissionDAO) assignAPIPermissions(ctx context.Context, roleName string, apiIds []int, batchSize int) error {
+	if roleName == "" {
+		return errors.New("角色名称不能为空")
+	}
+
+	// 如果API ID列表为空,直接返回
+	if len(apiIds) == 0 {
+		return nil
+	}
+
+	// HTTP方法映射表
+	methodMap := map[int]string{
+		1: "GET",
+		2: "POST",
+		3: "PUT",
+		4: "DELETE",
+		5: "PATCH",
+		6: "OPTIONS",
+		7: "HEAD",
+	}
+
+	// 构建casbin策略规则
+	policies := make([][]string, 0, len(apiIds))
+	for _, apiId := range apiIds {
+		if apiId <= 0 {
+			return fmt.Errorf("无效的API ID: %d", apiId)
+		}
+
+		// 获取API信息
+		api, err := p.GetApiById(ctx, apiId)
+		if err != nil {
+			return fmt.Errorf("获取API信息失败: %v", err)
+		}
+
+		if api == nil {
+			return fmt.Errorf("API不存在: %d", apiId)
+		}
+
+		// 获取HTTP方法
+		method, ok := methodMap[api.Method]
+		if !ok {
+			return fmt.Errorf("无效的HTTP方法: %d", api.Method)
+		}
+
+		policies = append(policies, []string{roleName, api.Path, method})
+	}
+
+	// 批量添加策略
+	return p.batchAddPolicies(policies, batchSize)
+}
+
+// batchAddPolicies 批量添加策略
+func (p permissionDAO) batchAddPolicies(policies [][]string, batchSize int) error {
+	if len(policies) == 0 {
+		return nil
+	}
+
+	if batchSize <= 0 {
+		return errors.New("无效的批次大小")
+	}
+
+	// 按批次处理策略规则
+	for i := 0; i < len(policies); i += batchSize {
+		end := i + batchSize
+		if end > len(policies) {
+			end = len(policies)
+		}
+
+		// 添加一批策略规则
+		if _, err := p.enforcer.AddPolicies(policies[i:end]); err != nil {
+			return fmt.Errorf("添加权限策略失败: %v", err)
+		}
+	}
+
+	// 加载最新的策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
 }

@@ -2,27 +2,45 @@ package repository
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"go.uber.org/zap"
 )
 
-// PermissionRepository 定义了权限仓库接口
 type PermissionRepository interface {
-	GetPermissions(ctx context.Context) ([]domain.Permission, error)                         // 获取权限列表
-	AssignPermission(ctx context.Context, userName string, path string, method string) error // 分配权限
-	AssignRoleToUser(ctx context.Context, userName, roleName string) error
-	RemovePermission(ctx context.Context, userName string, path string, method string) error // 移除权限
-	RemoveRoleFromUser(ctx context.Context, userName, roleName string) error
+	// 菜单管理
+	CreateMenu(ctx context.Context, menu *domain.Menu) error
+	GetMenuById(ctx context.Context, id int) (*domain.Menu, error)
+	UpdateMenu(ctx context.Context, menu *domain.Menu) error
+	DeleteMenu(ctx context.Context, id int) error
+	ListMenus(ctx context.Context, page, pageSize int) ([]*domain.Menu, int, error)
+	GetMenuTree(ctx context.Context) ([]*domain.Menu, error)
+
+	// API接口管理
+	CreateApi(ctx context.Context, api *domain.Api) error
+	GetApiById(ctx context.Context, id int) (*domain.Api, error)
+	UpdateApi(ctx context.Context, api *domain.Api) error
+	DeleteApi(ctx context.Context, id int) error
+	ListApis(ctx context.Context, page, pageSize int) ([]*domain.Api, int, error)
+
+	// 角色管理
+	CreateRole(ctx context.Context, role *domain.Role) error
+	GetRoleById(ctx context.Context, id int) (*domain.Role, error)
+	UpdateRole(ctx context.Context, role *domain.Role) error
+	DeleteRole(ctx context.Context, id int) error
+	ListRoles(ctx context.Context, page, pageSize int) ([]*domain.Role, int, error)
+	AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error
+	AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error
+	RemoveUserPermissions(ctx context.Context, userId int) error
+	RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error
 }
 
-// permissionRepository 是 PermissionRepository 的实现
 type permissionRepository struct {
-	l   *zap.Logger       // 日志记录器
-	dao dao.PermissionDAO // 数据库访问对象
+	l   *zap.Logger
+	dao dao.PermissionDAO
 }
 
-// NewPermissionRepository 创建一个新的 PermissionRepository
 func NewPermissionRepository(l *zap.Logger, dao dao.PermissionDAO) PermissionRepository {
 	return &permissionRepository{
 		l:   l,
@@ -30,41 +48,231 @@ func NewPermissionRepository(l *zap.Logger, dao dao.PermissionDAO) PermissionRep
 	}
 }
 
-// GetPermissions 获取指定用户的权限列表
-func (r *permissionRepository) GetPermissions(ctx context.Context) ([]domain.Permission, error) {
-	permissions, err := r.dao.GetPermissions(ctx)
+// 菜单管理
+func (r *permissionRepository) CreateMenu(ctx context.Context, menu *domain.Menu) error {
+	return r.dao.CreateMenu(ctx, r.menuToDAO(menu))
+}
+
+func (r *permissionRepository) GetMenuById(ctx context.Context, id int) (*domain.Menu, error) {
+	menu, err := r.dao.GetMenuById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return permissions, nil
+	return r.menuFromDAO(menu), nil
 }
 
-// AssignPermission 分配权限给指定用户
-func (r *permissionRepository) AssignPermission(ctx context.Context, userName string, path string, method string) error {
-	if err := r.dao.AssignPermission(ctx, userName, path, method); err != nil {
-		return err
-	}
-	return nil
+func (r *permissionRepository) UpdateMenu(ctx context.Context, menu *domain.Menu) error {
+	return r.dao.UpdateMenu(ctx, r.menuToDAO(menu))
 }
 
-func (r *permissionRepository) AssignRoleToUser(ctx context.Context, userName, roleName string) error {
-	if err := r.dao.AssignRoleToUser(ctx, userName, roleName); err != nil {
-		return err
-	}
-	return nil
+func (r *permissionRepository) DeleteMenu(ctx context.Context, id int) error {
+	return r.dao.DeleteMenu(ctx, id)
 }
 
-// RemovePermission 移除指定用户的权限
-func (r *permissionRepository) RemovePermission(ctx context.Context, userName string, path string, method string) error {
-	if err := r.dao.RemovePermission(ctx, userName, path, method); err != nil {
-		return err
+func (r *permissionRepository) ListMenus(ctx context.Context, page, pageSize int) ([]*domain.Menu, int, error) {
+	menus, total, err := r.dao.ListMenus(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, err
 	}
-	return nil
+	return r.menusFromDAO(menus), total, nil
 }
 
-func (r *permissionRepository) RemoveRoleFromUser(ctx context.Context, userName, roleName string) error {
-	if err := r.dao.RemoveRoleFromUser(ctx, userName, roleName); err != nil {
-		return err
+func (r *permissionRepository) GetMenuTree(ctx context.Context) ([]*domain.Menu, error) {
+	menus, err := r.dao.GetMenuTree(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return r.menusFromDAO(menus), nil
+}
+
+// API接口管理
+func (r *permissionRepository) CreateApi(ctx context.Context, api *domain.Api) error {
+	return r.dao.CreateApi(ctx, r.apiToDAO(api))
+}
+
+func (r *permissionRepository) GetApiById(ctx context.Context, id int) (*domain.Api, error) {
+	api, err := r.dao.GetApiById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return r.apiFromDAO(api), nil
+}
+
+func (r *permissionRepository) UpdateApi(ctx context.Context, api *domain.Api) error {
+	return r.dao.UpdateApi(ctx, r.apiToDAO(api))
+}
+
+func (r *permissionRepository) DeleteApi(ctx context.Context, id int) error {
+	return r.dao.DeleteApi(ctx, id)
+}
+
+func (r *permissionRepository) ListApis(ctx context.Context, page, pageSize int) ([]*domain.Api, int, error) {
+	apis, total, err := r.dao.ListApis(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return r.apisFromDAO(apis), total, nil
+}
+
+// 角色管理
+func (r *permissionRepository) CreateRole(ctx context.Context, role *domain.Role) error {
+	return r.dao.CreateRole(ctx, r.roleToDAO(role))
+}
+
+func (r *permissionRepository) GetRoleById(ctx context.Context, id int) (*domain.Role, error) {
+	role, err := r.dao.GetRoleById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return r.roleFromDAO(role), nil
+}
+
+func (r *permissionRepository) UpdateRole(ctx context.Context, role *domain.Role) error {
+	return r.dao.UpdateRole(ctx, r.roleToDAO(role))
+}
+
+func (r *permissionRepository) DeleteRole(ctx context.Context, id int) error {
+	return r.dao.DeleteRole(ctx, id)
+}
+
+func (r *permissionRepository) ListRoles(ctx context.Context, page, pageSize int) ([]*domain.Role, int, error) {
+	roles, total, err := r.dao.ListRoles(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return r.rolesFromDAO(roles), total, nil
+}
+
+func (r *permissionRepository) AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error {
+	return r.dao.AssignPermissions(ctx, roleId, menuIds, apiIds)
+}
+
+func (r *permissionRepository) AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error {
+	return r.dao.AssignRoleToUser(ctx, userId, roleIds)
+}
+
+func (r *permissionRepository) RemoveUserPermissions(ctx context.Context, userId int) error {
+	return r.dao.RemoveUserPermissions(ctx, userId)
+}
+
+func (r *permissionRepository) RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error {
+	return r.dao.RemoveRoleFromUser(ctx, userId, roleIds)
+}
+
+// Menu转换方法
+func (r *permissionRepository) menuToDAO(menu *domain.Menu) *dao.Menu {
+	return &dao.Menu{
+		ID:         menu.ID,
+		Name:       menu.Name,
+		ParentID:   menu.ParentID,
+		Path:       menu.Path,
+		Component:  menu.Component,
+		Icon:       menu.Icon,
+		SortOrder:  menu.SortOrder,
+		RouteName:  menu.RouteName,
+		Hidden:     menu.Hidden,
+		CreateTime: menu.CreateTime,
+		UpdateTime: menu.UpdateTime,
+		IsDeleted:  menu.IsDeleted,
+	}
+}
+
+func (r *permissionRepository) menuFromDAO(menu *dao.Menu) *domain.Menu {
+	return &domain.Menu{
+		ID:         menu.ID,
+		Name:       menu.Name,
+		ParentID:   menu.ParentID,
+		Path:       menu.Path,
+		Component:  menu.Component,
+		Icon:       menu.Icon,
+		SortOrder:  menu.SortOrder,
+		RouteName:  menu.RouteName,
+		Hidden:     menu.Hidden,
+		CreateTime: menu.CreateTime,
+		UpdateTime: menu.UpdateTime,
+		IsDeleted:  menu.IsDeleted,
+	}
+}
+
+func (r *permissionRepository) menusFromDAO(menus []*dao.Menu) []*domain.Menu {
+	var result []*domain.Menu
+	for _, m := range menus {
+		result = append(result, r.menuFromDAO(m))
+	}
+	return result
+}
+
+// Api转换方法
+func (r *permissionRepository) apiToDAO(api *domain.Api) *dao.Api {
+	return &dao.Api{
+		ID:          api.ID,
+		Name:        api.Name,
+		Path:        api.Path,
+		Method:      api.Method,
+		Description: api.Description,
+		Version:     api.Version,
+		Category:    api.Category,
+		IsPublic:    api.IsPublic,
+		CreateTime:  api.CreateTime,
+		UpdateTime:  api.UpdateTime,
+		IsDeleted:   api.IsDeleted,
+	}
+}
+
+func (r *permissionRepository) apiFromDAO(api *dao.Api) *domain.Api {
+	return &domain.Api{
+		ID:          api.ID,
+		Name:        api.Name,
+		Path:        api.Path,
+		Method:      api.Method,
+		Description: api.Description,
+		Version:     api.Version,
+		Category:    api.Category,
+		IsPublic:    api.IsPublic,
+		CreateTime:  api.CreateTime,
+		UpdateTime:  api.UpdateTime,
+		IsDeleted:   api.IsDeleted,
+	}
+}
+
+func (r *permissionRepository) apisFromDAO(apis []*dao.Api) []*domain.Api {
+	var result []*domain.Api
+	for _, a := range apis {
+		result = append(result, r.apiFromDAO(a))
+	}
+	return result
+}
+
+// Role转换方法
+func (r *permissionRepository) roleToDAO(role *domain.Role) *dao.Role {
+	return &dao.Role{
+		ID:          role.ID,
+		Name:        role.Name,
+		Description: role.Description,
+		RoleType:    role.RoleType,
+		IsDefault:   role.IsDefault,
+		CreateTime:  role.CreateTime,
+		UpdateTime:  role.UpdateTime,
+		IsDeleted:   role.IsDeleted,
+	}
+}
+
+func (r *permissionRepository) roleFromDAO(role *dao.Role) *domain.Role {
+	return &domain.Role{
+		ID:          role.ID,
+		Name:        role.Name,
+		Description: role.Description,
+		RoleType:    role.RoleType,
+		IsDefault:   role.IsDefault,
+		CreateTime:  role.CreateTime,
+		UpdateTime:  role.UpdateTime,
+		IsDeleted:   role.IsDeleted,
+	}
+}
+func (r *permissionRepository) rolesFromDAO(roles []*dao.Role) []*domain.Role {
+	var result []*domain.Role
+	for _, role := range roles {
+		result = append(result, r.roleFromDAO(role))
+	}
+	return result
 }
