@@ -58,7 +58,7 @@ type User struct {
 // Profile 用户资料信息模型
 type Profile struct {
 	ID       int64  `gorm:"primaryKey;autoIncrement"`
-	UserID   int64  `gorm:"not null;index;uniqueIndex"`
+	UserID   int64  `gorm:"not null;index"`
 	RealName string `gorm:"size:50"`
 	Avatar   string `gorm:"type:text"`
 	About    string `gorm:"type:text"`
