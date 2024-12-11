@@ -10,7 +10,7 @@ import (
 
 type PermissionService interface {
 	// 菜单管理
-	GetMenus(ctx context.Context, pageNum, pageSize int) ([]*domain.Menu, int, error)
+	GetMenus(ctx context.Context, pageNum, pageSize int, isTree bool) ([]*domain.Menu, int, error)
 	CreateMenu(ctx context.Context, menu *domain.Menu) error
 	GetMenuById(ctx context.Context, id int) (*domain.Menu, error)
 	UpdateMenu(ctx context.Context, menu *domain.Menu) error
@@ -31,9 +31,14 @@ type PermissionService interface {
 	DeleteRole(ctx context.Context, id int) error
 	ListRoles(ctx context.Context, page, pageSize int) ([]*domain.Role, int, error)
 	AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error
+	AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error
+	AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error
 	AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error
-	RemoveUserPermissions(ctx context.Context, userId int) error
 	RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error
+	RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error
+	RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error
+	RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error
+	RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error
 }
 
 type permissionService struct {
@@ -49,10 +54,19 @@ func NewPermissionService(repo repository.PermissionRepository, l *zap.Logger) P
 }
 
 // 菜单管理
-func (s *permissionService) GetMenus(ctx context.Context, pageNum, pageSize int) ([]*domain.Menu, int, error) {
+func (s *permissionService) GetMenus(ctx context.Context, pageNum, pageSize int, isTree bool) ([]*domain.Menu, int, error) {
 	if pageNum < 1 || pageSize < 1 {
 		s.l.Warn("分页参数无效", zap.Int("页码", pageNum), zap.Int("每页数量", pageSize))
 		return nil, 0, nil
+	}
+
+	if isTree {
+		menus, err := s.repo.GetMenuTree(ctx)
+		if err != nil {
+			s.l.Error("获取菜单树失败", zap.Error(err))
+			return nil, 0, err
+		}
+		return menus, len(menus), nil
 	}
 
 	return s.repo.ListMenus(ctx, pageNum, pageSize)
@@ -199,6 +213,24 @@ func (s *permissionService) AssignPermissions(ctx context.Context, roleId int, m
 	return s.repo.AssignPermissions(ctx, roleId, menuIds, apiIds)
 }
 
+func (s *permissionService) AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error {
+	if userId <= 0 {
+		s.l.Warn("用户ID无效", zap.Int("userId", userId))
+		return nil
+	}
+
+	return s.repo.AssignApiPermissionsToUser(ctx, userId, apiIds)
+}
+
+func (s *permissionService) AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error {
+	if userId <= 0 {
+		s.l.Warn("用户ID无效", zap.Int("userId", userId))
+		return nil
+	}
+
+	return s.repo.AssignMenuPermissionsToUser(ctx, userId, menuIds)
+}
+
 func (s *permissionService) AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error {
 	if userId <= 0 {
 		s.l.Warn("用户ID无效", zap.Int("userId", userId))
@@ -208,15 +240,6 @@ func (s *permissionService) AssignRoleToUser(ctx context.Context, userId int, ro
 	return s.repo.AssignRoleToUser(ctx, userId, roleIds)
 }
 
-func (s *permissionService) RemoveUserPermissions(ctx context.Context, userId int) error {
-	if userId <= 0 {
-		s.l.Warn("用户ID无效", zap.Int("userId", userId))
-		return nil
-	}
-
-	return s.repo.RemoveUserPermissions(ctx, userId)
-}
-
 func (s *permissionService) RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error {
 	if userId <= 0 {
 		s.l.Warn("用户ID无效", zap.Int("userId", userId))
@@ -224,4 +247,40 @@ func (s *permissionService) RemoveRoleFromUser(ctx context.Context, userId int, 
 	}
 
 	return s.repo.RemoveRoleFromUser(ctx, userId, roleIds)
+}
+
+func (s *permissionService) RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error {
+	if userId <= 0 {
+		s.l.Warn("用户ID无效", zap.Int("userId", userId))
+		return nil
+	}
+
+	return s.repo.RemoveUserApiPermissions(ctx, userId, apiIds)
+}
+
+func (s *permissionService) RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error {
+	if userId <= 0 {
+		s.l.Warn("用户ID无效", zap.Int("userId", userId))
+		return nil
+	}
+
+	return s.repo.RemoveUserMenuPermissions(ctx, userId, menuIds)
+}
+
+func (s *permissionService) RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error {
+	if len(roleIds) == 0 || len(apiIds) == 0 {
+		s.l.Warn("角色ID或API ID无效", zap.Ints("roleIds", roleIds), zap.Ints("apiIds", apiIds))
+		return nil
+	}
+
+	return s.repo.RemoveRoleApiPermissions(ctx, roleIds, apiIds)
+}
+
+func (s *permissionService) RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error {
+	if len(roleIds) == 0 || len(menuIds) == 0 {
+		s.l.Warn("角色ID或菜单ID无效", zap.Ints("roleIds", roleIds), zap.Ints("menuIds", menuIds))
+		return nil
+	}
+
+	return s.repo.RemoveRoleMenuPermissions(ctx, roleIds, menuIds)
 }
