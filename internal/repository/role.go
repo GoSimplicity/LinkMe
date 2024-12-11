@@ -31,9 +31,14 @@ type PermissionRepository interface {
 	DeleteRole(ctx context.Context, id int) error
 	ListRoles(ctx context.Context, page, pageSize int) ([]*domain.Role, int, error)
 	AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error
+	AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error
+	AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error
 	AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error
-	RemoveUserPermissions(ctx context.Context, userId int) error
+	RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error
+	RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error
 	RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error
+	RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error
+	RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error
 }
 
 type permissionRepository struct {
@@ -147,16 +152,36 @@ func (r *permissionRepository) AssignPermissions(ctx context.Context, roleId int
 	return r.dao.AssignPermissions(ctx, roleId, menuIds, apiIds)
 }
 
+func (r *permissionRepository) AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error {
+	return r.dao.AssignApiPermissionsToUser(ctx, userId, apiIds)
+}
+
+func (r *permissionRepository) AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error {
+	return r.dao.AssignMenuPermissionsToUser(ctx, userId, menuIds)
+}
+
 func (r *permissionRepository) AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error {
 	return r.dao.AssignRoleToUser(ctx, userId, roleIds)
 }
 
-func (r *permissionRepository) RemoveUserPermissions(ctx context.Context, userId int) error {
-	return r.dao.RemoveUserPermissions(ctx, userId)
-}
-
 func (r *permissionRepository) RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error {
 	return r.dao.RemoveRoleFromUser(ctx, userId, roleIds)
+}
+
+func (r *permissionRepository) RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error {
+	return r.dao.RemoveUserApiPermissions(ctx, userId, apiIds)
+}
+
+func (r *permissionRepository) RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error {
+	return r.dao.RemoveUserMenuPermissions(ctx, userId, menuIds)
+}
+
+func (r *permissionRepository) RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error {
+	return r.dao.RemoveRoleApiPermissions(ctx, roleIds, apiIds)
+}
+
+func (r *permissionRepository) RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error {
+	return r.dao.RemoveRoleMenuPermissions(ctx, roleIds, menuIds)
 }
 
 // Menu转换方法
@@ -186,6 +211,7 @@ func (r *permissionRepository) menuFromDAO(menu *dao.Menu) *domain.Menu {
 		Component:  menu.Component,
 		Icon:       menu.Icon,
 		SortOrder:  menu.SortOrder,
+		Children:   r.menusFromDAO(menu.Children),
 		RouteName:  menu.RouteName,
 		Hidden:     menu.Hidden,
 		CreateTime: menu.CreateTime,
@@ -269,6 +295,7 @@ func (r *permissionRepository) roleFromDAO(role *dao.Role) *domain.Role {
 		IsDeleted:   role.IsDeleted,
 	}
 }
+
 func (r *permissionRepository) rolesFromDAO(roles []*dao.Role) []*domain.Role {
 	var result []*domain.Role
 	for _, role := range roles {

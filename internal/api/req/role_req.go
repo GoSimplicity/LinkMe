@@ -121,3 +121,33 @@ type RemoveRoleFromUserRequest struct {
 type RemoveUserPermissionsRequest struct {
 	UserId int `json:"user_id" binding:"required,gt=0"` // 用户ID
 }
+
+type RemoveRoleApiPermissionsRequest struct {
+	RoleIds []int `json:"role_ids" binding:"required"` // 角色ID列表
+	ApiIds  []int `json:"api_ids" binding:"required"`  // API ID列表
+}
+
+type RemoveRoleMenuPermissionsRequest struct {
+	RoleIds []int `json:"role_ids" binding:"required"` // 角色ID列表
+	MenuIds []int `json:"menu_ids" binding:"required"` // 菜单ID列表
+}
+
+type RemoveUserApiPermissionsRequest struct {
+	UserId int   `json:"user_id" binding:"required,gt=0"` // 用户ID
+	ApiIds []int `json:"api_ids" binding:"required"`      // API ID列表
+}
+
+type RemoveUserMenuPermissionsRequest struct {
+	UserId  int   `json:"user_id" binding:"required,gt=0"` // 用户ID
+	MenuIds []int `json:"menu_ids" binding:"required"`     // 菜单ID列表
+}
+
+type AssignApiPermissionsToUserRequest struct {
+	UserId int   `json:"user_id" binding:"required,gt=0"` // 用户ID
+	ApiIds []int `json:"api_ids" binding:"required"`      // API ID列表
+}
+
+type AssignMenuPermissionsToUserRequest struct {
+	UserId  int   `json:"user_id" binding:"required,gt=0"` // 用户ID
+	MenuIds []int `json:"menu_ids" binding:"required"`     // 菜单ID列表
+}

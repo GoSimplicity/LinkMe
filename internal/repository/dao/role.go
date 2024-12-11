@@ -90,8 +90,13 @@ type PermissionDAO interface {
 	ListRoles(ctx context.Context, page, pageSize int) ([]*Role, int, error)
 	AssignPermissions(ctx context.Context, roleId int, menuIds []int, apiIds []int) error
 	AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error
-	RemoveUserPermissions(ctx context.Context, userId int) error
+	AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error
+	AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error
+	RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error
+	RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error
 	RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error
+	RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error
+	RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error
 }
 
 // permissionDAO 是 PermissionDAO 的实现
@@ -271,16 +276,23 @@ func (p permissionDAO) GetMenuTree(ctx context.Context) ([]*Menu, error) {
 	menuMap := make(map[int64]*Menu, len(menus))
 	rootMenus := make([]*Menu, 0, len(menus)/3)
 
-	// 单次遍历构建树形结构
+	// 第一次遍历,建立ID到菜单的映射
 	for _, menu := range menus {
-		// 初始化Children切片
 		menu.Children = make([]*Menu, 0, 4)
 		menuMap[menu.ID] = menu
+	}
 
+	// 第二次遍历,构建树形结构
+	for _, menu := range menus {
 		if menu.ParentID == 0 {
 			rootMenus = append(rootMenus, menu)
-		} else if parent, exists := menuMap[menu.ParentID]; exists {
-			parent.Children = append(parent.Children, menu)
+		} else {
+			if parent, exists := menuMap[menu.ParentID]; exists {
+				parent.Children = append(parent.Children, menu)
+			} else {
+				// 如果找不到父节点,作为根节点处理
+				rootMenus = append(rootMenus, menu)
+			}
 		}
 	}
 
@@ -557,6 +569,94 @@ func (p permissionDAO) AssignPermissions(ctx context.Context, roleId int, menuId
 	})
 }
 
+// AssignApiPermissionsToUser 添加用户api权限
+func (p *permissionDAO) AssignApiPermissionsToUser(ctx context.Context, userId int, apiIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	if len(apiIds) == 0 {
+		return nil
+	}
+
+	// 查询API信息
+	var apis []*Api
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", apiIds, DeletedNo).Find(&apis).Error; err != nil {
+		return fmt.Errorf("查询API失败: %v", err)
+	}
+
+	if len(apis) == 0 {
+		return errors.New("未找到有效的API")
+	}
+
+	userStr := fmt.Sprintf("%d", userId)
+
+	// 构建需要添加的策略
+	var policies [][]string
+	methodMap := map[int]string{1: "GET", 2: "POST", 3: "PUT", 4: "DELETE", 5: "PATCH", 6: "OPTIONS", 7: "HEAD"}
+
+	for _, api := range apis {
+		method, ok := methodMap[api.Method]
+		if !ok {
+			return fmt.Errorf("无效的HTTP方法: %d", api.Method)
+		}
+		policies = append(policies, []string{userStr, api.Path, method})
+	}
+
+	// 批量添加策略
+	if _, err := p.enforcer.AddPolicies(policies); err != nil {
+		return fmt.Errorf("添加权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
+}
+
+// AssignMenuPermissionsToUser 添加用户菜单权限
+func (p *permissionDAO) AssignMenuPermissionsToUser(ctx context.Context, userId int, menuIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	if len(menuIds) == 0 {
+		return nil
+	}
+
+	// 查询菜单信息
+	var menus []*Menu
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", menuIds, DeletedNo).Find(&menus).Error; err != nil {
+		return fmt.Errorf("查询菜单失败: %v", err)
+	}
+
+	if len(menus) == 0 {
+		return errors.New("未找到有效的菜单")
+	}
+
+	userStr := fmt.Sprintf("%d", userId)
+
+	// 构建需要添加的策略
+	var policies [][]string
+	for _, menu := range menus {
+		policies = append(policies, []string{userStr, fmt.Sprintf("menu:%d", menu.ID), "read"})
+	}
+
+	// 批量添加策略
+	if _, err := p.enforcer.AddPolicies(policies); err != nil {
+		return fmt.Errorf("添加权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
+}
+
 func (p permissionDAO) AssignRoleToUser(ctx context.Context, userId int, roleIds []int) error {
 	if userId <= 0 {
 		return errors.New("无效的用户ID")
@@ -597,27 +697,7 @@ func (p permissionDAO) AssignRoleToUser(ctx context.Context, userId int, roleIds
 	})
 }
 
-func (p permissionDAO) RemoveUserPermissions(ctx context.Context, userId int) error {
-	if userId <= 0 {
-		return errors.New("无效的用户ID")
-	}
-
-	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 移除用户所有角色关联
-		_, err := p.enforcer.RemoveFilteredGroupingPolicy(0, fmt.Sprintf("%d", userId))
-		if err != nil {
-			return fmt.Errorf("移除用户角色关联失败: %v", err)
-		}
-
-		// 刷新casbin策略
-		if err := p.enforcer.LoadPolicy(); err != nil {
-			return fmt.Errorf("刷新权限策略失败: %v", err)
-		}
-
-		return nil
-	})
-}
-
+// RemoveRoleFromUser 移除用户角色
 func (p permissionDAO) RemoveRoleFromUser(ctx context.Context, userId int, roleIds []int) error {
 	if userId <= 0 {
 		return errors.New("无效的用户ID")
@@ -630,7 +710,7 @@ func (p permissionDAO) RemoveRoleFromUser(ctx context.Context, userId int, roleI
 	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 获取角色信息
 		var roles []*Role
-		if err := tx.Where("id IN ? AND is_deleted = ?", roleIds, 0).Find(&roles).Error; err != nil {
+		if err := tx.Where("id IN ? AND is_deleted = ?", roleIds, DeletedNo).Find(&roles).Error; err != nil {
 			return fmt.Errorf("获取角色信息失败: %v", err)
 		}
 
@@ -641,7 +721,19 @@ func (p permissionDAO) RemoveRoleFromUser(ctx context.Context, userId int, roleI
 		// 构建需要移除的规则
 		policies := make([][]string, 0, len(roles))
 		for _, role := range roles {
-			policies = append(policies, []string{fmt.Sprintf("%d", userId), role.Name})
+			// 检查用户是否拥有该角色
+			hasRole, err := p.enforcer.HasGroupingPolicy(fmt.Sprintf("%d", userId), role.Name)
+			if err != nil {
+				return fmt.Errorf("检查用户角色失败: %v", err)
+			}
+			if hasRole {
+				policies = append(policies, []string{fmt.Sprintf("%d", userId), role.Name})
+			}
+		}
+
+		// 如果没有需要移除的规则,直接返回
+		if len(policies) == 0 {
+			return nil
 		}
 
 		// 移除用户角色关联
@@ -656,6 +748,190 @@ func (p permissionDAO) RemoveRoleFromUser(ctx context.Context, userId int, roleI
 
 		return nil
 	})
+}
+
+// RemoveUserApiPermissions 移除用户api权限
+func (p *permissionDAO) RemoveUserApiPermissions(ctx context.Context, userId int, apiIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	if len(apiIds) == 0 {
+		return nil
+	}
+
+	// 查询API信息
+	var apis []*Api
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", apiIds, DeletedNo).Find(&apis).Error; err != nil {
+		return fmt.Errorf("查询API失败: %v", err)
+	}
+
+	if len(apis) == 0 {
+		return errors.New("未找到有效的API")
+	}
+
+	// 构建需要移除的策略
+	var policies [][]string
+	methodMap := map[int]string{1: "GET", 2: "POST", 3: "PUT", 4: "DELETE", 5: "PATCH", 6: "OPTIONS", 7: "HEAD"}
+
+	for _, api := range apis {
+		method, ok := methodMap[api.Method]
+		if !ok {
+			return fmt.Errorf("无效的HTTP方法: %d", api.Method)
+		}
+		policies = append(policies, []string{fmt.Sprintf("%d", userId), api.Path, method})
+	}
+
+	// 批量移除策略
+	if _, err := p.enforcer.RemovePolicies(policies); err != nil {
+		return fmt.Errorf("移除权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveUserMenuPermissions 移除用户菜单权限
+func (p *permissionDAO) RemoveUserMenuPermissions(ctx context.Context, userId int, menuIds []int) error {
+	if userId <= 0 {
+		return errors.New("无效的用户ID")
+	}
+
+	if len(menuIds) == 0 {
+		return nil
+	}
+
+	// 查询菜单信息
+	var menus []*Menu
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", menuIds, DeletedNo).Find(&menus).Error; err != nil {
+		return fmt.Errorf("查询菜单失败: %v", err)
+	}
+
+	if len(menus) == 0 {
+		return errors.New("未找到有效的菜单")
+	}
+
+	// 构建需要移除的策略
+	var policies [][]string
+	for _, menu := range menus {
+		policies = append(policies, []string{fmt.Sprintf("%d", userId), fmt.Sprintf("menu:%d", menu.ID), "read"})
+	}
+
+	// 批量移除策略
+	if _, err := p.enforcer.RemovePolicies(policies); err != nil {
+		return fmt.Errorf("移除权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveRoleApiPermissions 批量移除角色对应api权限
+func (p *permissionDAO) RemoveRoleApiPermissions(ctx context.Context, roleIds []int, apiIds []int) error {
+	if len(roleIds) == 0 || len(apiIds) == 0 {
+		return nil
+	}
+
+	// 查询角色名称
+	var roles []*Role
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", roleIds, DeletedNo).Find(&roles).Error; err != nil {
+		return fmt.Errorf("查询角色失败: %v", err)
+	}
+
+	if len(roles) == 0 {
+		return errors.New("未找到有效的角色")
+	}
+
+	// 查询API信息
+	var apis []*Api
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", apiIds, DeletedNo).Find(&apis).Error; err != nil {
+		return fmt.Errorf("查询API失败: %v", err)
+	}
+
+	if len(apis) == 0 {
+		return errors.New("未找到有效的API")
+	}
+
+	// 构建需要移除的策略
+	var policies [][]string
+	methodMap := map[int]string{1: "GET", 2: "POST", 3: "PUT", 4: "DELETE"}
+
+	for _, role := range roles {
+		for _, api := range apis {
+			method, ok := methodMap[api.Method]
+			if !ok {
+				return fmt.Errorf("无效的HTTP方法: %d", api.Method)
+			}
+			policies = append(policies, []string{role.Name, api.Path, method})
+		}
+	}
+
+	// 批量移除策略
+	if _, err := p.enforcer.RemovePolicies(policies); err != nil {
+		return fmt.Errorf("移除权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveRoleMenuPermissions 批量移除角色对应菜单权限
+func (p *permissionDAO) RemoveRoleMenuPermissions(ctx context.Context, roleIds []int, menuIds []int) error {
+	if len(roleIds) == 0 || len(menuIds) == 0 {
+		return nil
+	}
+
+	// 查询角色名称
+	var roles []*Role
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", roleIds, DeletedNo).Find(&roles).Error; err != nil {
+		return fmt.Errorf("查询角色失败: %v", err)
+	}
+
+	if len(roles) == 0 {
+		return errors.New("未找到有效的角色")
+	}
+
+	// 查询菜单信息
+	var menus []*Menu
+	if err := p.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", menuIds, DeletedNo).Find(&menus).Error; err != nil {
+		return fmt.Errorf("查询菜单失败: %v", err)
+	}
+
+	if len(menus) == 0 {
+		return errors.New("未找到有效的菜单")
+	}
+
+	// 构建需要移除的策略
+	var policies [][]string
+	for _, role := range roles {
+		for _, menu := range menus {
+			policies = append(policies, []string{role.Name, fmt.Sprintf("menu:%d", menu.ID), "read"})
+		}
+	}
+
+	// 批量移除策略
+	if _, err := p.enforcer.RemovePolicies(policies); err != nil {
+		return fmt.Errorf("移除权限策略失败: %v", err)
+	}
+
+	// 重新加载策略
+	if err := p.enforcer.LoadPolicy(); err != nil {
+		return fmt.Errorf("加载策略失败: %v", err)
+	}
+
+	return nil
 }
 
 // assignMenuPermissions 分配菜单权限

@@ -27,28 +27,32 @@ func (h *PermissionHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup := server.Group("/api/permissions")
 
 	// 菜单管理
-	permissionGroup.POST("/menus/list", h.ListMenus)   
-	permissionGroup.POST("/menu/create", h.CreateMenu) 
-	permissionGroup.POST("/menu/update", h.UpdateMenu) 
-	permissionGroup.DELETE("/menu/:id", h.DeleteMenu)  
+	permissionGroup.POST("/menus/list", h.ListMenus)
+	permissionGroup.POST("/menu/create", h.CreateMenu)
+	permissionGroup.POST("/menu/update", h.UpdateMenu)
+	permissionGroup.DELETE("/menu/:id", h.DeleteMenu)
 
 	// API接口管理
-	permissionGroup.POST("/api/list", h.ListApis)    
-	permissionGroup.POST("/api/create", h.CreateAPI) 
-	permissionGroup.POST("/api/update", h.UpdateAPI) 
-	permissionGroup.DELETE("/api/:id", h.DeleteAPI)  
+	permissionGroup.POST("/api/list", h.ListApis)
+	permissionGroup.POST("/api/create", h.CreateAPI)
+	permissionGroup.POST("/api/update", h.UpdateAPI)
+	permissionGroup.DELETE("/api/:id", h.DeleteAPI)
 
 	// 角色管理
-	permissionGroup.POST("/role/list", h.ListRoles)    
-	permissionGroup.POST("/role/create", h.CreateRole) 
-	permissionGroup.POST("/role/update", h.UpdateRole) 
-	permissionGroup.DELETE("/role/:id", h.DeleteRole)  
+	permissionGroup.POST("/role/list", h.ListRoles)
+	permissionGroup.POST("/role/create", h.CreateRole)
+	permissionGroup.POST("/role/update", h.UpdateRole)
+	permissionGroup.DELETE("/role/:id", h.DeleteRole)
 
-	// 权限分配
-	permissionGroup.POST("/assign/permissions", h.AssignPermissions)     
-	permissionGroup.POST("/assign/role", h.AssignRoleToUser)            
-	permissionGroup.POST("/remove/permissions", h.RemoveUserPermissions) 
-	permissionGroup.POST("/remove/role", h.RemoveRoleFromUser)          
+	permissionGroup.POST("/assign/role/permissions", h.AssignPermissions)    // 分配权限
+	permissionGroup.POST("/assign/user/api", h.AssignApiPermissionsToUser)   // 分配用户API权限
+	permissionGroup.POST("/assign/user/menu", h.AssignMenuPermissionsToUser) // 分配用户菜单权限
+	permissionGroup.POST("/assign/user/role", h.AssignRoleToUser)            // 分配角色
+	permissionGroup.DELETE("/remove/user/role", h.RemoveRoleFromUser)        // 移除用户角色
+	permissionGroup.DELETE("/remove/user/api", h.RemoveUserApiPermissions)   // 移除用户API权限
+	permissionGroup.DELETE("/remove/user/menu", h.RemoveUserMenuPermissions) // 移除用户菜单权限
+	permissionGroup.DELETE("/remove/role/api", h.RemoveRoleApiPermissions)   // 移除角色API权限
+	permissionGroup.DELETE("/remove/role/menu", h.RemoveRoleMenuPermissions) // 移除角色菜单权限
 }
 
 // 菜单管理
@@ -60,7 +64,7 @@ func (h *PermissionHandler) ListMenus(c *gin.Context) {
 		return
 	}
 
-	menus, total, err := h.svc.GetMenus(c.Request.Context(), r.PageNumber, r.PageSize)
+	menus, total, err := h.svc.GetMenus(c.Request.Context(), r.PageNumber, r.PageSize, r.IsTree)
 	if err != nil {
 		h.l.Error("获取菜单列表失败", zap.Error(err))
 		apiresponse.Error(c)
@@ -359,6 +363,40 @@ func (h *PermissionHandler) AssignPermissions(c *gin.Context) {
 	apiresponse.Success(c)
 }
 
+func (h *PermissionHandler) AssignApiPermissionsToUser(c *gin.Context) {
+	var r req.AssignApiPermissionsToUserRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.AssignApiPermissionsToUser(c.Request.Context(), r.UserId, r.ApiIds); err != nil {
+		h.l.Error("分配API权限失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
+func (h *PermissionHandler) AssignMenuPermissionsToUser(c *gin.Context) {
+	var r req.AssignMenuPermissionsToUserRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.AssignMenuPermissionsToUser(c.Request.Context(), r.UserId, r.MenuIds); err != nil {
+		h.l.Error("分配菜单权限失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
 func (h *PermissionHandler) AssignRoleToUser(c *gin.Context) {
 	var r req.AssignRoleToUserRequest
 	if err := c.ShouldBindJSON(&r); err != nil {
@@ -376,23 +414,6 @@ func (h *PermissionHandler) AssignRoleToUser(c *gin.Context) {
 	apiresponse.Success(c)
 }
 
-func (h *PermissionHandler) RemoveUserPermissions(c *gin.Context) {
-	var r req.RemoveUserPermissionsRequest
-	if err := c.ShouldBindJSON(&r); err != nil {
-		h.l.Error("绑定请求参数失败", zap.Error(err))
-		apiresponse.Error(c)
-		return
-	}
-
-	if err := h.svc.RemoveUserPermissions(c.Request.Context(), r.UserId); err != nil {
-		h.l.Error("移除用户权限失败", zap.Error(err))
-		apiresponse.Error(c)
-		return
-	}
-
-	apiresponse.Success(c)
-}
-
 func (h *PermissionHandler) RemoveRoleFromUser(c *gin.Context) {
 	var r req.RemoveRoleFromUserRequest
 	if err := c.ShouldBindJSON(&r); err != nil {
@@ -403,6 +424,74 @@ func (h *PermissionHandler) RemoveRoleFromUser(c *gin.Context) {
 
 	if err := h.svc.RemoveRoleFromUser(c.Request.Context(), r.UserId, r.RoleIds); err != nil {
 		h.l.Error("移除用户角色失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
+func (h *PermissionHandler) RemoveUserApiPermissions(c *gin.Context) {
+	var r req.RemoveUserApiPermissionsRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.RemoveUserApiPermissions(c.Request.Context(), r.UserId, r.ApiIds); err != nil {
+		h.l.Error("移除用户API权限失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
+func (h *PermissionHandler) RemoveUserMenuPermissions(c *gin.Context) {
+	var r req.RemoveUserMenuPermissionsRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.RemoveUserMenuPermissions(c.Request.Context(), r.UserId, r.MenuIds); err != nil {
+		h.l.Error("移除用户菜单权限失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
+func (h *PermissionHandler) RemoveRoleApiPermissions(c *gin.Context) {
+	var r req.RemoveRoleApiPermissionsRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.RemoveRoleApiPermissions(c.Request.Context(), r.RoleIds, r.ApiIds); err != nil {
+		h.l.Error("移除角色API权限失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	apiresponse.Success(c)
+}
+
+func (h *PermissionHandler) RemoveRoleMenuPermissions(c *gin.Context) {
+	var r req.RemoveRoleMenuPermissionsRequest
+	if err := c.ShouldBindJSON(&r); err != nil {
+		h.l.Error("绑定请求参数失败", zap.Error(err))
+		apiresponse.Error(c)
+		return
+	}
+
+	if err := h.svc.RemoveRoleMenuPermissions(c.Request.Context(), r.RoleIds, r.MenuIds); err != nil {
+		h.l.Error("移除角色菜单权限失败", zap.Error(err))
 		apiresponse.Error(c)
 		return
 	}
