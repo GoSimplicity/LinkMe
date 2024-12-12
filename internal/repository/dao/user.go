@@ -2,7 +2,9 @@ package dao
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
@@ -53,6 +55,7 @@ type User struct {
 	Email        string  `gorm:"type:varchar(100)"`
 	Phone        *string `gorm:"type:varchar(15);uniqueIndex"`
 	Profile      Profile `gorm:"foreignKey:UserID;references:ID"`
+	Roles        string  `gorm:"column:roles;type:json;comment:用户角色ID列表"`
 }
 
 // Profile 用户资料信息模型
@@ -229,23 +232,88 @@ func (ud *userDAO) GetProfileByUserID(ctx context.Context, userId int64) (domain
 }
 
 func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error) {
-	var usersWithProfiles []domain.UserWithProfile
+	if pagination.Size == nil || pagination.Offset == nil {
+		return nil, errors.New("分页参数不能为空")
+	}
+
 	intSize := int(*pagination.Size)
 	intOffset := int(*pagination.Offset)
 
-	err := ud.db.WithContext(ctx).
+	// 定义查询结果结构
+	type userResult struct {
+		ID           int64   `json:"id"`
+		PasswordHash string  `json:"password_hash"`
+		Deleted      bool    `json:"deleted"`
+		Username     string  `json:"username"`
+		Phone        *string `json:"phone"`
+		ProfileID    int64   `json:"profile_id"`
+		UserID       int64   `json:"user_id"`
+		RealName     string  `json:"real_name"`
+		Avatar       string  `json:"avatar"`
+		About        string  `json:"about"`
+		Birthday     string  `json:"birthday"`
+		Roles        string  `json:"roles"`
+	}
+
+	var results []userResult
+
+	// 构建查询
+	query := ud.db.WithContext(ctx).
 		Table("users").
 		Select(`users.id, users.password_hash, users.deleted, users.username, users.phone,
-                profiles.id as profile_id, profiles.user_id, profiles.real_name, profiles.avatar, profiles.about, profiles.birthday`).
-		Joins("left join profiles on profiles.user_id = users.id").
+                profiles.id as profile_id, profiles.user_id, profiles.real_name, 
+                profiles.avatar, profiles.about, profiles.birthday, users.roles`).
+		Joins("LEFT JOIN profiles ON profiles.user_id = users.id").
 		Where("users.deleted = ?", false).
 		Limit(intSize).
-		Offset(intOffset).
-		Scan(&usersWithProfiles).Error
+		Offset(intOffset)
 
-	if err != nil {
-		ud.l.Error("获取所有用户资料失败", zap.Error(err))
-		return nil, err
+	// 执行查询
+	if err := query.Scan(&results).Error; err != nil {
+		ud.l.Error("获取用户列表失败", zap.Error(err))
+		return nil, fmt.Errorf("获取用户列表失败: %v", err)
+	}
+
+	usersWithProfiles := make([]domain.UserWithProfile, 0, len(results))
+
+	// 处理结果
+	for _, r := range results {
+		var roleIds []int
+		if r.Roles != "" {
+			if err := json.Unmarshal([]byte(r.Roles), &roleIds); err != nil {
+				ud.l.Error("解析用户角色失败", zap.Error(err))
+				return nil, fmt.Errorf("解析用户角色失败: %v", err)
+			}
+		}
+
+		// 查询角色名称
+		var roleNames []string
+		if len(roleIds) > 0 {
+			var roles []*Role
+			if err := ud.db.WithContext(ctx).Where("id IN ? AND is_deleted = ?", roleIds, 0).Find(&roles).Error; err != nil {
+				ud.l.Error("获取角色信息失败", zap.Error(err))
+				return nil, fmt.Errorf("获取角色信息失败: %v", err)
+			}
+
+			for _, role := range roles {
+				roleNames = append(roleNames, role.Name)
+			}
+		}
+
+		usersWithProfiles = append(usersWithProfiles, domain.UserWithProfile{
+			ID:           r.ID,
+			PasswordHash: r.PasswordHash,
+			Deleted:      r.Deleted,
+			Username:     r.Username,
+			Phone:        r.Phone,
+			ProfileID:    r.ProfileID,
+			UserID:       r.UserID,
+			RealName:     r.RealName,
+			Avatar:       r.Avatar,
+			About:        r.About,
+			Birthday:     r.Birthday,
+			Roles:        roleNames,
+		})
 	}
 
 	return usersWithProfiles, nil
