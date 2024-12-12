@@ -41,8 +41,8 @@ type CommentDAO interface {
 	FindRepliesByRid(ctx context.Context, rid int64, id int64, limit int64) ([]Comment, error)
 }
 
-// NewCommentService 创建新的评论服务
-func NewCommentService(db *gorm.DB, l *zap.Logger) CommentDAO {
+// NewCommentDAO 创建新的评论服务
+func NewCommentDAO(db *gorm.DB, l *zap.Logger) CommentDAO {
 	return &commentDAO{
 		db: db,
 		l:  l,

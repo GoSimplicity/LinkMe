@@ -9,7 +9,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/middleware"
 	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	"github.com/GoSimplicity/LinkMe/utils"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
@@ -37,22 +36,23 @@ func NewUserHandler(svc service.UserService, j ijwt.Handler, smsProducer sms.Pro
 
 func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	// 初始化Casbin中间件
-	casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce)
+	//casbinMiddleware := middleware.NewCasbinMiddleware(uh.ce)
 	userGroup := server.Group("/api/user")
 
-	userGroup.POST("/signup", uh.SignUp)                                 // 用户注册
-	userGroup.POST("/login", uh.Login)                                   // 用户登录
-	userGroup.POST("/login_sms", uh.LoginSMS)                            // 短信登录
-	userGroup.POST("/send_sms", uh.SendSMS)                              // 发送短信验证码
-	userGroup.POST("/send_email", uh.SendEmail)                          // 发送邮件验证码
-	userGroup.POST("/logout", uh.Logout)                                 // 用户登出
-	userGroup.POST("/refresh_token", uh.RefreshToken)                    // 刷新令牌
-	userGroup.POST("/change_password", uh.ChangePassword)                // 修改密码
-	userGroup.DELETE("/write_off", uh.WriteOff)                          // 注销用户
-	userGroup.GET("/profile", uh.GetProfile)                             // 获取用户资料
-	userGroup.POST("/update_profile", uh.UpdateProfileByID)              // 更新用户资料
-	userGroup.POST("/list", casbinMiddleware.CheckCasbin(), uh.ListUser) // 获取用户列表（管理员使用）
-	userGroup.GET("/codes", uh.GetCodes)                                 // 获取权限码
+	userGroup.POST("/signup", uh.SignUp)                    // 用户注册
+	userGroup.POST("/login", uh.Login)                      // 用户登录
+	userGroup.POST("/login_sms", uh.LoginSMS)               // 短信登录
+	userGroup.POST("/send_sms", uh.SendSMS)                 // 发送短信验证码
+	userGroup.POST("/send_email", uh.SendEmail)             // 发送邮件验证码
+	userGroup.POST("/logout", uh.Logout)                    // 用户登出
+	userGroup.POST("/refresh_token", uh.RefreshToken)       // 刷新令牌
+	userGroup.POST("/change_password", uh.ChangePassword)   // 修改密码
+	userGroup.DELETE("/write_off", uh.WriteOff)             // 注销用户
+	userGroup.GET("/profile", uh.GetProfile)                // 获取用户资料
+	userGroup.POST("/update_profile", uh.UpdateProfileByID) // 更新用户资料
+	//userGroup.POST("/list", casbinMiddleware.CheckCasbin(), uh.ListUser) // 获取用户列表（管理员使用）
+	userGroup.POST("/list", uh.ListUser) // 获取用户列表（管理员使用）
+	userGroup.GET("/codes", uh.GetCodes) // 获取权限码
 }
 
 // SignUp 用户注册

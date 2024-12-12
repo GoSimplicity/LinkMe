@@ -29,6 +29,7 @@ type User struct {
 	UpdatedTime int64   `json:"updatedTime"` // 更新时间，Unix时间戳
 	Deleted     bool    `json:"deleted"`     // 删除标志，表示该用户是否被删除
 	Profile     Profile `json:"profile"`     // 用户的详细资料
+	Roles       []int   `json:"roles"`
 }
 
 type Profile struct {
@@ -42,18 +43,19 @@ type Profile struct {
 }
 
 type UserWithProfile struct {
-	ID           int64   `json:"id"`
-	Username     string  `json:"username"`
-	PasswordHash string  `json:"passwordHash"`
-	Deleted      bool    `json:"deleted"`
-	Phone        *string `json:"phone"`
-	Email        string  `json:"email"`
-	ProfileID    int64   `json:"profileId"`
-	UserID       int64   `json:"userId"`
-	RealName     string  `json:"realName"`
-	Avatar       string  `json:"avatar"`
-	About        string  `json:"about"`
-	Birthday     string  `json:"birthday"`
+	ID           int64    `json:"id"`
+	Username     string   `json:"username"`
+	PasswordHash string   `json:"passwordHash"`
+	Deleted      bool     `json:"deleted"`
+	Phone        *string  `json:"phone"`
+	Email        string   `json:"email"`
+	ProfileID    int64    `json:"profileId"`
+	UserID       int64    `json:"userId"`
+	RealName     string   `json:"realName"`
+	Avatar       string   `json:"avatar"`
+	About        string   `json:"about"`
+	Birthday     string   `json:"birthday"`
+	Roles        []string `json:"roles"`
 }
 
 // ValidateUsername 验证用户名格式

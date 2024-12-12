@@ -39,6 +39,16 @@ type User struct {
 	PasswordHash string `gorm:"not null"` // 密码哈希值，不能为空
 }
 
+// Profile 用户资料信息模型
+type Profile struct {
+	ID       int64  `gorm:"primaryKey;autoIncrement"`
+	UserID   int64  `gorm:"not null;index"`
+	RealName string `gorm:"size:50"`
+	Avatar   string `gorm:"type:text"`
+	About    string `gorm:"type:text"`
+	Birthday string `gorm:"column:birthday;type:varchar(10)"`
+}
+
 func (m *mockUserRepository) MockUser() error {
 	var existingUser User
 
@@ -64,6 +74,15 @@ func (m *mockUserRepository) MockUser() error {
 
 	if err := m.db.Create(&user).Error; err != nil {
 		m.l.Error("failed to create user", zap.Error(err))
+		return err
+	}
+
+	if err := m.db.Create(&Profile{
+		UserID:   user.ID,
+		RealName: "admin",
+		About:    "管理员账号",
+	}).Error; err != nil {
+		m.l.Error("failed to create profile", zap.Error(err))
 		return err
 	}
 
