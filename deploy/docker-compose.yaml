@@ -20,7 +20,7 @@ services:
       - KAFKA_CFG_MESSAGE_MAX_BYTES=20971520
       - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data # 指定 Kafka 数据目录
     volumes:
-      - /data/kafka:/bitnami/kafka/data
+      - ./data/kafka:/bitnami/kafka/data
   db:
     image: mysql:8.0
     container_name: linkme-mysql
@@ -30,7 +30,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: linkme
     volumes:
-      - /data/mysql:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d/
   redis:
     image: redis:latest
@@ -55,7 +55,7 @@ services:
     environment:
       - MONGO_INITDB_DATABASE=linkme # 设置默认数据库名
     volumes:
-      - /data/mongo:/data/db  # 持久化 MongoDB 数据到宿主机的 /data/mongo 目录
+      - ./data/mongo:/data/db  # 持久化 MongoDB 数据到宿主机的 /data/mongo 目录
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
     container_name: elasticsearch
@@ -63,8 +63,8 @@ services:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
     volumes:
-      - /data/es/data:/usr/share/elasticsearch/data
-      - /data/es/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml # 记得将项目根目录下的elasticsearch.yaml放到/data/es/config/目录下
+      - ./data/es/data:/usr/share/elasticsearch/data
+      - ./data/es/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml # 记得将项目根目录下的elasticsearch.yaml放到/data/es/config/目录下
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -81,12 +81,12 @@ services:
     ports:
       - "11111:11111"
     volumes:
-      - /data/canal/sync:/home/admin/canal-server/conf/sync
-      - /data/canal/cache:/home/admin/canal-server/conf/cache
-      - /data/canal/es:/home/admin/canal-server/conf/es
-      - /data/canal/logs:/home/admin/canal-server/logs
-      - /data/canal/destinations:/home/admin/canal-server/destinations
-      - /data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties
+      - ./data/canal/sync:/home/admin/canal-server/conf/sync
+      - ./data/canal/cache:/home/admin/canal-server/conf/cache
+      - ./data/canal/es:/home/admin/canal-server/conf/es
+      - ./data/canal/logs:/home/admin/canal-server/logs
+      - ./data/canal/destinations:/home/admin/canal-server/destinations
+      - ./data/canal/canal.properties:/home/admin/canal-server/conf/canal.properties
   prometheus:
     image: bitnami/prometheus:latest
     container_name: linkme-prometheus
