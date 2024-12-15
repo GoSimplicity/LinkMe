@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 
 	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
@@ -20,16 +21,22 @@ import (
 const (
 	PostIndex = "post_index"
 	UserIndex = "user_index"
+	LogsIndex = "logs_index"
 )
 
 type SearchDAO interface {
 	CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error
 	CreatePostIndex(ctx context.Context, properties ...interface{}) error
 	CreateUserIndex(ctx context.Context, properties ...interface{}) error
+	CreateLogsIndex(ctx context.Context) error
 	SearchPosts(ctx context.Context, keywords []string) ([]PostSearch, error)
 	SearchUsers(ctx context.Context, keywords []string) ([]UserSearch, error)
+	ListAllPostsWithAuthorId(ctx context.Context, authorid string) ([]PostSearch, error)
+	IsExistsPost(ctx context.Context, postid string) (bool, error)
+	IsExistsUser(ctx context.Context, userid string) (bool, error)
 	InputUser(ctx context.Context, user UserSearch) error
 	InputPost(ctx context.Context, post PostSearch) error
+	BulkInputLogs(ctx context.Context, event []ReadEvent) error
 	DeleteUserIndex(ctx context.Context, userId int64) error
 	DeletePostIndex(ctx context.Context, postId uint) error
 }
@@ -54,6 +61,12 @@ type UserSearch struct {
 	Username string `json:"username"`
 	RealName string `json:"real_name"`
 	Phone    string `json:"phone"`
+}
+
+type ReadEvent struct {
+	Timestamp int64  `json:"timestamp"`
+	Level     string `json:"level"`
+	Message   string `json:"message"`
 }
 
 // NewSearchDAO 创建并返回一个新的 SearchDAO 实例
@@ -113,6 +126,7 @@ func (s *searchDAO) CreatePostIndex(ctx context.Context, properties ...interface
 	return s.CreateIndex(ctx, PostIndex, prop)
 }
 
+// CreateUserIndex 创建uesr的es索引
 func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface{}) error {
 	var prop = map[string]types.Property{}
 	if len(properties) != 0 {
@@ -126,6 +140,16 @@ func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface
 		}
 	}
 	return s.CreateIndex(ctx, UserIndex, prop)
+}
+
+// CreateLogsIndex 创建logs的es索引
+func (s *searchDAO) CreateLogsIndex(ctx context.Context) error {
+	prop := map[string]types.Property{
+		"timestamp": types.NewDateProperty(),
+		"level":     types.NewKeywordProperty(),
+		"message":   types.NewTextProperty(),
+	}
+	return s.CreateIndex(ctx, LogsIndex, prop)
 }
 
 // SearchPosts 根据关键词搜索帖子，返回匹配的结果
@@ -174,6 +198,7 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 	return posts, nil
 }
 
+// ListAllPostsWithAuthorId 根据authorId 查找所有post
 func (s *searchDAO) ListAllPostsWithAuthorId(ctx context.Context, authorid string) ([]PostSearch, error) {
 	query := types.NewQuery()
 	query.Term = map[string]types.TermQuery{
@@ -256,6 +281,16 @@ func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserS
 	return users, nil
 }
 
+// IsExistsPost 查看指定postId的post是否存在
+func (s *searchDAO) IsExistsPost(ctx context.Context, postid string) (bool, error) {
+	return s.client.Exists(PostIndex, postid).Do(ctx)
+}
+
+// IsExistsUser 查看指定userId的user是否存在
+func (s *searchDAO) IsExistsUser(ctx context.Context, userid string) (bool, error) {
+	return s.client.Exists(UserIndex, userid).Do(ctx)
+}
+
 // InputUser 将用户信息输入到 Elasticsearch 索引中
 func (s *searchDAO) InputUser(ctx context.Context, user UserSearch) error {
 	_, err := s.client.Index(UserIndex).
@@ -266,6 +301,7 @@ func (s *searchDAO) InputUser(ctx context.Context, user UserSearch) error {
 		s.l.Error("Failed to create user index", zap.Error(err))
 		return err
 	}
+
 	return nil
 }
 
@@ -282,6 +318,20 @@ func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
 	return nil
 }
 
+// BulkInputLogs 批量向es插入日志
+func (s *searchDAO) BulkInputLogs(ctx context.Context, event []ReadEvent) error {
+	var req bulk.Request
+	for _, eve := range event {
+		req = append(req, eve)
+	}
+	if _, err := s.client.Bulk().Index(LogsIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("bulk index failed", zap.Error(err))
+	}
+
+	s.l.Info("bulk index successfully")
+	return nil
+}
+
 // DeleteUserIndex 从 Elasticsearch 索引中删除指定用户
 func (s *searchDAO) DeleteUserIndex(ctx context.Context, userId int64) error {
 	return s.deleteIndex(ctx, UserIndex, strconv.FormatInt(userId, 10))
@@ -294,22 +344,13 @@ func (s *searchDAO) DeletePostIndex(ctx context.Context, postId uint) error {
 
 // deleteIndex 根据索引名称和文档 ID 删除 Elasticsearch 中的文档
 func (s *searchDAO) deleteIndex(ctx context.Context, index, docID string) error {
-	req := esapi.DeleteRequest{
-		Index:      index,
-		DocumentID: docID,
-	}
 
-	res, err := req.Do(ctx, s.client)
+	resq, err := s.client.Delete(index, docID).Do(ctx)
 	if err != nil {
 		s.l.Error(fmt.Sprintf("Failed to delete %s index", index), zap.Error(err))
 		return err
 	}
-	defer res.Body.Close()
-
-	if res.IsError() {
-		s.l.Error(fmt.Sprintf("Delete %s index response error", index), zap.String("status", res.Status()))
-		return fmt.Errorf("error deleting %s index: %s", index, res.Status())
-	}
+	s.l.Info("Successfully deleted index", zap.String("index", resq.Index_), zap.String("docID", resq.Id_))
 
 	return nil
 }
