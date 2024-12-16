@@ -135,6 +135,15 @@ func (r *roleDAO) UpdateRole(ctx context.Context, role *Role) error {
 		return errors.New("角色名称不能为空")
 	}
 
+	// 获取原角色信息
+	var oldRole Role
+	if err := r.db.WithContext(ctx).Where("id = ? AND is_deleted = ?", role.ID, 0).First(&oldRole).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("角色不存在")
+		}
+		return fmt.Errorf("获取原角色信息失败: %v", err)
+	}
+
 	// 检查角色名是否已被其他角色使用
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&Role{}).
@@ -154,18 +163,48 @@ func (r *roleDAO) UpdateRole(ctx context.Context, role *Role) error {
 		"update_time": time.Now().Unix(),
 	}
 
-	result := r.db.WithContext(ctx).
-		Model(&Role{}).
-		Where("id = ? AND is_deleted = ?", role.ID, 0).
-		Updates(updates)
-	if result.Error != nil {
-		return fmt.Errorf("更新角色失败: %v", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("角色不存在或已被删除")
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&Role{}).
+			Where("id = ? AND is_deleted = ?", role.ID, 0).
+			Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("更新角色失败: %v", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("角色不存在或已被删除")
+		}
 
-	return nil
+		// 如果角色名发生变化，需要更新casbin中的权限
+		if oldRole.Name != role.Name {
+			// 获取原角色的所有权限
+			policies, err := r.enforcer.GetFilteredPolicy(0, oldRole.Name)
+			if err != nil {
+				return fmt.Errorf("获取原角色权限失败: %v", err)
+			}
+
+			// 删除原角色的所有权限
+			if _, err := r.enforcer.DeleteRole(oldRole.Name); err != nil {
+				return fmt.Errorf("删除原角色权限失败: %v", err)
+			}
+
+			// 为新角色名添加相同的权限
+			for _, policy := range policies {
+				policy[0] = role.Name // 更新角色名
+				if _, err := r.enforcer.AddPolicy(policy); err != nil {
+					return fmt.Errorf("添加新角色权限失败: %v", err)
+				}
+			}
+
+			// 确保所有策略都已添加后再保存
+			if err := r.enforcer.SavePolicy(); err != nil {
+				return fmt.Errorf("保存权限策略失败: %v", err)
+			}
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 // DeleteRole 删除角色

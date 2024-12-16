@@ -25,6 +25,7 @@ type UserRepository interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfile(ctx context.Context, UserID int64) (domain.Profile, error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error)
+	UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error
 }
 
 type userRepository struct {
@@ -185,13 +186,17 @@ func (ur *userRepository) ListUser(ctx context.Context, pagination domain.Pagina
 	return users, nil
 }
 
+// UpdateProfileAdmin 更新用户资料(管理员)
+func (ur *userRepository) UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error {
+	return ur.dao.UpdateProfileAdmin(ctx, profile)
+}
+
 // fromDomainUser 将领域层对象转为dao层对象
 func fromDomainUser(u domain.User) dao.User {
 	return dao.User{
 		ID:           u.ID,
 		PasswordHash: u.Password,
 		Username:     u.Username,
-		Phone:        u.Phone,
 		CreateTime:   u.CreateTime,
 		UpdatedTime:  u.UpdatedTime,
 		Deleted:      u.Deleted,
@@ -204,7 +209,6 @@ func toDomainUser(u dao.User) domain.User {
 		ID:          u.ID,
 		Password:    u.PasswordHash,
 		Username:    u.Username,
-		Phone:       u.Phone,
 		CreateTime:  u.CreateTime,
 		UpdatedTime: u.UpdatedTime,
 		Deleted:     u.Deleted,

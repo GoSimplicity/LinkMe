@@ -35,6 +35,16 @@ type UpdateProfileReq struct {
 	Avatar   string `json:"avatar"`   // 头像URL
 	About    string `json:"about"`    // 个人简介
 	Birthday string `json:"birthday"` // 生日
+	Phone    string `json:"phone"`
+}
+
+type UpdateProfileAdminReq struct {
+	UserID   int64  `json:"userId"`   // 用户ID
+	RealName string `json:"realName"` // 真实姓名
+	Avatar   string `json:"avatar"`   // 头像URL
+	About    string `json:"about"`    // 个人简介
+	Birthday string `json:"birthday"` // 生日
+	Phone    string `json:"phone"`    // 手机号
 }
 
 type LoginSMSReq struct {

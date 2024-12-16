@@ -34,6 +34,7 @@ type UserDAO interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, userId int64) (domain.Profile, error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error)
+	UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error
 }
 
 type userDAO struct {
@@ -52,20 +53,20 @@ type User struct {
 	Username     string  `gorm:"column:username;type:varchar(100);uniqueIndex;not null"`
 	PasswordHash string  `gorm:"not null"`
 	Deleted      bool    `gorm:"column:deleted;default:false;not null"`
-	Email        string  `gorm:"type:varchar(100)"`
-	Phone        *string `gorm:"type:varchar(15);uniqueIndex"`
 	Profile      Profile `gorm:"foreignKey:UserID;references:ID"`
 	Roles        string  `gorm:"column:roles;type:json;comment:用户角色ID列表"`
 }
 
 // Profile 用户资料信息模型
 type Profile struct {
-	ID       int64  `gorm:"primaryKey;autoIncrement"`
-	UserID   int64  `gorm:"not null;index"`
-	RealName string `gorm:"size:50"`
-	Avatar   string `gorm:"type:text"`
-	About    string `gorm:"type:text"`
-	Birthday string `gorm:"column:birthday;type:varchar(10)"`
+	ID       int64   `gorm:"primaryKey;autoIncrement"`
+	UserID   int64   `gorm:"not null;index"`
+	RealName string  `gorm:"size:50"`
+	Avatar   string  `gorm:"type:text"`
+	About    string  `gorm:"type:text"`
+	Birthday string  `gorm:"column:birthday;type:varchar(10)"`
+	Email    string  `gorm:"type:varchar(100)"`
+	Phone    *string `gorm:"type:varchar(15);uniqueIndex"`
 }
 
 func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger, ce *casbin.Enforcer) UserDAO {
@@ -87,6 +88,10 @@ func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 	u.CreateTime = now
 	u.UpdatedTime = now
 	u.ID = ud.node.Generate().Int64()
+
+	if u.Roles == "" {
+		u.Roles = "[]"
+	}
 
 	profile := Profile{
 		UserID:   u.ID,
@@ -200,6 +205,7 @@ func (ud *userDAO) UpdateProfile(ctx context.Context, profile domain.Profile) er
 		Avatar:   profile.Avatar,
 		About:    profile.About,
 		Birthday: profile.Birthday,
+		Phone:    profile.Phone,
 	}
 
 	result := ud.db.WithContext(ctx).Model(&Profile{}).
@@ -317,4 +323,20 @@ func (ud *userDAO) ListUser(ctx context.Context, pagination domain.Pagination) (
 	}
 
 	return usersWithProfiles, nil
+}
+
+// UpdateProfileAdmin implements UserDAO.
+func (ud *userDAO) UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error {
+	// 更新用户资料
+	if err := ud.db.WithContext(ctx).Model(&Profile{}).Where("user_id = ?", profile.UserID).Updates(map[string]interface{}{
+		"real_name": profile.RealName,
+		"avatar":    profile.Avatar,
+		"about":     profile.About,
+		"birthday":  profile.Birthday,
+	}).Error; err != nil {
+		ud.l.Error("更新用户资料失败", zap.Error(err))
+		return fmt.Errorf("更新用户资料失败: %v", err)
+	}
+
+	return nil
 }

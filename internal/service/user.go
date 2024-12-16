@@ -25,6 +25,7 @@ type UserService interface {
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
 	GetProfileByUserID(ctx context.Context, UserID int64) (domain.Profile, error)
 	ListUser(ctx context.Context, pagination domain.Pagination) ([]domain.UserWithProfile, error)
+	UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error
 }
 
 type userService struct {
@@ -44,11 +45,11 @@ func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo re
 // SignUp 用户注册
 func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	if err := u.ValidateUsername(); err != nil {
-		return err
+		return errors.New("用户名需要至少六位的字母数字组合")
 	}
 
 	if err := u.ValidatePassword(); err != nil {
-		return err
+		return errors.New("密码需要至少8位的字母数字符号组合")
 	}
 
 	if err := u.HashPassword(); err != nil {
@@ -189,4 +190,9 @@ func (us *userService) ListUser(ctx context.Context, pagination domain.Paginatio
 	pagination.Offset = &offset
 
 	return us.repo.ListUser(ctx, pagination)
+}
+
+// UpdateProfileAdmin 更新用户资料(管理员)
+func (us *userService) UpdateProfileAdmin(ctx context.Context, profile domain.Profile) error {
+	return us.repo.UpdateProfileAdmin(ctx, profile)
 }
