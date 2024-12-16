@@ -30,7 +30,7 @@ func NewRoleHandler(svc service.RoleService, menuSvc service.MenuService, apiSvc
 }
 
 func (r *RoleHandler) RegisterRoutes(server *gin.Engine) {
-	roleGroup := server.Group("/api/role")
+	roleGroup := server.Group("/api/roles")
 
 	roleGroup.POST("/list", r.ListRoles)
 	roleGroup.POST("/create", r.CreateRole)

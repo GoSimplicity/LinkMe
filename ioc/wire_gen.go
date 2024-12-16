@@ -35,7 +35,9 @@ import (
 func InitWebServer() *Cmd {
 	db := InitDB()
 	node := InitializeSnowflakeNode()
-	logger := InitLogger()
+	client := InitSaramaClient()
+	syncProducer := InitSyncProducer(client)
+	logger := InitLogger(syncProducer)
 	enforcer := InitCasbin(db)
 	userDAO := dao.NewUserDAO(db, node, logger, enforcer)
 	cmdable := InitRedis()
@@ -46,8 +48,7 @@ func InitWebServer() *Cmd {
 	searchRepository := repository.NewSearchRepository(searchDAO)
 	userService := service.NewUserService(userRepository, logger, searchRepository)
 	handler := jwt.NewJWTHandler(cmdable)
-	client := InitSaramaClient()
-	syncProducer := InitSyncProducer(client)
+
 	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
 	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
 	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
@@ -133,7 +134,7 @@ func InitWebServer() *Cmd {
 	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager, historyCache)
 	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
 	checkConsumer := check.NewCheckConsumer(client, logger, postRepository, checkCache)
-	esConsumer := es.NewEsConsumer(client, logger, searchRepository, typedClient)
+	esConsumer := es.NewEsConsumer(client, logger, searchRepository)
 	v2 := InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer, esConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	cmd := &Cmd{
