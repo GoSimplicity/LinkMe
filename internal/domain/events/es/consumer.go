@@ -1,7 +1,6 @@
 package es
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -12,8 +11,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
 )
@@ -22,7 +19,6 @@ import (
 type EsConsumer struct {
 	client sarama.Client
 	rs     repository.SearchRepository
-	tc     *elasticsearch.TypedClient
 	l      *zap.Logger
 }
 
@@ -69,11 +65,10 @@ type consumerGroupHandler struct {
 }
 
 // NewEsConsumer 创建并返回一个新的EsConsumer实例
-func NewEsConsumer(client sarama.Client, l *zap.Logger, rs repository.SearchRepository, tc *elasticsearch.TypedClient) *EsConsumer {
+func NewEsConsumer(client sarama.Client, l *zap.Logger, rs repository.SearchRepository) *EsConsumer {
 	return &EsConsumer{
 		client: client,
 		rs:     rs,
-		tc:     tc,
 		l:      l,
 	}
 }
@@ -256,120 +251,29 @@ func (r *EsConsumer) deleteUserIndex(ctx context.Context, user User) error {
 
 // isPostIndexExists 查询Post索引是否存在
 func (r *EsConsumer) isPostIndexExists(ctx context.Context, postID uint) (bool, error) {
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"term": map[string]interface{}{
-				"id": postID, // 使用 term 查询精确匹配 postID
-			},
-		},
-	}
-
-	// 将查询转换为 JSON
-	queryJSON, err := json.Marshal(query)
-	if err != nil {
-		r.l.Error("查询构建失败", zap.Uint("id", postID), zap.Error(err))
-		return false, err
-	}
-
-	// 构建 Elasticsearch 搜索请求
-	req := esapi.SearchRequest{
-		Index: []string{"post_index"}, // 替换为你的实际索引名
-		Body:  bytes.NewReader(queryJSON),
-	}
-
-	// 执行查询请求
-	res, err := req.Do(ctx, r.tc)
-	if err != nil {
-		r.l.Error("查询索引失败", zap.Uint("id", postID), zap.Error(err))
-		return false, err
-	}
-	defer res.Body.Close()
-
+	exist, err := r.rs.IsExistPost(ctx, postID)
 	// 检查响应是否包含错误
-	if res.IsError() {
-		r.l.Error("Elasticsearch 查询返回错误", zap.String("status", res.Status()), zap.Uint("id", postID))
-		return false, fmt.Errorf("elasticsearch returned an error: %s", res.Status())
+	if err != nil {
+		r.l.Error("Elasticsearch 查询返回错误", zap.Error(err))
+		return false, fmt.Errorf("elasticsearch returned an error: %s", err)
 	}
 
-	// 解析查询结果并返回是否存在该 Post
-	var searchResult struct {
-		Hits struct {
-			Total struct {
-				Value int `json:"value"`
-			} `json:"total"`
-		} `json:"hits"`
-	}
+	r.l.Debug("Post 索引查询结果", zap.Uint("id", postID), zap.Bool("exists", exist))
 
-	if err := json.NewDecoder(res.Body).Decode(&searchResult); err != nil {
-		r.l.Error("解析查询结果失败", zap.Uint("id", postID), zap.Error(err))
-		return false, err
-	}
-
-	// 如果命中数大于0，则表示Post存在
-	exists := searchResult.Hits.Total.Value > 0
-
-	r.l.Debug("Post 索引查询结果", zap.Uint("id", postID), zap.Bool("exists", exists))
-
-	return exists, nil
+	return exist, nil
 }
 
 // isUserIndexExists 查询User索引是否存在
 func (r *EsConsumer) isUserIndexExists(ctx context.Context, userID int64) (bool, error) {
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"term": map[string]interface{}{
-				"id": userID, // 使用 term 查询精确匹配 userID
-			},
-		},
-	}
-
-	// 将查询转换为 JSON
-	queryJSON, err := json.Marshal(query)
+	exist, err := r.rs.IsExistUser(ctx, userID)
 	if err != nil {
-		r.l.Error("查询构建失败", zap.Int64("id", userID), zap.Error(err))
-		return false, err
+		r.l.Error("Elasticsearch 查询返回错误", zap.Error(err))
+		return false, fmt.Errorf("elasticsearch returned an error: %s", err)
 	}
 
-	// 构建 Elasticsearch 搜索请求
-	req := esapi.SearchRequest{
-		Index: []string{"user_index"}, // 替换为你的实际索引名
-		Body:  bytes.NewReader(queryJSON),
-	}
+	r.l.Debug("User 索引查询结果", zap.Int64("id", userID), zap.Bool("exists", exist))
 
-	// 执行查询请求
-	res, err := req.Do(ctx, r.tc)
-	if err != nil {
-		r.l.Error("查询索引失败", zap.Int64("id", userID), zap.Error(err))
-		return false, err
-	}
-	defer res.Body.Close()
-
-	// 检查响应是否包含错误
-	if res.IsError() {
-		r.l.Error("Elasticsearch 查询返回错误", zap.String("status", res.Status()), zap.Int64("id", userID))
-		return false, fmt.Errorf("elasticsearch returned an error: %s", res.Status())
-	}
-
-	// 解析查询结果并返回是否存在该 User
-	var searchResult struct {
-		Hits struct {
-			Total struct {
-				Value int `json:"value"`
-			} `json:"total"`
-		} `json:"hits"`
-	}
-
-	if err := json.NewDecoder(res.Body).Decode(&searchResult); err != nil {
-		r.l.Error("解析查询结果失败", zap.Int64("id", userID), zap.Error(err))
-		return false, err
-	}
-
-	// 如果命中数大于0，则表示User存在
-	exists := searchResult.Hits.Total.Value > 0
-
-	r.l.Debug("User 索引查询结果", zap.Int64("id", userID), zap.Bool("exists", exists))
-
-	return exists, nil
+	return exist, nil
 }
 
 // decodeEventDataToPosts 解析事件数据为 Post 结构体
