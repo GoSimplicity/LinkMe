@@ -9,7 +9,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/pkg/samarap/prometheus" // 假设 promethes 文件放在 pkg 目录下
 	"github.com/IBM/sarama"
 	prometheus2 "github.com/prometheus/client_golang/prometheus"
@@ -68,7 +67,23 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 }
 
 // InitConsumers 初始化并返回一个事件消费者
-func InitConsumers(postConsumer *post.ReadEventConsumer, smsConsumer *sms.SMSConsumer, emailConsumer *email.EmailConsumer, syncConsumer *sync.SyncConsumer, cacheConsumer *cache.CacheConsumer, publishConsumer *publish.PublishPostEventConsumer, checkConsumer *check.CheckConsumer, esConsumer *es.EsConsumer) []events.Consumer {
+func InitConsumers(
+	postConsumer *post.EventConsumer,
+	smsConsumer *sms.SMSConsumer,
+	emailConsumer *email.EmailConsumer,
+	cacheConsumer *cache.CacheConsumer,
+	publishConsumer *publish.PublishPostEventConsumer,
+	esConsumer *es.EsConsumer,
+	checkConsumer *check.CheckEventConsumer,
+) []events.Consumer {
 	// 返回消费者切片
-	return []events.Consumer{postConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishConsumer, checkConsumer, esConsumer}
+	return []events.Consumer{
+		postConsumer,
+		smsConsumer,
+		emailConsumer,
+		cacheConsumer,
+		publishConsumer,
+		esConsumer,
+		checkConsumer,
+	}
 }

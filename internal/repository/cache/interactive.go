@@ -3,12 +3,13 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/bsm/redislock"
-	"github.com/redis/go-redis/v9"
 	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/bsm/redislock"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -22,13 +23,13 @@ const (
 )
 
 type InteractiveCache interface {
-	PostReadCountRecord(ctx context.Context, biz string, postId uint) error         // 阅读计数
-	PostLikeCountRecord(ctx context.Context, biz string, postId uint) error         // 点赞计数
-	DecrLikeCountRecord(ctx context.Context, biz string, postId uint) error         // 取消点赞
-	PostCollectCountRecord(ctx context.Context, biz string, postId uint) error      // 收藏计数
-	DecrCollectCountRecord(ctx context.Context, biz string, postId uint) error      // 取消收藏
-	Get(ctx context.Context, biz string, postId uint) (domain.Interactive, error)   // 获取互动信息
-	Set(ctx context.Context, biz string, postId uint, res domain.Interactive) error // 存储互动信息
+	PostReadCountRecord(ctx context.Context, postId uint) error         // 阅读计数
+	PostLikeCountRecord(ctx context.Context, postId uint) error         // 点赞计数
+	DecrLikeCountRecord(ctx context.Context, postId uint) error         // 取消点赞
+	PostCollectCountRecord(ctx context.Context, postId uint) error      // 收藏计数
+	DecrCollectCountRecord(ctx context.Context, postId uint) error      // 取消收藏
+	Get(ctx context.Context, postId uint) (domain.Interactive, error)   // 获取互动信息
+	Set(ctx context.Context, postId uint, res domain.Interactive) error // 存储互动信息
 }
 
 type interactiveCache struct {
@@ -57,8 +58,8 @@ return value
 }
 
 // Get 获取互动信息
-func (i *interactiveCache) Get(ctx context.Context, biz string, postId uint) (domain.Interactive, error) {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) Get(ctx context.Context, postId uint) (domain.Interactive, error) {
+	key := fmt.Sprintf("interactive:%d", postId)
 	res, err := i.client.HGetAll(ctx, key).Result()
 	if err != nil {
 		return domain.Interactive{}, err
@@ -74,8 +75,8 @@ func (i *interactiveCache) Get(ctx context.Context, biz string, postId uint) (do
 }
 
 // Set 存储互动信息
-func (i *interactiveCache) Set(ctx context.Context, biz string, postId uint, res domain.Interactive) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) Set(ctx context.Context, postId uint, res domain.Interactive) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	err := i.client.HSet(ctx, key, CollectCount, res.CollectCount,
 		ReadCount, res.ReadCount,
 		LikeCount, res.LikeCount,
@@ -90,36 +91,36 @@ func (i *interactiveCache) Set(ctx context.Context, biz string, postId uint, res
 }
 
 // PostCollectCountRecord 收藏计数
-func (i *interactiveCache) PostCollectCountRecord(ctx context.Context, biz string, postId uint) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) PostCollectCountRecord(ctx context.Context, postId uint) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	_, err := i.incrByScript.Run(ctx, i.client, []string{key}, CollectCount, 1).Result()
 	return err
 }
 
 // DecrCollectCountRecord 取消收藏
-func (i *interactiveCache) DecrCollectCountRecord(ctx context.Context, biz string, postId uint) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) DecrCollectCountRecord(ctx context.Context, postId uint) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	_, err := i.incrByScript.Run(ctx, i.client, []string{key}, CollectCount, -1).Result()
 	return err
 }
 
 // PostLikeCountRecord 点赞计数
-func (i *interactiveCache) PostLikeCountRecord(ctx context.Context, biz string, postId uint) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) PostLikeCountRecord(ctx context.Context, postId uint) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	_, err := i.incrByScript.Run(ctx, i.client, []string{key}, LikeCount, 1).Result()
 	return err
 }
 
 // DecrLikeCountRecord 取消点赞
-func (i *interactiveCache) DecrLikeCountRecord(ctx context.Context, biz string, postId uint) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) DecrLikeCountRecord(ctx context.Context, postId uint) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	_, err := i.incrByScript.Run(ctx, i.client, []string{key}, LikeCount, -1).Result()
 	return err
 }
 
 // PostReadCountRecord 阅读计数
-func (i *interactiveCache) PostReadCountRecord(ctx context.Context, biz string, postId uint) error {
-	key := fmt.Sprintf("interactive:%s:%d", biz, postId)
+func (i *interactiveCache) PostReadCountRecord(ctx context.Context, postId uint) error {
+	key := fmt.Sprintf("interactive:%d", postId)
 	_, err := i.incrByScript.Run(ctx, i.client, []string{key}, ReadCount, 1).Result()
 	return err
 }

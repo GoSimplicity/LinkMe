@@ -11,13 +11,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/google/wire"
@@ -31,7 +29,6 @@ func InitWebServer() *Cmd {
 		InitMiddlewares,
 		InitRedis,
 		InitLogger,
-		InitMongoDB,
 		InitSaramaClient,
 		InitConsumers,
 		InitSyncProducer,
@@ -98,7 +95,7 @@ func InitWebServer() *Cmd {
 		cache.NewSMSCache,
 		cache.NewEmailCache,
 		cache.NewRelationCache,
-		cache.NewCheckCache,
+		// cache.NewCheckCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
@@ -115,18 +112,17 @@ func InitWebServer() *Cmd {
 		dao.NewMenuDAO,
 		dao.NewApiDAO,
 		post.NewSaramaSyncProducer,
-		post.NewReadEventConsumer,
+		post.NewEventConsumer,
 		sms.NewSMSConsumer,
 		sms.NewSaramaSyncProducer,
 		email.NewEmailConsumer,
 		email.NewSaramaSyncProducer,
-		bloom.NewCacheBloom,
 		local.NewLocalCacheManager,
-		sync.NewSyncConsumer,
 		cache2.NewCacheConsumer,
 		publish.NewPublishPostEventConsumer,
 		publish.NewSaramaSyncProducer,
-		check.NewCheckConsumer,
+		check.NewCheckEventConsumer,
+		check.NewSaramaCheckProducer,
 		es.NewEsConsumer,
 		mock.NewMockUserRepository,
 		// limiter.NewRedisSlidingWindowLimiter,

@@ -2,25 +2,31 @@ package post
 
 import (
 	"context"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/GoSimplicity/LinkMe/internal/repository"
-	"github.com/GoSimplicity/LinkMe/pkg/samarap"
-	"github.com/IBM/sarama"
-	"go.uber.org/zap"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/IBM/sarama"
+	"go.uber.org/zap"
 )
 
-type ReadEventConsumer struct {
+type EventConsumer struct {
 	repo    repository.InteractiveRepository
 	hisRepo repository.HistoryRepository
 	client  sarama.Client
 	l       *zap.Logger
 }
 
-func NewReadEventConsumer(repo repository.InteractiveRepository,
-	client sarama.Client, l *zap.Logger, hisRepo repository.HistoryRepository) *ReadEventConsumer {
-	return &ReadEventConsumer{
+func NewEventConsumer(
+	repo repository.InteractiveRepository,
+	hisRepo repository.HistoryRepository,
+	client sarama.Client,
+	l *zap.Logger,
+) *EventConsumer {
+	return &EventConsumer{
 		repo:    repo,
 		hisRepo: hisRepo,
 		client:  client,
@@ -28,62 +34,94 @@ func NewReadEventConsumer(repo repository.InteractiveRepository,
 	}
 }
 
-func (i *ReadEventConsumer) Start(_ context.Context) error {
-	cg, err := sarama.NewConsumerGroupFromClient("interactive", i.client)
+func (i *EventConsumer) Start(ctx context.Context) error {
+	cg, err := sarama.NewConsumerGroupFromClient("post", i.client)
 	if err != nil {
+		i.l.Error("创建消费者组失败", zap.Error(err))
 		return err
 	}
 
 	i.l.Info("PostConsumer 开始消费")
 
+	// 启动阅读消息消费
 	go func() {
+		defer cg.Close()
 		for {
-			// 启动消费者组并开始消费指定主题 read_post 的消息
-			er := cg.Consume(context.Background(), []string{TopicReadEvent}, samarap.NewBatchHandler[ReadEvent](i.l, i.BatchConsume))
-			if er != nil {
-				i.l.Error("消费错误", zap.Error(er))
-				time.Sleep(time.Second * time.Duration(5)) // 退避策略，每次重试后等待的时间增加
-				continue
+			select {
+			case <-ctx.Done():
+				i.l.Info("阅读消息消费者停止")
+				return
+			default:
+				if err := cg.Consume(ctx, []string{TopicReadEvent}, &consumerGroupHandler{r: i}); err != nil {
+					i.l.Error("阅读消息消费循环出错", zap.Error(err))
+					continue
+				}
 			}
-			break
 		}
 	}()
 
 	return nil
 }
 
-// BatchConsume 处理函数，处理批次消息
-func (i *ReadEventConsumer) BatchConsume(_ []*sarama.ConsumerMessage, events []ReadEvent) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel() // 确保上下文在函数结束时被取消
+type consumerGroupHandler struct {
+	r *EventConsumer
+}
 
-	posts := make([]domain.Post, len(events))
-	bizs := make([]string, len(events))
-	bizIds := make([]uint, len(events))
+func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 
-	for idx, evt := range events {
-		posts[idx] = domain.Post{
-			ID:       evt.PostId,
-			Content:  evt.Content,
-			Title:    evt.Title,
-			Tags:     strconv.FormatInt(evt.PlateID, 10),
-			AuthorID: evt.Uid,
+func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	for msg := range claim.Messages() {
+		if err := h.r.ConsumeRead(msg); err != nil {
+			h.r.l.Error("处理阅读消息失败", zap.Error(err))
+		} else {
+			sess.MarkMessage(msg, "")
 		}
-		bizs[idx] = "post"
-		bizIds[idx] = evt.PostId
+	}
+	return nil
+}
+
+// ConsumeRead 处理单条阅读消息
+func (i *EventConsumer) ConsumeRead(msg *sarama.ConsumerMessage) error {
+	var evt ReadEvent
+	if err := json.Unmarshal(msg.Value, &evt); err != nil {
+		return fmt.Errorf("解析消息失败: %w", err)
+	}
+
+	// 参数校验
+	if evt.PostId == 0 || evt.Uid == 0 {
+		i.l.Warn("无效的阅读事件",
+			zap.Uint("post_id", evt.PostId),
+			zap.Int64("uid", evt.Uid))
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	post := domain.Post{
+		ID:      evt.PostId,
+		Content: evt.Content,
+		Title:   evt.Title,
+		Tags:    strconv.FormatInt(evt.PlateID, 10),
+		Uid:     evt.Uid,
 	}
 
 	// 保存历史记录
-	if err := i.hisRepo.SetHistory(ctx, posts); err != nil {
+	if err := i.hisRepo.SetHistory(ctx, []domain.Post{post}); err != nil {
 		i.l.Error("保存历史记录失败", zap.Error(err))
-		return err
+		return fmt.Errorf("保存历史记录失败: %w", err)
 	}
 
 	// 增加阅读计数
-	if err := i.repo.BatchIncrReadCnt(ctx, bizs, bizIds); err != nil {
+	if err := i.repo.IncrReadCnt(ctx, evt.PostId); err != nil {
 		i.l.Error("增加阅读计数失败", zap.Error(err))
-		return err
+		return fmt.Errorf("增加阅读计数失败: %w", err)
 	}
+
+	i.l.Info("处理阅读事件成功",
+		zap.Uint("post_id", evt.PostId),
+		zap.Int64("uid", evt.Uid))
 
 	return nil
 }

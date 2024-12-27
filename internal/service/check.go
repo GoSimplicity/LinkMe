@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/GoSimplicity/LinkMe/internal/repository"
-	"go.uber.org/zap"
 	"strconv"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
+	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"go.uber.org/zap"
 )
 
 type CheckService interface {
@@ -22,16 +24,20 @@ type CheckService interface {
 type checkService struct {
 	repo         repository.CheckRepository
 	ActivityRepo repository.ActivityRepository
+	producer     publish.Producer
 	searchRepo   repository.SearchRepository
+	postRepo     repository.PostRepository
 	l            *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository) CheckService {
+func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, producer publish.Producer, postRepo repository.PostRepository) CheckService {
 	return &checkService{
 		repo:         repo,
 		ActivityRepo: ActivityRepo,
 		searchRepo:   searchRepo,
 		l:            l,
+		producer:     producer,
+		postRepo:     postRepo,
 	}
 }
 
@@ -67,6 +73,15 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
+	go func() {
+		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
+			PostId: check.PostID,
+			Uid:    check.Uid,
+		}); err != nil {
+			s.l.Error("produce check event failed", zap.Error(err))
+		}
+	}()
+
 	// 异步记录最近活动
 	go func() {
 		if err := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
@@ -101,6 +116,15 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	})
 	if err != nil {
 		return fmt.Errorf("update check status failed: %w", err)
+	}
+
+	// 更新帖子状态为草稿
+	if err := s.postRepo.Update(ctx, domain.Post{
+		ID:       check.PostID,
+		Status:   domain.Draft,
+		IsSubmit: false,
+	}); err != nil {
+		return fmt.Errorf("update post status failed: %w", err)
 	}
 
 	s.l.Info("Rejected check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))

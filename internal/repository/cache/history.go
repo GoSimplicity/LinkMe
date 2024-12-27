@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type HistoryCache interface {
@@ -92,7 +93,7 @@ func (h *historyCache) SetCache(ctx context.Context, histories []domain.History)
 		return nil
 	}
 
-	key := fmt.Sprintf("linkme:post:history:%d", histories[0].AuthorID)
+	key := fmt.Sprintf("linkme:post:history:%d", histories[0].Uid)
 	lockKey := key + ":lock"
 
 	// 本地锁，防止热点数据高并发场景下缓存击穿

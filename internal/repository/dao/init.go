@@ -10,6 +10,7 @@ func InitTables(db *gorm.DB) error {
 		&User{},
 		&Profile{},
 		&Post{},
+		&PubPost{},
 		&Menu{},
 		&Api{},
 		&Role{},

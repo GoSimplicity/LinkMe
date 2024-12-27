@@ -15,13 +15,11 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/sync"
 	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/pkg/cachep/bloom"
 	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
@@ -35,9 +33,7 @@ import (
 func InitWebServer() *Cmd {
 	db := InitDB()
 	node := InitializeSnowflakeNode()
-	client := InitSaramaClient()
-	syncProducer := InitSyncProducer(client)
-	logger := InitLogger(syncProducer)
+	logger := InitLogger()
 	enforcer := InitCasbin(db)
 	userDAO := dao.NewUserDAO(db, node, logger, enforcer)
 	cmdable := InitRedis()
@@ -48,18 +44,16 @@ func InitWebServer() *Cmd {
 	searchRepository := repository.NewSearchRepository(searchDAO)
 	userService := service.NewUserService(userRepository, logger, searchRepository)
 	handler := jwt.NewJWTHandler(cmdable)
-
+	client := InitSaramaClient()
+	syncProducer := InitSyncProducer(client)
 	producer := sms.NewSaramaSyncProducer(syncProducer, logger)
 	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
 	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
-	mongoClient := InitMongoDB()
-	postDAO := dao.NewPostDAO(db, logger, mongoClient)
-	cacheBloom := bloom.NewCacheBloom(cmdable)
-	cacheManager := local.NewLocalCacheManager(cmdable)
-	postRepository := repository.NewPostRepository(postDAO, logger, cacheBloom, cacheManager)
+	postDAO := dao.NewPostDAO(db, logger)
+	postRepository := repository.NewPostRepository(postDAO, logger)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
-	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
-	postService := service.NewPostService(postRepository, logger, postProducer, publishProducer)
+	checkProducer := check.NewSaramaCheckProducer(syncProducer)
+	postService := service.NewPostService(postRepository, logger, postProducer, checkProducer)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
 	interactiveCache := cache.NewInteractiveCache(cmdable)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
@@ -70,11 +64,11 @@ func InitWebServer() *Cmd {
 	historyService := service.NewHistoryService(historyRepository, logger)
 	historyHandler := api.NewHistoryHandler(historyService)
 	checkDAO := dao.NewCheckDAO(db, logger)
-	checkCache := cache.NewCheckCache(cmdable)
-	checkRepository := repository.NewCheckRepository(checkDAO, checkCache, logger)
+	checkRepository := repository.NewCheckRepository(checkDAO, logger)
 	activityDAO := dao.NewActivityDAO(db, logger)
 	activityRepository := repository.NewActivityRepository(activityDAO)
-	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository)
+	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer, postRepository)
 	checkHandler := api.NewCheckHandler(checkService, enforcer)
 	v := InitMiddlewares(handler, logger)
 	apiDAO := dao.NewApiDAO(db, logger)
@@ -121,7 +115,7 @@ func InitWebServer() *Cmd {
 	apiHandler := api.NewApiHandler(apiService, logger)
 	engine := InitWeb(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler, lotteryDrawHandler, roleHandler, menuHandler, apiHandler)
 	cron := InitRanking(logger, rankingService)
-	readEventConsumer := post.NewReadEventConsumer(interactiveRepository, client, logger, historyRepository)
+	eventConsumer := post.NewEventConsumer(interactiveRepository, historyRepository, client, logger)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
 	tencentSms := InitSms()
@@ -130,12 +124,12 @@ func InitWebServer() *Cmd {
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
-	syncConsumer := sync.NewSyncConsumer(client, logger, db, mongoClient, postDAO)
+	cacheManager := local.NewLocalCacheManager(cmdable)
 	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager, historyCache)
-	publishPostEventConsumer := publish.NewPublishPostEventConsumer(checkRepository, client, logger)
-	checkConsumer := check.NewCheckConsumer(client, logger, postRepository, checkCache)
+	publishPostEventConsumer := publish.NewPublishPostEventConsumer(postRepository, client, logger)
 	esConsumer := es.NewEsConsumer(client, logger, searchRepository)
-	v2 := InitConsumers(readEventConsumer, smsConsumer, emailConsumer, syncConsumer, cacheConsumer, publishPostEventConsumer, checkConsumer, esConsumer)
+	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, logger)
+	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, cacheConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	cmd := &Cmd{
 		Server:   engine,

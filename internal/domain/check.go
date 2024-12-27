@@ -11,7 +11,7 @@ type Check struct {
 	PostID    uint   // 帖子ID
 	Content   string // 审核内容
 	Title     string // 审核标签
-	UserID    int64  // 提交审核的用户ID
+	Uid       int64  // 提交审核的用户ID
 	Status    uint8  // 审核状态
 	Remark    string // 审核备注
 	CreatedAt int64  // 创建时间

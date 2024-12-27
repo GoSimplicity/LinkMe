@@ -2,69 +2,54 @@ package check
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
+	"time"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
-	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/IBM/sarama"
-	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
-	"reflect"
-	"time"
 )
 
-type CheckConsumer struct {
-	client     sarama.Client
-	l          *zap.Logger
-	repo       repository.PostRepository
-	checkCache cache.CheckCache
+type CheckEventConsumer struct {
+	checkRepo repository.CheckRepository
+	client    sarama.Client
+	l         *zap.Logger
 }
 
-type Event struct {
-	Type     string                   `json:"type"`
-	Database string                   `json:"database"`
-	Table    string                   `json:"table"`
-	Data     []map[string]interface{} `json:"data"`
-}
-
-type Check struct {
-	ID        int64  `mapstructure:"id"`
-	PostID    uint   `mapstructure:"post_id"`
-	Title     string `mapstructure:"title"`
-	Content   string `mapstructure:"content"`
-	CreatedAt int64  `mapstructure:"created_at"`
-	UpdatedAt int64  `mapstructure:"updated_at"`
-	UserID    int64  `mapstructure:"author_id"`
-	Status    uint8  `mapstructure:"status"`
-	Remark    string `mapstructure:"remark"`
-}
-
-type consumerGroupHandler struct {
-	r *CheckConsumer
-}
-
-func NewCheckConsumer(client sarama.Client, l *zap.Logger, repo repository.PostRepository, checkCache cache.CheckCache) *CheckConsumer {
-	return &CheckConsumer{
-		client:     client,
-		checkCache: checkCache,
-		l:          l,
-		repo:       repo,
+func NewCheckEventConsumer(
+	checkRepo repository.CheckRepository,
+	client sarama.Client,
+	l *zap.Logger,
+) *CheckEventConsumer {
+	return &CheckEventConsumer{
+		checkRepo: checkRepo,
+		client:    client,
+		l:         l,
 	}
 }
 
-func (r *CheckConsumer) Start(ctx context.Context) error {
-	cg, err := sarama.NewConsumerGroupFromClient("check_consumer_group", r.client)
-	r.l.Info("CheckConsumer 开始消费")
+func (i *CheckEventConsumer) Start(ctx context.Context) error {
+	cg, err := sarama.NewConsumerGroupFromClient("check", i.client)
 	if err != nil {
+		i.l.Error("创建消费者组失败", zap.Error(err))
 		return err
 	}
 
+	i.l.Info("CheckConsumer 开始消费")
+
 	go func() {
+		defer cg.Close()
 		for {
-			if err := cg.Consume(ctx, []string{"linkme_binlog"}, &consumerGroupHandler{r: r}); err != nil {
-				r.l.Error("退出了消费循环异常", zap.Error(err))
-				time.Sleep(time.Second * 5)
+			select {
+			case <-ctx.Done():
+				i.l.Info("审核消息消费者停止")
+				return
+			default:
+				if err := cg.Consume(ctx, []string{TopicCheckEvent}, &checkConsumerGroupHandler{r: i}); err != nil {
+					i.l.Error("审核消息消费循环出错", zap.Error(err))
+					continue
+				}
 			}
 		}
 	}()
@@ -72,122 +57,54 @@ func (r *CheckConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
-func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+type checkConsumerGroupHandler struct {
+	r *CheckEventConsumer
+}
 
-func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (h *checkConsumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (h *checkConsumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+
+func (h *checkConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		if err := h.r.Consume(sess, msg); err != nil {
-			h.r.l.Error("处理消息失败", zap.Error(err), zap.ByteString("message", msg.Value))
-		} else {
-			sess.MarkMessage(msg, "")
-		}
+		h.r.ConsumeCheck(sess, msg)
 	}
-
 	return nil
 }
 
-func (r *CheckConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
-	var e Event
-	var checks []Check
-
-	// 反序列化消息
-	if err := json.Unmarshal(msg.Value, &e); err != nil {
-		return err
+// ConsumeCheck 处理单条审核消息
+func (i *CheckEventConsumer) ConsumeCheck(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) {
+	var evt CheckEvent
+	if err := json.Unmarshal(msg.Value, &evt); err != nil {
+		return
 	}
 
-	// 确保处理的表是目标表
-	if e.Table != "checks" {
-		return nil
+	// 参数校验
+	if evt.PostId == 0 || evt.Uid == 0 {
+		i.l.Warn("无效的审核事件",
+			zap.Uint("post_id", evt.PostId),
+			zap.Int64("uid", evt.Uid))
+		return
 	}
 
-	// 将事件数据映射到 Check 结构体切片
-	if err := decodeEventDataToChecks(e.Data, &checks); err != nil {
-		return err
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	check := domain.Check{
+		PostID:  evt.PostId,
+		Uid:     evt.Uid,
+		Title:   evt.Title,
+		Content: evt.Content,
 	}
 
-	// 处理每个 Check 实例
-	for _, check := range checks {
-		if err := r.handlePost(sess.Context(), check); err != nil {
-			return err
-		}
+	// 创建审核记录
+	if _, err := i.checkRepo.Create(ctx, check); err != nil {
+		i.l.Error("创建审核记录失败", zap.Error(err))
+		return
 	}
 
-	return nil
-}
+	i.l.Info("创建审核记录成功",
+		zap.Uint("post_id", evt.PostId),
+		zap.Int64("uid", evt.Uid))
 
-// handlePost 根据状态处理帖子
-func (r *CheckConsumer) handlePost(ctx context.Context, check Check) error {
-	if check.Status == domain.Approved {
-		return r.repo.UpdateStatus(ctx, domain.Post{
-			ID:     check.PostID,
-			Status: domain.Published,
-		})
-	}
-
-	// 删除缓存并处理可能的错误
-	err := r.checkCache.DeleteKeysWithPattern(ctx, "linkme:check:list:*")
-	if err != nil {
-		r.l.Error("删除缓存失败", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
-// decodeEventDataToChecks 将事件数据解码到 Check 结构体切片
-func decodeEventDataToChecks(data []map[string]interface{}, checks *[]Check) error {
-	config := &mapstructure.DecoderConfig{
-		Result:           checks,
-		TagName:          "mapstructure",
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			stringToTimeHookFunc("2006-01-02 15:04:05"),
-			stringToNullTimeHookFunc("2006-01-02 15:04:05"),
-		),
-	}
-
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-
-	return decoder.Decode(data)
-}
-
-// stringToTimeHookFunc 将字符串转换为时间类型
-func stringToTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
-	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
-		if f != reflect.String || t != reflect.Struct {
-			return data, nil
-		}
-
-		str, ok := data.(string)
-		if !ok || str == "" {
-			return time.Time{}, nil
-		}
-
-		return time.Parse(layout, str)
-	}
-}
-
-// stringToNullTimeHookFunc 将字符串转换为 sql.NullTime 类型
-func stringToNullTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
-	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
-		if f != reflect.String || t != reflect.Struct {
-			return data, nil
-		}
-
-		str, ok := data.(string)
-		if !ok || str == "" {
-			return sql.NullTime{Valid: false}, nil
-		}
-
-		parsedTime, err := time.Parse(layout, str)
-		if err != nil {
-			return nil, err
-		}
-
-		return sql.NullTime{Time: parsedTime, Valid: true}, nil
-	}
+	sess.MarkMessage(msg, "")
 }

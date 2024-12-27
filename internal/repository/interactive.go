@@ -3,27 +3,28 @@ package repository
 import (
 	"context"
 	"errors"
+	"sync"
+	"time"
+
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
-	"sync"
-	"time"
 
 	"go.uber.org/zap"
 )
 
 type InteractiveRepository interface {
-	// BatchIncrReadCnt biz 和 bizId 长度必须一致
-	BatchIncrReadCnt(ctx context.Context, biz []string, postIds []uint) error                    // 批量更新阅读计数(与kafka配合使用)
-	IncrLike(ctx context.Context, biz string, postId uint, uid int64) error                      // 增加阅读计数
-	DecrLike(ctx context.Context, biz string, postId uint, uid int64) error                      // 减少阅读计数
-	IncrCollectionItem(ctx context.Context, biz string, postId uint, cid int64, uid int64) error // 收藏
-	DecrCollectionItem(ctx context.Context, biz string, postId uint, cid int64, uid int64) error // 取消收藏
-	Get(ctx context.Context, biz string, postId uint) (domain.Interactive, error)                // 获取互动信息
-	Liked(ctx context.Context, biz string, postId uint, uid int64) (bool, error)                 // 检查是否已点赞
-	Collected(ctx context.Context, biz string, postId uint, uid int64) (bool, error)             // 检查是否被收藏
-	GetById(ctx context.Context, biz string, postIds []uint) ([]domain.Interactive, error)       // 批量获取互动信息
+	BatchIncrReadCnt(ctx context.Context, postIds []uint) error
+	IncrReadCnt(ctx context.Context, postId uint) error
+	IncrLike(ctx context.Context, postId uint, uid int64) error
+	DecrLike(ctx context.Context, postId uint, uid int64) error
+	IncrCollectionItem(ctx context.Context, postId uint, cid int64, uid int64) error
+	DecrCollectionItem(ctx context.Context, postId uint, cid int64, uid int64) error
+	Get(ctx context.Context, postId uint) (domain.Interactive, error)
+	Liked(ctx context.Context, postId uint, uid int64) (bool, error)
+	Collected(ctx context.Context, postId uint, uid int64) (bool, error)
+	GetById(ctx context.Context, postIds []uint) ([]domain.Interactive, error)
 }
 
 type CachedInteractiveRepository struct {
@@ -40,17 +41,18 @@ func NewInteractiveRepository(dao dao.InteractiveDAO, l *zap.Logger, cache cache
 	}
 }
 
-func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz []string, postIds []uint) error {
-	if err := c.dao.BatchIncrReadCnt(ctx, biz, postIds); err != nil {
+// BatchIncrReadCnt 批量增加阅读计数
+func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, postIds []uint) error {
+	if err := c.dao.BatchIncrReadCnt(ctx, postIds); err != nil {
 		return err
 	}
 	// 使用sync.WaitGroup来等待所有缓存更新操作完成
 	var wg sync.WaitGroup
-	wg.Add(len(biz))
-	for i := 0; i < len(biz); i++ {
+	wg.Add(len(postIds))
+	for i := 0; i < len(postIds); i++ {
 		go func(i int) {
 			defer wg.Done()
-			er := c.retryUpdateCache(ctx, biz[i], postIds[i], 3)
+			er := c.retryUpdateCache(ctx, postIds[i], 3)
 			if er != nil {
 				c.l.Error("post read count record failed", zap.Error(er))
 			}
@@ -60,69 +62,80 @@ func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, biz 
 	return nil
 }
 
-func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, biz string, postId uint, uid int64) error {
+// IncrReadCnt implements InteractiveRepository.
+func (c *CachedInteractiveRepository) IncrReadCnt(ctx context.Context, postId uint) error {
+	if err := c.dao.IncrReadCnt(ctx, postId); err != nil {
+		return err
+	}
+	return c.cache.PostReadCountRecord(ctx, postId)
+}
+
+// IncrLike 增加点赞计数
+func (c *CachedInteractiveRepository) IncrLike(ctx context.Context, postId uint, uid int64) error {
 	if err := c.dao.InsertLikeInfo(ctx, dao.UserLikeBiz{
-		BizName: biz,
-		BizID:   postId,
-		Uid:     uid,
+		BizID: postId,
+		Uid:   uid,
 	}); err != nil {
 		return err
 	}
-	return c.cache.PostReadCountRecord(ctx, biz, postId)
+	return c.cache.PostReadCountRecord(ctx, postId)
 }
 
-func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, biz string, postId uint, uid int64) error {
+// DecrLike 减少点赞计数
+func (c *CachedInteractiveRepository) DecrLike(ctx context.Context, postId uint, uid int64) error {
 	if err := c.dao.DeleteLikeInfo(ctx, dao.UserLikeBiz{
-		BizName: biz,
-		BizID:   postId,
-		Uid:     uid,
+		BizID: postId,
+		Uid:   uid,
 	}); err != nil {
 		return err
 	}
-	return c.cache.DecrLikeCountRecord(ctx, biz, postId)
+	return c.cache.DecrLikeCountRecord(ctx, postId)
 }
 
-func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, biz string, postId uint, cid int64, uid int64) error {
+// IncrCollectionItem 增加收藏计数
+func (c *CachedInteractiveRepository) IncrCollectionItem(ctx context.Context, postId uint, cid int64, uid int64) error {
 	if err := c.dao.InsertCollectionBiz(ctx, dao.UserCollectionBiz{
-		BizName:      biz,
 		BizID:        postId,
 		CollectionId: cid,
 		Uid:          uid,
 	}); err != nil {
 		return err
 	}
-	return c.cache.PostCollectCountRecord(ctx, biz, postId)
-}
-func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, biz string, postId uint, cid int64, uid int64) error {
-	if err := c.dao.DeleteCollectionBiz(ctx, dao.UserCollectionBiz{
-		BizName:      biz,
-		BizID:        postId,
-		CollectionId: cid,
-		Uid:          uid,
-	}); err != nil {
-		return err
-	}
-	return c.cache.DecrCollectCountRecord(ctx, biz, postId)
+	return c.cache.PostCollectCountRecord(ctx, postId)
 }
 
-func (c *CachedInteractiveRepository) Get(ctx context.Context, biz string, postId uint) (domain.Interactive, error) {
-	inc, err := c.cache.Get(ctx, biz, postId)
+// DecrCollectionItem 减少收藏计数
+func (c *CachedInteractiveRepository) DecrCollectionItem(ctx context.Context, postId uint, cid int64, uid int64) error {
+	if err := c.dao.DeleteCollectionBiz(ctx, dao.UserCollectionBiz{
+		BizID:        postId,
+		CollectionId: cid,
+		Uid:          uid,
+	}); err != nil {
+		return err
+	}
+	return c.cache.DecrCollectCountRecord(ctx, postId)
+}
+
+// Get 获取互动信息
+func (c *CachedInteractiveRepository) Get(ctx context.Context, postId uint) (domain.Interactive, error) {
+	inc, err := c.cache.Get(ctx, postId)
 	if err == nil {
 		return inc, nil
 	}
-	ic, err := c.dao.Get(ctx, biz, postId)
+	ic, err := c.dao.Get(ctx, postId)
 	if err != nil {
 		c.l.Error(PostGetInteractiveERROR, zap.Error(err))
 		return domain.Interactive{}, err
 	}
-	if er := c.cache.Set(ctx, biz, postId, toDomain(ic)); er != nil {
+	if er := c.cache.Set(ctx, postId, toDomain(ic)); er != nil {
 		c.l.Error("set interactive cache failed", zap.Error(er))
 	}
 	return toDomain(ic), nil
 }
 
-func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, postId uint, uid int64) (bool, error) {
-	_, err := c.dao.GetLikeInfo(ctx, biz, postId, uid)
+// Liked 检查是否已点赞
+func (c *CachedInteractiveRepository) Liked(ctx context.Context, postId uint, uid int64) (bool, error) {
+	_, err := c.dao.GetLikeInfo(ctx, postId, uid)
 	switch {
 	case err == nil:
 		// 如果没有错误，说明找到了点赞记录，返回true
@@ -137,8 +150,9 @@ func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, pos
 	}
 }
 
-func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string, postId uint, uid int64) (bool, error) {
-	_, err := c.dao.GetCollectInfo(ctx, biz, postId, uid)
+// Collected 检查是否已收藏
+func (c *CachedInteractiveRepository) Collected(ctx context.Context, postId uint, uid int64) (bool, error) {
+	_, err := c.dao.GetCollectInfo(ctx, postId, uid)
 	switch {
 	case err == nil:
 		// 如果没有错误，说明找到了收藏记录，返回true
@@ -153,8 +167,9 @@ func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string,
 	}
 }
 
-func (c *CachedInteractiveRepository) GetById(ctx context.Context, biz string, postIds []uint) ([]domain.Interactive, error) {
-	ics, err := c.dao.GetByIds(ctx, biz, postIds)
+// GetById 批量获取互动信息
+func (c *CachedInteractiveRepository) GetById(ctx context.Context, postIds []uint) ([]domain.Interactive, error) {
+	ics, err := c.dao.GetByIds(ctx, postIds)
 	if err != nil {
 		return make([]domain.Interactive, 0), err
 	}
@@ -166,9 +181,10 @@ func (c *CachedInteractiveRepository) GetById(ctx context.Context, biz string, p
 	return result, nil
 }
 
-func (c *CachedInteractiveRepository) retryUpdateCache(ctx context.Context, biz string, postId uint, retries int) error {
+// retryUpdateCache 重试更新缓存
+func (c *CachedInteractiveRepository) retryUpdateCache(ctx context.Context, postId uint, retries int) error {
 	for i := 0; i < retries; i++ {
-		err := c.cache.PostReadCountRecord(ctx, biz, postId)
+		err := c.cache.PostReadCountRecord(ctx, postId)
 		if err == nil {
 			return nil // 更新成功，返回
 		}

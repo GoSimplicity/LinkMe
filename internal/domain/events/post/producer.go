@@ -2,10 +2,13 @@ package post
 
 import (
 	"encoding/json"
+
 	"github.com/IBM/sarama"
 )
 
-const TopicReadEvent = "linkme_read_events"
+const (
+	TopicReadEvent = "read_events"
+)
 
 type Producer interface {
 	ProduceReadEvent(evt ReadEvent) error
@@ -24,7 +27,9 @@ type SaramaSyncProducer struct {
 }
 
 func NewSaramaSyncProducer(producer sarama.SyncProducer) Producer {
-	return &SaramaSyncProducer{producer: producer}
+	return &SaramaSyncProducer{
+		producer: producer,
+	}
 }
 
 func (s *SaramaSyncProducer) ProduceReadEvent(evt ReadEvent) error {

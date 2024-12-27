@@ -75,7 +75,7 @@ func NewLotteryDrawService(repo repository.LotteryDrawRepository, l *zap.Logger)
 // runStatusUpdater 启动后台定时任务，每10秒更新一次活动状态
 func (s *lotteryDrawService) runStatusUpdater() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(100 * time.Second)
 	defer ticker.Stop()
 
 	for {

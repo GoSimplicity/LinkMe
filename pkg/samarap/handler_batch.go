@@ -3,33 +3,29 @@ package samarap
 import (
 	"context"
 	"encoding/json"
+	"time"
+
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
-	"time"
 )
 
-// BatchHandler BatchHandler[T] 是一个泛型结构体，用于处理 Kafka 消息的批次
 type BatchHandler[T any] struct {
-	fn func(msgs []*sarama.ConsumerMessage, ts []T) error // 处理消息的函数
-	l  *zap.Logger                                        // 日志记录器
+	fn func(msgs []*sarama.ConsumerMessage, ts []T) error
+	l  *zap.Logger
 }
 
-// NewBatchHandler NewBatchHandler[T] 是一个工厂函数，用于创建 BatchHandler[T] 的实例
 func NewBatchHandler[T any](l *zap.Logger, fn func(msgs []*sarama.ConsumerMessage, ts []T) error) *BatchHandler[T] {
 	return &BatchHandler[T]{fn: fn, l: l}
 }
 
-// Setup 方法是 Sarama ConsumerGroupHandler 接口的实现，它在消费者组开始时被调用
 func (b *BatchHandler[T]) Setup(session sarama.ConsumerGroupSession) error {
-	return nil // 当前实现不需要执行任何设置操作
+	return nil
 }
 
-// Cleanup 方法是 Sarama ConsumerGroupHandler 接口的实现，它在消费者组结束时被调用
 func (b *BatchHandler[T]) Cleanup(session sarama.ConsumerGroupSession) error {
-	return nil // 当前实现不需要执行任何清理操作
+	return nil
 }
 
-// ConsumeClaim 方法是 Sarama ConsumerGroupHandler 接口的实现，它在处理消息时被调用
 func (b *BatchHandler[T]) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	msgs := claim.Messages() // 获取分配给当前消费者的消息通道
 	const batchSize = 100    // 定义批处理的大小
