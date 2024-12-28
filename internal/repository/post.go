@@ -22,6 +22,8 @@ type PostRepository interface {
 	ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, postId uint, uid int64) error
+	GetPost(ctx context.Context, postId uint) (domain.Post, error)
+	ListAllPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 }
 
 type postRepository struct {
@@ -124,4 +126,31 @@ func (p *postRepository) Delete(ctx context.Context, postId uint, uid int64) err
 		return fmt.Errorf("删除帖子失败: %w", err)
 	}
 	return nil
+}
+
+// GetPost 获取帖子
+func (p *postRepository) GetPost(ctx context.Context, postId uint) (domain.Post, error) {
+	dp, err := p.dao.GetPost(ctx, postId)
+	if err != nil {
+		p.l.Error("获取帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
+	}
+
+	return change.ToDomainPost(dp), nil
+}
+
+// ListAllPosts 获取所有帖子
+func (p *postRepository) ListAllPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	posts, err := p.dao.ListAll(ctx, pagination)
+	if err != nil {
+		p.l.Error("获取所有帖子列表失败", zap.Error(err))
+		return nil, fmt.Errorf("获取所有帖子列表失败: %w", err)
+	}
+
+	if len(posts) == 0 {
+		p.l.Info("没有找到任何帖子")
+		return []domain.Post{}, nil
+	}
+
+	return change.FromDomainSlicePost(posts), nil
 }

@@ -50,7 +50,7 @@ func (p *plateDAO) CreatePlate(ctx context.Context, plate domain.Plate) error {
 	}
 
 	if er := p.db.WithContext(ctx).Create(newPlate).Error; er != nil {
-		p.l.Error("Failed to create plate", zap.String("name", plate.Name), zap.Error(er))
+		p.l.Error("创建板块失败", zap.String("板块名称", plate.Name), zap.Error(er))
 		return er
 	}
 
@@ -68,7 +68,7 @@ func (p *plateDAO) ListPlate(ctx context.Context, pagination domain.Pagination) 
 		Offset(intOffset).
 		Find(&plates).Error
 	if err != nil {
-		p.l.Error("Failed to list plates", zap.Error(err))
+		p.l.Error("获取板块列表失败", zap.Error(err))
 		return nil, err
 	}
 
@@ -86,7 +86,7 @@ func (p *plateDAO) UpdatePlate(ctx context.Context, plate domain.Plate) error {
 	if err := p.db.WithContext(ctx).Model(&Plate{}).
 		Where("id = ? AND uid = ?", plate.ID, plate.Uid).
 		Updates(updateData).Error; err != nil {
-		p.l.Error("Failed to update plate", zap.Error(err))
+		p.l.Error("更新板块失败", zap.Error(err))
 		return err
 	}
 
@@ -105,7 +105,7 @@ func (p *plateDAO) DeletePlate(ctx context.Context, plateId int64, uid int64) er
 	if err := p.db.WithContext(ctx).Model(&Plate{}).
 		Where("id = ? AND uid = ?", plateId, uid).
 		Updates(updateData).Error; err != nil {
-		p.l.Error("Failed to soft delete plate", zap.Error(err))
+		p.l.Error("软删除板块失败", zap.Error(err))
 		return err
 	}
 

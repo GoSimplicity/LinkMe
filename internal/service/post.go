@@ -24,6 +24,8 @@ type PostService interface {
 	ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, postId uint, uid int64) error
+	ListAll(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 }
 
 type postService struct {
@@ -149,4 +151,20 @@ func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error 
 		return err
 	}
 	return p.repo.Delete(ctx, postId, uid)
+}
+
+// GetPost implements PostService.
+func (p *postService) GetPost(ctx context.Context, postId uint) (domain.Post, error) {
+	dp, err := p.repo.GetPost(ctx, postId)
+	if err != nil {
+		return domain.Post{}, err
+	}
+	return dp, nil
+}
+
+// ListAll implements PostService.
+func (p *postService) ListAll(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return p.repo.ListAllPosts(ctx, pagination)
 }

@@ -32,6 +32,8 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.DELETE("/delete/:postId", ph.DeletePost) // 删除帖子
 	postGroup.POST("/list", ph.List)                   // 获取个人帖子列表
 	postGroup.POST("/list_pub", ph.ListPub)            // 获取公开帖子列表
+	postGroup.POST("/list_all", ph.ListAll)            // 获取所有帖子列表
+	postGroup.GET("/get/:id", ph.GetPost)              // 获取帖子详情
 	postGroup.GET("/detail/:postId", ph.Detail)        // 获取个人帖子详情
 	postGroup.GET("/detail_pub/:postId", ph.DetailPub) // 获取公开帖子详情
 	postGroup.POST("/like", ph.Like)                   // 点赞/取消点赞
@@ -280,4 +282,41 @@ func (ph *PostHandler) Collect(ctx *gin.Context) {
 	}
 
 	apiresponse.SuccessWithData(ctx, req.PostId)
+}
+
+// ListAll 获取所有帖子列表
+func (ph *PostHandler) ListAll(ctx *gin.Context) {
+	var req req.ListPostReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
+	posts, err := ph.svc.ListAll(ctx, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, err.Error())
+		return
+	}
+
+	apiresponse.SuccessWithData(ctx, posts)
+}
+
+// GetPost 获取帖子详情
+func (ph *PostHandler) GetPost(ctx *gin.Context) {
+	var req req.DetailPostReq
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
+	post, err := ph.svc.GetPost(ctx, req.PostId)
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, err.Error())
+		return
+	}
+
+	apiresponse.SuccessWithData(ctx, post)
 }

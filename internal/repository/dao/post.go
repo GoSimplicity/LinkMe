@@ -26,6 +26,8 @@ type PostDAO interface {
 	ListPub(ctx context.Context, pagination domain.Pagination) ([]PubPost, error)
 	List(ctx context.Context, pagination domain.Pagination) ([]Post, error)
 	Delete(ctx context.Context, postId uint, uid int64) error
+	ListAll(ctx context.Context, pagination domain.Pagination) ([]Post, error)
+	GetPost(ctx context.Context, postId uint) (Post, error)
 }
 
 type postDAO struct {
@@ -304,4 +306,41 @@ func (p *postDAO) Delete(ctx context.Context, postId uint, uid int64) error {
 
 		return nil
 	})
+}
+
+// GetPost 获取帖子
+func (p *postDAO) GetPost(ctx context.Context, postId uint) (Post, error) {
+	if postId == 0 {
+		return Post{}, ErrInvalidParams
+	}
+
+	var post Post
+	if err := p.db.WithContext(ctx).First(&post, postId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Post{}, ErrPostNotFound
+		}
+		p.l.Error("获取帖子失败", zap.Error(err))
+		return Post{}, err
+	}
+
+	return post, nil
+}
+
+// ListAll 获取所有帖子
+func (p *postDAO) ListAll(ctx context.Context, pagination domain.Pagination) ([]Post, error) {
+	if pagination.Size == nil || pagination.Offset == nil {
+		return nil, ErrInvalidParams
+	}
+
+	var posts []Post
+	err := p.db.WithContext(ctx).Model(&Post{}).
+		Limit(int(*pagination.Size)).
+		Offset(int(*pagination.Offset)).
+		Find(&posts).Error
+	if err != nil {
+		p.l.Error("获取所有帖子列表失败", zap.Error(err))
+		return nil, err
+	}
+
+	return posts, nil
 }
