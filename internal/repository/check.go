@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
@@ -11,12 +10,12 @@ import (
 
 type CheckRepository interface {
 	Create(ctx context.Context, check domain.Check) (int64, error)                     // 创建审核记录
-	BatchCreate(ctx context.Context, checks []domain.Check) error                      // 批量创建审核记录
 	UpdateStatus(ctx context.Context, check domain.Check) error                        // 更新审核状态
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
 	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
 	FindByPostId(ctx context.Context, postID uint) (domain.Check, error)               // 根据帖子ID获取审核信息
 	GetCheckCount(ctx context.Context) (int64, error)                                  // 获取审核数量
+	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error            // 事务
 }
 
 type checkRepository struct {
@@ -31,21 +30,7 @@ func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
 	}
 }
 
-func (r *checkRepository) FindByPostId(ctx context.Context, postID uint) (domain.Check, error) {
-	check, err := r.dao.FindByPostId(ctx, postID)
-	if err != nil {
-		return domain.Check{}, err
-	}
-	return toDomainCheck(check), nil
-}
-
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
-	// 先查找是否存在该帖子审核信息
-	dc, err := r.dao.FindByPostId(ctx, check.PostID)
-	if dc.PostID != 0 && err == nil {
-		return -1, nil
-	}
-
 	// 创建新的审核信息
 	id, err := r.dao.Create(ctx, toDAOCheck(check))
 	if err != nil {
@@ -53,36 +38,6 @@ func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64
 	}
 
 	return id, nil
-}
-
-func (r *checkRepository) BatchCreate(ctx context.Context, checks []domain.Check) error {
-	// 将 domain.Check 转换为 dao.Check
-	daoChecks := make([]dao.Check, len(checks))
-	for i, check := range checks {
-		daoChecks[i] = toDAOCheck(check)
-	}
-
-	// 防止重复创建
-	for _, check := range checks {
-		if check.PostID == 0 {
-			return fmt.Errorf("post_id is required")
-		}
-
-		dc, err := r.dao.FindByPostId(ctx, check.PostID)
-		if err != nil {
-			return err
-		}
-		if dc.PostID != 0 {
-			return nil
-		}
-	}
-
-	// 批量创建审核记录
-	if err := r.dao.BatchCreate(ctx, daoChecks); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (r *checkRepository) UpdateStatus(ctx context.Context, check domain.Check) error {
@@ -105,8 +60,21 @@ func (r *checkRepository) FindByID(ctx context.Context, checkID int64) (domain.C
 	return toDomainCheck(check), nil
 }
 
+func (r *checkRepository) FindByPostId(ctx context.Context, postID uint) (domain.Check, error) {
+	check, err := r.dao.FindByPostId(ctx, postID)
+	if err != nil {
+		return domain.Check{}, err
+	}
+	return toDomainCheck(check), nil
+}
+
 func (r *checkRepository) GetCheckCount(ctx context.Context) (int64, error) {
 	return r.dao.GetCheckCount(ctx)
+}
+
+// WithTx 事务
+func (r *checkRepository) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+	return r.dao.WithTx(ctx, fn)
 }
 
 // toDAOCheck 将 domain.Check 转换为 dao.Check
@@ -116,6 +84,7 @@ func toDAOCheck(domainCheck domain.Check) dao.Check {
 		PostID:    domainCheck.PostID,
 		Content:   domainCheck.Content,
 		Title:     domainCheck.Title,
+		PlateID:   domainCheck.PlateID,
 		Uid:       domainCheck.Uid,
 		Status:    domainCheck.Status,
 		Remark:    domainCheck.Remark,
@@ -132,6 +101,7 @@ func toDomainCheck(daoCheck dao.Check) domain.Check {
 		Content:   daoCheck.Content,
 		Title:     daoCheck.Title,
 		Uid:       daoCheck.Uid,
+		PlateID:   daoCheck.PlateID,
 		Status:    daoCheck.Status,
 		Remark:    daoCheck.Remark,
 		CreatedAt: daoCheck.CreatedAt,

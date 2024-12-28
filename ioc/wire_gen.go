@@ -58,7 +58,7 @@ func InitWebServer() *Cmd {
 	interactiveCache := cache.NewInteractiveCache(cmdable)
 	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
 	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
-	postHandler := api.NewPostHandler(postService, interactiveService, enforcer)
+	postHandler := api.NewPostHandler(postService, interactiveService)
 	historyCache := cache.NewHistoryCache(logger, cmdable)
 	historyRepository := repository.NewHistoryRepository(logger, historyCache)
 	historyService := service.NewHistoryService(historyRepository, logger)

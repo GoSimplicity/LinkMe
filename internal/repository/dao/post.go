@@ -8,6 +8,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -44,7 +45,7 @@ type Post struct {
 	Plate        Plate  `gorm:"foreignKey:PlateID"`           // 关联板块
 	Tags         string `gorm:"type:varchar(255);default:''"` // 标签
 	CommentCount int64  `gorm:"default:0"`                    // 评论数
-	IsSubmit     bool   `gorm:"default:false"`                // 是否已经提交
+	IsSubmit     bool   `gorm:"default:false"`
 }
 
 type PubPost struct {
@@ -79,7 +80,7 @@ func (p *postDAO) Insert(ctx context.Context, post Post) (uint, error) {
 		// 检查板块是否存在
 		var count int64
 		if err := tx.Model(&Plate{}).Where("id = ?", post.PlateID).Count(&count).Error; err != nil {
-			p.l.Error("failed to check plate existence", zap.Error(err))
+			p.l.Error("检查板块是否存在失败", zap.Error(err))
 			return err
 		}
 		if count == 0 {
@@ -87,7 +88,7 @@ func (p *postDAO) Insert(ctx context.Context, post Post) (uint, error) {
 		}
 		// 创建帖子
 		if err := tx.Create(&post).Error; err != nil {
-			p.l.Error("failed to insert post", zap.Error(err))
+			p.l.Error("创建帖子失败", zap.Error(err))
 			return err
 		}
 		return nil
@@ -112,12 +113,11 @@ func (p *postDAO) Update(ctx context.Context, post Post) error {
 		"content":    post.Content,
 		"plate_id":   post.PlateID,
 		"status":     post.Status,
-		"is_submit":  post.IsSubmit,
 		"updated_at": time.Now(),
 	})
 
 	if res.Error != nil {
-		p.l.Error("failed to update post", zap.Error(res.Error))
+		p.l.Error("更新帖子失败", zap.Error(res.Error))
 		return res.Error
 	}
 
@@ -137,30 +137,33 @@ func (p *postDAO) UpdateStatus(ctx context.Context, postId uint, uid int64, stat
 	// 使用事务处理状态更新
 	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 更新原帖子状态
-		res := tx.Model(&Post{}).Where("id = ? AND uid = ?", postId, uid).Updates(map[string]interface{}{
+		updates := map[string]interface{}{
 			"status":     status,
 			"updated_at": time.Now(),
-		})
+		}
+
+		// 如果是撤销状态或审核未通过(草稿状态)，同时更新 is_submit
+		if status == domain.Withdrawn || status == domain.Draft {
+			updates["is_submit"] = false
+		}
+
+		res := tx.Model(&Post{}).Where("id = ? AND uid = ?", postId, uid).Updates(updates)
 		if res.Error != nil {
-			p.l.Error("failed to update post status", zap.Error(res.Error))
+			p.l.Error("更新帖子状态失败", zap.Error(res.Error))
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
 			return ErrPostNotFound
 		}
 
-		// 如果是发布状态，创建已发布帖子副本
+		// 如果是发布状态,创建已发布帖子副本
 		if status == domain.Published {
 			var post Post
 			if err := tx.Where("id = ?", postId).First(&post).Error; err != nil {
 				return err
 			}
 
-			// 先删除可能存在的旧记录
-			if err := tx.Where("id = ?", postId).Delete(&PubPost{}).Error; err != nil {
-				return err
-			}
-
+			// 使用 REPLACE INTO 语法，避免先删除再插入
 			pubPost := PubPost{
 				Model:        post.Model,
 				Title:        post.Title,
@@ -175,13 +178,15 @@ func (p *postDAO) UpdateStatus(ctx context.Context, postId uint, uid int64, stat
 				CommentCount: post.CommentCount,
 			}
 
-			if err := tx.Create(&pubPost).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				UpdateAll: true, // 更新所有字段
+			}).Create(&pubPost).Error; err != nil {
 				return err
 			}
 		} else if status == domain.Withdrawn {
-			// 如果是撤销状态，删除已发布的帖子
+			// 如果是撤销状态,删除已发布的帖子
 			if err := tx.Where("id = ?", postId).Delete(&PubPost{}).Error; err != nil {
-				p.l.Error("failed to delete published post", zap.Error(err))
+				p.l.Error("删除已发布帖子失败", zap.Error(err))
 				return err
 			}
 		}
@@ -201,10 +206,10 @@ func (p *postDAO) GetById(ctx context.Context, postId uint, uid int64) (Post, er
 	err := p.db.WithContext(ctx).Where("uid = ? AND id = ?", uid, postId).First(&post).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			p.l.Debug("post not found", zap.Uint("id", postId), zap.Int64("uid", uid))
+			p.l.Debug("未找到帖子", zap.Uint("id", postId), zap.Int64("uid", uid))
 			return Post{}, ErrPostNotFound
 		}
-		p.l.Error("failed to get post", zap.Error(err))
+		p.l.Error("获取帖子失败", zap.Error(err))
 		return Post{}, err
 	}
 	return post, nil
@@ -225,7 +230,7 @@ func (p *postDAO) List(ctx context.Context, pagination domain.Pagination) ([]Pos
 
 	err := query.Limit(int(*pagination.Size)).Offset(int(*pagination.Offset)).Find(&posts).Error
 	if err != nil {
-		p.l.Error("find post list failed", zap.Error(err))
+		p.l.Error("获取帖子列表失败", zap.Error(err))
 		return nil, err
 	}
 	return posts, nil
@@ -241,10 +246,10 @@ func (p *postDAO) GetPubById(ctx context.Context, postId uint) (PubPost, error) 
 	err := p.db.WithContext(ctx).Where("id = ?", postId).First(&post).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			p.l.Debug("published post not found", zap.Error(err))
+			p.l.Debug("未找到已发布的帖子", zap.Error(err))
 			return PubPost{}, ErrPostNotFound
 		}
-		p.l.Error("failed to get published post", zap.Error(err))
+		p.l.Error("获取已发布帖子失败", zap.Error(err))
 		return PubPost{}, err
 	}
 	return post, nil
@@ -259,7 +264,7 @@ func (p *postDAO) ListPub(ctx context.Context, pagination domain.Pagination) ([]
 	var posts []PubPost
 	err := p.db.WithContext(ctx).Model(&PubPost{}).Limit(int(*pagination.Size)).Offset(int(*pagination.Offset)).Find(&posts).Error
 	if err != nil {
-		p.l.Error("find published posts failed", zap.Error(err))
+		p.l.Error("获取已发布帖子列表失败", zap.Error(err))
 		return nil, err
 	}
 	return posts, nil

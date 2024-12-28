@@ -3,6 +3,7 @@ package post
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -72,19 +73,25 @@ func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { re
 
 func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		if err := h.r.ConsumeRead(msg); err != nil {
+		if err := h.r.processMessage(sess, msg); err != nil {
 			h.r.l.Error("处理阅读消息失败", zap.Error(err))
-		} else {
-			sess.MarkMessage(msg, "")
 		}
 	}
 	return nil
 }
 
 // ConsumeRead 处理单条阅读消息
-func (i *EventConsumer) ConsumeRead(msg *sarama.ConsumerMessage) error {
+func (i *EventConsumer) processMessage(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
+	if msg == nil || msg.Value == nil {
+		i.l.Error("消息为空")
+		sess.MarkMessage(msg, "") // 标记错误消息已处理
+		return errors.New("消息为空")
+	}
+
 	var evt ReadEvent
 	if err := json.Unmarshal(msg.Value, &evt); err != nil {
+		i.l.Error("解析消息失败", zap.Error(err))
+		sess.MarkMessage(msg, "") // 标记错误消息已处理
 		return fmt.Errorf("解析消息失败: %w", err)
 	}
 
@@ -93,7 +100,8 @@ func (i *EventConsumer) ConsumeRead(msg *sarama.ConsumerMessage) error {
 		i.l.Warn("无效的阅读事件",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid))
-		return nil
+		sess.MarkMessage(msg, "") // 标记无效消息已处理
+		return errors.New("参数校验失败")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -109,13 +117,19 @@ func (i *EventConsumer) ConsumeRead(msg *sarama.ConsumerMessage) error {
 
 	// 保存历史记录
 	if err := i.hisRepo.SetHistory(ctx, []domain.Post{post}); err != nil {
-		i.l.Error("保存历史记录失败", zap.Error(err))
+		i.l.Error("保存历史记录失败",
+			zap.Uint("post_id", evt.PostId),
+			zap.Int64("uid", evt.Uid),
+			zap.Error(err))
 		return fmt.Errorf("保存历史记录失败: %w", err)
 	}
 
 	// 增加阅读计数
 	if err := i.repo.IncrReadCnt(ctx, evt.PostId); err != nil {
-		i.l.Error("增加阅读计数失败", zap.Error(err))
+		i.l.Error("增加阅读计数失败",
+			zap.Uint("post_id", evt.PostId),
+			zap.Int64("uid", evt.Uid),
+			zap.Error(err))
 		return fmt.Errorf("增加阅读计数失败: %w", err)
 	}
 
@@ -123,5 +137,6 @@ func (i *EventConsumer) ConsumeRead(msg *sarama.ConsumerMessage) error {
 		zap.Uint("post_id", evt.PostId),
 		zap.Int64("uid", evt.Uid))
 
+	sess.MarkMessage(msg, "")
 	return nil
 }

@@ -12,6 +12,7 @@ type Check struct {
 	Content   string // 审核内容
 	Title     string // 审核标签
 	Uid       int64  // 提交审核的用户ID
+	PlateID   int64  // 板块id
 	Status    uint8  // 审核状态
 	Remark    string // 审核备注
 	CreatedAt int64  // 创建时间

@@ -79,6 +79,7 @@ func (p *postService) Publish(ctx context.Context, postId uint, uid int64) error
 	})
 
 	asyncPublish()
+
 	dp.IsSubmit = true
 	// 更新帖子状态
 	if err := p.repo.Update(ctx, dp); err != nil {

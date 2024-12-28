@@ -13,7 +13,6 @@ import (
 )
 
 type CheckService interface {
-	SubmitCheck(ctx context.Context, check domain.Check) (int64, error)                   // 提交审核
 	ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error      // 审核通过
 	RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error       // 审核拒绝
 	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
@@ -41,16 +40,7 @@ func NewCheckService(repo repository.CheckRepository, searchRepo repository.Sear
 	}
 }
 
-func (s *checkService) SubmitCheck(ctx context.Context, check domain.Check) (int64, error) {
-	// 设置状态为审核中
-	check.Status = domain.UnderReview
-	id, err := s.repo.Create(ctx, check)
-	if err != nil {
-		return -1, err
-	}
-	return id, nil
-}
-
+// ApproveCheck 审核通过
 func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error {
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
@@ -59,8 +49,8 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	}
 
 	// 检查是否已审核
-	if check.Status == domain.UnApproved || check.Status == domain.Approved {
-		return fmt.Errorf("请勿重复提交：%v", checkID)
+	if check.Status != domain.UnderReview {
+		return fmt.Errorf("当前审核状态不允许操作,状态:%v", check.Status)
 	}
 
 	// 更新审核状态为通过
@@ -69,80 +59,110 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		Remark: remark,
 		Status: domain.Approved,
 	}); err != nil {
-		s.l.Error("更新审核状态失败", zap.Int64("CheckID", checkID), zap.String("Remark", remark), zap.Error(err))
+		s.l.Error("更新审核状态失败",
+			zap.Int64("check_id", checkID),
+			zap.String("remark", remark),
+			zap.Error(err))
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
+	// 设置超时上下文
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	// 异步处理非关键任务
 	go func() {
+		defer cancel()
+		// 发送发布事件
 		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
 			PostId: check.PostID,
 			Uid:    check.Uid,
 		}); err != nil {
-			s.l.Error("produce check event failed", zap.Error(err))
+			s.l.Error("发送发布事件失败",
+				zap.Uint("post_id", check.PostID),
+				zap.Int64("uid", check.Uid),
+				zap.Error(err))
 		}
-	}()
 
-	// 异步记录最近活动
-	go func() {
-		if err := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
+		// 记录最近活动
+		if err := s.ActivityRepo.SetRecentActivity(ctxTimeout, domain.RecentActivity{
 			UserID:      uid,
 			Description: "审核通过",
 			Time:        strconv.FormatInt(time.Now().Unix(), 10),
 		}); err != nil {
-			s.l.Error("记录最近活动失败", zap.Int64("UserID", uid), zap.Error(err))
+			s.l.Error("记录最近活动失败",
+				zap.Int64("user_id", uid),
+				zap.Error(err))
 		}
 	}()
 
 	return nil
 }
 
+// RejectCheck 审核拒绝
 func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error {
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
-		return fmt.Errorf("get check detail failed: %w", err)
+		return fmt.Errorf("获取审核详情失败: %w", err)
 	}
+
 	// 检查状态
-
-	if check.Status == domain.UnApproved || check.Status == domain.Approved {
-		return fmt.Errorf("请勿重复提交：%v", checkID)
+	if check.Status != domain.UnderReview {
+		return fmt.Errorf("当前审核状态不允许操作,状态:%v", check.Status)
 	}
 
-	// 更新审核状态为拒绝
-	err = s.repo.UpdateStatus(ctx, domain.Check{
-		ID:     checkID,
-		Remark: remark,
-		Status: domain.UnApproved,
+	// 使用事务处理状态更新
+	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		// 更新审核状态为拒绝
+		if err := s.repo.UpdateStatus(txCtx, domain.Check{
+			ID:     checkID,
+			Remark: remark,
+			Status: domain.UnApproved,
+		}); err != nil {
+			s.l.Error("更新审核状态失败",
+				zap.Int64("check_id", checkID),
+				zap.String("remark", remark),
+				zap.Error(err))
+			return fmt.Errorf("更新审核状态失败: %w", err)
+		}
+
+		// 更新帖子状态为草稿
+		if err := s.postRepo.UpdateStatus(txCtx, check.PostID, check.Uid, domain.Draft); err != nil {
+			s.l.Error("更新帖子状态失败",
+				zap.Uint("post_id", check.PostID),
+				zap.Error(err))
+			return fmt.Errorf("更新帖子状态失败: %w", err)
+		}
+
+		return nil
 	})
+
 	if err != nil {
-		return fmt.Errorf("update check status failed: %w", err)
+		return err
 	}
 
-	// 更新帖子状态为草稿
-	if err := s.postRepo.Update(ctx, domain.Post{
-		ID:       check.PostID,
-		Status:   domain.Draft,
-		IsSubmit: false,
-	}); err != nil {
-		return fmt.Errorf("update post status failed: %w", err)
-	}
+	// 设置超时上下文
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	s.l.Info("Rejected check", zap.Int64("CheckID", checkID), zap.String("Remark", remark))
-
+	// 异步处理非关键任务
 	go func() {
-		er := s.ActivityRepo.SetRecentActivity(context.Background(), domain.RecentActivity{
+		defer cancel()
+		// 记录最近活动
+		if err := s.ActivityRepo.SetRecentActivity(ctxTimeout, domain.RecentActivity{
 			UserID:      uid,
 			Description: "审核拒绝",
 			Time:        strconv.FormatInt(time.Now().Unix(), 10),
-		})
-		if er != nil {
-			s.l.Error("Failed to set recent activity", zap.Int64("UserID", uid), zap.Error(er))
+		}); err != nil {
+			s.l.Error("记录最近活动失败",
+				zap.Int64("user_id", uid),
+				zap.Error(err))
 		}
 	}()
 
 	return nil
 }
 
+// ListChecks 获取审核列表
 func (s *checkService) ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
 	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
@@ -153,22 +173,24 @@ func (s *checkService) ListChecks(ctx context.Context, pagination domain.Paginat
 		return nil, err
 	}
 
-	s.l.Info("Listed checks", zap.Int("Count", len(checks)))
+	s.l.Info("获取审核列表成功", zap.Int("数量", len(checks)))
 
 	return checks, nil
 }
 
+// CheckDetail 获取审核详情
 func (s *checkService) CheckDetail(ctx context.Context, checkID int64) (domain.Check, error) {
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
 		return domain.Check{}, err
 	}
 
-	s.l.Info("Fetched check detail", zap.Int64("CheckID", checkID))
+	s.l.Info("获取审核详情成功", zap.Int64("审核ID", checkID))
 
 	return check, nil
 }
 
+// GetCheckCount 获取审核数量
 func (s *checkService) GetCheckCount(ctx context.Context) (int64, error) {
 	count, err := s.repo.GetCheckCount(ctx)
 	if err != nil {

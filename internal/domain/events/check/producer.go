@@ -17,6 +17,7 @@ type CheckEvent struct {
 	Uid     int64
 	Title   string
 	Content string
+	PlateID int64
 }
 
 type SaramaCheckProducer struct {

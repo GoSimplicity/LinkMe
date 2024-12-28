@@ -12,12 +12,12 @@ import (
 
 type CheckDAO interface {
 	Create(ctx context.Context, check Check) (int64, error)                     // 创建审核记录
-	BatchCreate(ctx context.Context, checks []Check) error                      // 批量创建审核记录
 	UpdateStatus(ctx context.Context, check Check) error                        // 更新审核状态
 	FindAll(ctx context.Context, pagination domain.Pagination) ([]Check, error) // 获取审核列表
 	FindByID(ctx context.Context, checkId int64) (Check, error)
 	FindByPostId(ctx context.Context, postId uint) (Check, error) // 获取审核详情
 	GetCheckCount(ctx context.Context) (int64, error)
+	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error // 事务
 }
 
 type checkDAO struct {
@@ -26,10 +26,11 @@ type checkDAO struct {
 }
 
 type Check struct {
-	ID        int64  `gorm:"primaryKey;autoIncrement"`                     // 审核ID
-	PostID    uint   `gorm:"not null"`                                     // 帖子ID
-	Content   string `gorm:"type:text;not null"`                           // 审核内容
-	Title     string `gorm:"size:255;not null"`                            // 审核标签
+	ID        int64  `gorm:"primaryKey;autoIncrement"` // 审核ID
+	PostID    uint   `gorm:"not null"`                 // 帖子ID
+	Content   string `gorm:"type:text;not null"`       // 审核内容
+	Title     string `gorm:"size:255;not null"`        // 审核标签
+	PlateID   int64  `gorm:"index"`
 	Uid       int64  `gorm:"column:uid;index"`                             // 提交审核的用户ID
 	Status    uint8  `gorm:"default:0"`                                    // 审核状态
 	Remark    string `gorm:"type:text"`                                    // 审核备注
@@ -61,29 +62,6 @@ func (dao *checkDAO) Create(ctx context.Context, check Check) (int64, error) {
 	}
 
 	return check.ID, nil
-}
-
-func (dao *checkDAO) BatchCreate(ctx context.Context, checks []Check) error {
-	if len(checks) == 0 {
-		return nil
-	}
-
-	now := time.Now().UnixMilli()
-	for i := range checks {
-		// 判断传入的check是否有效
-		if checks[i].PostID == 0 || checks[i].Content == "" || checks[i].Title == "" || checks[i].Uid == 0 {
-			return errors.New("无效输入：缺少必填字段")
-		}
-		checks[i].CreatedAt = now
-		checks[i].UpdatedAt = now
-	}
-
-	if err := dao.db.WithContext(ctx).Create(&checks).Error; err != nil {
-		dao.l.Error("批量创建审核记录失败", zap.Error(err))
-		return err
-	}
-
-	return nil
 }
 
 func (dao *checkDAO) UpdateStatus(ctx context.Context, check Check) error {
@@ -166,4 +144,19 @@ func (dao *checkDAO) GetCheckCount(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// WithTx 事务处理
+func (dao *checkDAO) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+	// 使用事务处理
+	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 创建一个新的上下文,包含事务信息
+		txCtx := context.WithValue(ctx, "tx", tx)
+		// 执行事务函数
+		if err := fn(txCtx); err != nil {
+			dao.l.Error("事务执行失败", zap.Error(err))
+			return err
+		}
+		return nil
+	})
 }
