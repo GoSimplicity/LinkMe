@@ -2,39 +2,38 @@ package publish
 
 import (
 	"encoding/json"
+
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )
 
-const TopicPublishEvent = "linkme_publish_events"
+const TopicPublishEvent = "publish_events"
 
 type Producer interface {
 	ProducePublishEvent(evt PublishEvent) error
 }
 
 type PublishEvent struct {
-	PostId   uint   `json:"post_id"`
-	AuthorID int64  `json:"author_id"`
-	Title    string `json:"title"`
-	Content  string `json:"content"`
+	PostId  uint   `json:"post_id"`
+	Uid     int64  `json:"uid"`
 }
 
 type SaramaSyncProducer struct {
 	producer sarama.SyncProducer
-	logger   *zap.Logger
+	l        *zap.Logger
 }
 
-func NewSaramaSyncProducer(producer sarama.SyncProducer, logger *zap.Logger) Producer {
+func NewSaramaSyncProducer(producer sarama.SyncProducer, l *zap.Logger) Producer {
 	return &SaramaSyncProducer{
 		producer: producer,
-		logger:   logger,
+		l:        l,
 	}
 }
 
 func (s *SaramaSyncProducer) ProducePublishEvent(evt PublishEvent) error {
 	val, err := json.Marshal(evt)
 	if err != nil {
-		s.logger.Error("Failed to marshal publish event", zap.Error(err))
+		s.l.Error("Failed to marshal publish event", zap.Error(err))
 		return err
 	}
 
@@ -45,10 +44,10 @@ func (s *SaramaSyncProducer) ProducePublishEvent(evt PublishEvent) error {
 
 	partition, offset, err := s.producer.SendMessage(msg)
 	if err != nil {
-		s.logger.Error("Failed to send publish event message", zap.Error(err))
+		s.l.Error("Failed to send publish event message", zap.Error(err))
 		return err
 	}
 
-	s.logger.Info("Publish event message sent", zap.Int32("partition", partition), zap.Int64("offset", offset))
+	s.l.Info("Publish event message sent", zap.Int32("partition", partition), zap.Int64("offset", offset))
 	return nil
 }

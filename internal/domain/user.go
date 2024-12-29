@@ -15,15 +15,13 @@ var (
 )
 
 const (
-	usernameRegexPattern = `^[a-zA-Z0-9]{6,}$` // 至少6位的字母数字组合
-	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$`
+	usernameRegexPattern = `^[a-zA-Z0-9]{6,}$`                                                // 至少6位的字母数字组合
+	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$` // 至少8位的字母数字符号组合
 )
 
 type User struct {
 	ID          int64   `json:"id"`          // 用户ID，主键
 	Username    string  `json:"username"`    // 用户名，唯一
-	Phone       *string `json:"phone"`       // 手机号码，指针类型，允许为空
-	Email       string  `json:"email"`       // 邮箱地址，唯一
 	Password    string  `json:"password"`    // 密码
 	CreateTime  int64   `json:"createTime"`  // 创建时间，Unix时间戳
 	UpdatedTime int64   `json:"updatedTime"` // 更新时间，Unix时间戳
@@ -33,13 +31,14 @@ type User struct {
 }
 
 type Profile struct {
-	ID       int64  `json:"id"`       // 资料ID，主键
-	UserID   int64  `json:"userId"`   // 用户ID，外键，关联到用户
-	RealName string `json:"realName"` // 真实姓名
-	Avatar   string `json:"avatar"`   // 头像URL
-	Email    string `json:"email"`    // 邮箱
-	About    string `json:"about"`    // 个人简介
-	Birthday string `json:"birthday"` // 生日
+	ID       int64   `json:"id"`       // 资料ID，主键
+	UserID   int64   `json:"userId"`   // 用户ID，外键，关联到用户
+	RealName string  `json:"realName"` // 真实姓名
+	Avatar   string  `json:"avatar"`   // 头像URL
+	Email    string  `json:"email"`    // 邮箱
+	About    string  `json:"about"`    // 个人简介
+	Birthday string  `json:"birthday"` // 生日
+	Phone    *string `json:"phone"`    // 手机号码，指针类型，允许为空
 }
 
 type UserWithProfile struct {

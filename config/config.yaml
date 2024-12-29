@@ -9,8 +9,6 @@ db:
 redis:
   addr: "192.168.5.11:6379"
   filepath: "logs/linkme.json"
-mongodb:
-  addr: "mongodb://192.168.5.11:27017"
 kafka:
   addr: "192.168.5.11:9092"
 es:

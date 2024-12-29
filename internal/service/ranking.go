@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
+	"time"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/pkg/priorityqueue"
 	"go.uber.org/zap"
-	"math"
-	"time"
 )
 
 type RankingService interface {
@@ -137,7 +138,7 @@ func (b *rankingService) fetchPosts(ctx context.Context, offset int) ([]domain.P
 		Size: &size,
 	}
 
-	return b.postRepository.ListPublishedPosts(ctx, pagination)
+	return b.postRepository.ListPublishPosts(ctx, pagination)
 }
 
 // fetchInteractions 获取每个帖子的交互数据
@@ -149,7 +150,7 @@ func (b *rankingService) fetchInteractions(ctx context.Context, posts []domain.P
 	}
 
 	// 获取交互数据
-	return b.interactiveService.GetByIds(ctx, "post", ids)
+	return b.interactiveService.GetByIds(ctx, ids)
 }
 
 // enqueueScore 将元素加入优先队列，如果队列已满则进行替换

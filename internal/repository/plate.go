@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"go.uber.org/zap"
@@ -48,7 +49,7 @@ func (p *plateRepository) DeletePlate(ctx context.Context, plateId int64, uid in
 
 // 将dao层对象转为领域层对象
 func fromDomainSlicePlate(post []dao.Plate) []domain.Plate {
-	domainPlate := make([]domain.Plate, len(post)) // 创建与输入切片等长的domain.Post切片
+	domainPlate := make([]domain.Plate, len(post))
 	for i, repoPlate := range post {
 		domainPlate[i] = domain.Plate{
 			ID:          repoPlate.ID,

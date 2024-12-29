@@ -3,13 +3,14 @@ package repository_test
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/ioc"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"testing"
 )
 
 func TestSendCode(t *testing.T) {

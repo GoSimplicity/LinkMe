@@ -49,6 +49,7 @@ func (uh *UserHandler) RegisterRoutes(server *gin.Engine) {
 	userGroup.POST("/change_password", uh.ChangePassword)   // 修改密码
 	userGroup.DELETE("/write_off", uh.WriteOff)             // 注销用户
 	userGroup.GET("/profile", uh.GetProfile)                // 获取用户资料
+	userGroup.POST("/profile/update", uh.UpdateProfile)     // 更新用户资料(管理员)
 	userGroup.POST("/update_profile", uh.UpdateProfileByID) // 更新用户资料
 	//userGroup.POST("/list", casbinMiddleware.CheckCasbin(), uh.ListUser) // 获取用户列表（管理员使用）
 	userGroup.POST("/list", uh.ListUser) // 获取用户列表（管理员使用）
@@ -278,6 +279,7 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context) {
 		Avatar:   req.Avatar,
 		About:    req.About,
 		Birthday: req.Birthday,
+		Phone:    &req.Phone,
 		UserID:   uc.Uid,
 	})
 	if err != nil {
@@ -321,5 +323,29 @@ func (uh *UserHandler) ListUser(ctx *gin.Context) {
 
 // GetCodes 获取权限码
 func (uh *UserHandler) GetCodes(ctx *gin.Context) {
+	apiresponse.Success(ctx)
+}
+
+// UpdateProfile 更新用户资料(管理员)
+func (uh *UserHandler) UpdateProfile(ctx *gin.Context) {
+	var req req.UpdateProfileAdminReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
+	err := uh.svc.UpdateProfileAdmin(ctx, domain.Profile{
+		RealName: req.RealName,
+		Avatar:   req.Avatar,
+		About:    req.About,
+		Birthday: req.Birthday,
+		Phone:    &req.Phone,
+		UserID:   req.UserID,
+	})
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, UserProfileUpdateFailure)
+		return
+	}
+
 	apiresponse.Success(ctx)
 }

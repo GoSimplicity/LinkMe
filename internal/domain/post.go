@@ -20,14 +20,17 @@ type Post struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    sql.NullTime
-	AuthorID     int64
+	ReadCount    int64
+	LikeCount    int64
+	CollectCount int64
+	Uid          int64
 	Status       uint8
-	Visibility   string
 	PlateID      int64
 	Slug         string
 	CategoryID   int64
 	Tags         string
 	CommentCount int64
+	IsSubmit     bool
 }
 
 type Interactive struct {
@@ -51,7 +54,7 @@ func (i *Interactive) IncrementCollectCount() {
 	atomic.AddInt64(&i.CollectCount, 1)
 }
 
-func (p Post) Abstract() string {
+func (p *Post) Abstract() string {
 	// 将Content转换为一个rune切片
 	str := []rune(p.Content)
 	if len(str) > 128 {

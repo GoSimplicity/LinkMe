@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"go.uber.org/zap"
@@ -79,11 +80,11 @@ func toDomainHistory(posts []domain.Post) []domain.History {
 
 	for i, post := range posts {
 		histories[i] = domain.History{
-			Content:  createContentSummary(post.Content),
-			AuthorID: post.AuthorID,
-			Tags:     post.Tags,
-			PostID:   post.ID,
-			Title:    post.Title,
+			Content: createContentSummary(post.Content),
+			Uid:     post.Uid,
+			Tags:    post.Tags,
+			PostID:  post.ID,
+			Title:   post.Title,
 		}
 	}
 
