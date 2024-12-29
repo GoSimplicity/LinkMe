@@ -90,7 +90,7 @@ func InitWebServer() *Cmd {
 		cache.NewRankingLocalCache,
 		cache.NewRankingRedisCache,
 		cache.NewUserCache,
-		cache.NewInteractiveCache,
+		//cache.NewInteractiveCache,
 		cache.NewHistoryCache,
 		cache.NewSMSCache,
 		cache.NewEmailCache,
