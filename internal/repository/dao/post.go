@@ -279,27 +279,14 @@ func (p *postDAO) Delete(ctx context.Context, postId uint, uid int64) error {
 	}
 
 	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 检查帖子是否存在
-		var post Post
-		if err := tx.Where("id = ? AND uid = ?", postId, uid).First(&post).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrPostNotFound
-			}
-			p.l.Error("查询帖子失败", zap.Error(err))
-			return err
-		}
-
-		// 删除已发布的帖子(如果存在)
+		// 删除已发布的帖子
 		if err := tx.Where("id = ? AND uid = ?", postId, uid).Delete(&PubPost{}).Error; err != nil {
 			p.l.Error("删除已发布帖子失败", zap.Error(err))
 			return err
 		}
 
 		// 软删除原帖子
-		if err := tx.Model(&post).Updates(map[string]interface{}{
-			"status":     domain.Deleted,
-			"deleted_at": time.Now(),
-		}).Error; err != nil {
+		if err := tx.Where("id = ? AND uid = ?", postId, uid).Delete(&Post{}).Error; err != nil {
 			p.l.Error("删除帖子失败", zap.Error(err))
 			return err
 		}

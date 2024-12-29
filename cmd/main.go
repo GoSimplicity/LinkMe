@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/GoSimplicity/LinkMe/ioc"
 
@@ -28,34 +31,55 @@ func Init() {
 	server := cmd.Server
 	server.GET("/headers", printHeaders)
 
+	// 创建一个用于接收系统信号的通道
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 	// 启动 Prometheus 监控
 	go func() {
 		if err := startMetricsServer(); err != nil {
-			zap.L().Error("Failed to start metrics server", zap.Error(err))
+			zap.L().Error("启动监控服务器失败", zap.Error(err))
 		}
 	}()
 
 	// 启动消费者
 	for _, s := range cmd.Consumer {
-		go func(consumer events.Consumer) { // 将每个消费者启动放入goroutine中并发执行
+		go func(consumer events.Consumer) {
 			if err := consumer.Start(context.Background()); err != nil {
-				zap.L().Error("Failed to start consumer", zap.Error(err))
+				zap.L().Error("启动消费者失败", zap.Error(err))
 			}
 		}(s)
 	}
 
-	// 启动定时任务
-	// cmd.Cron.Start()
+	// 注册任务处理器并启动异步任务服务器
+	go func() {
+		mux := cmd.Routes.RegisterHandlers()
+		if err := cmd.Asynq.Run(mux); err != nil {
+			zap.L().Fatal("启动异步任务服务器失败", zap.Error(err))
+		}
+	}()
 
 	// 启动 Mock 数据
 	if err := cmd.Mock.MockUser(); err != nil {
-		zap.L().Fatal("Failed to mock data", zap.Error(err))
+		zap.L().Fatal("生成模拟数据失败", zap.Error(err))
 	}
 
-	// 启动 Web 服务器
-	if err := server.Run(":9999"); err != nil {
-		zap.L().Fatal("Failed to start web server", zap.Error(err))
-	}
+	// 在新的goroutine中启动服务器
+	go func() {
+		if err := server.Run(":9999"); err != nil {
+			zap.L().Fatal("启动Web服务器失败", zap.Error(err))
+		}
+	}()
+
+	// 等待中断信号
+	<-quit
+	zap.L().Info("正在关闭服务器...")
+
+	// 关闭异步任务服务器
+	cmd.Asynq.Shutdown()
+
+	zap.L().Info("服务器已成功关闭")
+	os.Exit(0)
 }
 
 // printHeaders 打印请求头信息

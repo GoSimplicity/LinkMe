@@ -15,6 +15,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/job"
 	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
@@ -50,7 +51,9 @@ func InitWebServer() *Cmd {
 	emailProducer := email.NewSaramaSyncProducer(syncProducer, logger)
 	userHandler := api.NewUserHandler(userService, handler, producer, emailProducer, enforcer)
 	postDAO := dao.NewPostDAO(db, logger)
-	postRepository := repository.NewPostRepository(postDAO, logger)
+	postCache := cache.NewPostCache(cmdable)
+	asynqClient := InitAsynqClient()
+	postRepository := repository.NewPostRepository(postDAO, logger, postCache, asynqClient)
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	checkProducer := check.NewSaramaCheckProducer(syncProducer)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
@@ -130,11 +133,16 @@ func InitWebServer() *Cmd {
 	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, logger)
 	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, cacheConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
+	refreshCacheTask := job.NewRefreshCacheTask(postCache, logger)
+	routes := job.NewRoutes(refreshCacheTask)
+	server := InitAsynqServer()
 	cmd := &Cmd{
 		Server:   engine,
 		Cron:     cron,
 		Consumer: v2,
 		Mock:     mockUserRepository,
+		Routes:   routes,
+		Asynq:    server,
 	}
 	return cmd
 }

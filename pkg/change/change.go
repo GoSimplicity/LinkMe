@@ -103,6 +103,25 @@ func ToDomainPost(post dao.Post) domain.Post {
 	}
 }
 
+// ToDomainPubPost 将dao层转化为领域层
+func ToDomainPubPost(post dao.PubPost) domain.Post {
+	return domain.Post{
+		ID:           post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		CreatedAt:    post.CreatedAt,
+		UpdatedAt:    post.UpdatedAt,
+		DeletedAt:    sql.NullTime(post.DeletedAt),
+		Status:       post.Status,
+		Uid:          post.Uid,
+		PlateID:      post.PlateID,
+		Slug:         post.Slug,
+		CategoryID:   post.CategoryID,
+		Tags:         post.Tags,
+		CommentCount: post.CommentCount,
+	}
+}
+
 // ToDomainListPubPost 将dao层转化为领域层
 func ToDomainListPubPost(post dao.PubPost) domain.Post {
 	return domain.Post{

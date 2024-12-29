@@ -11,6 +11,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
+	"github.com/GoSimplicity/LinkMe/internal/job"
 	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
@@ -37,6 +38,8 @@ func InitWebServer() *Cmd {
 		InitSms,
 		InitRanking,
 		InitES,
+		InitAsynqServer,
+		InitAsynqClient,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
@@ -95,6 +98,7 @@ func InitWebServer() *Cmd {
 		cache.NewSMSCache,
 		cache.NewEmailCache,
 		cache.NewRelationCache,
+		cache.NewPostCache,
 		// cache.NewCheckCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
@@ -125,6 +129,8 @@ func InitWebServer() *Cmd {
 		check.NewSaramaCheckProducer,
 		es.NewEsConsumer,
 		mock.NewMockUserRepository,
+		job.NewRoutes,
+		job.NewRefreshCacheTask,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)
