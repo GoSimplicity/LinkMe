@@ -54,9 +54,8 @@ type LikeReq struct {
 }
 
 type CollectReq struct {
-	PostId    uint  `json:"postId,omitempty"`
-	CollectId int64 `json:"collectId,omitempty"`
-	Collectd  bool  `json:"collectd,omitempty"`
+	PostId   uint `json:"postId,omitempty"`
+	Collectd bool `json:"collectd,omitempty"`
 }
 
 type InteractReq struct {

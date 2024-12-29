@@ -271,9 +271,9 @@ func (ph *PostHandler) Collect(ctx *gin.Context) {
 	var err error
 
 	if req.Collectd {
-		err = ph.intSvc.Collect(ctx, req.PostId, req.CollectId, uc.Uid)
+		err = ph.intSvc.Collect(ctx, req.PostId, uc.Uid)
 	} else {
-		err = ph.intSvc.CancelCollect(ctx, req.PostId, req.CollectId, uc.Uid)
+		err = ph.intSvc.CancelCollect(ctx, req.PostId, uc.Uid)
 	}
 
 	if err != nil {

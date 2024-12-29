@@ -20,6 +20,9 @@ type Post struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    sql.NullTime
+	ReadCount    int64
+	LikeCount    int64
+	CollectCount int64
 	Uid          int64
 	Status       uint8
 	PlateID      int64

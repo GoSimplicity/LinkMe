@@ -30,14 +30,16 @@ type PostService interface {
 
 type postService struct {
 	repo          repository.PostRepository
+	incRepo       repository.InteractiveRepository
 	producer      post.Producer
 	checkProducer check.Producer
 	l             *zap.Logger
 }
 
-func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, c check.Producer) PostService {
+func NewPostService(repo repository.PostRepository, l *zap.Logger, p post.Producer, c check.Producer, incRepo repository.InteractiveRepository) PostService {
 	return &postService{
 		repo:          repo,
+		incRepo:       incRepo,
 		l:             l,
 		producer:      p,
 		checkProducer: c,
@@ -99,20 +101,39 @@ func (p *postService) Withdraw(ctx context.Context, postId uint, uid int64) erro
 
 // GetPostById 获取帖子详细信息
 func (p *postService) GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
-	return p.repo.GetPostById(ctx, postId, uid)
+	data, err := p.repo.GetPostById(ctx, postId, uid)
+	if err != nil {
+		p.l.Error("获取帖子失败", zap.Error(err))
+		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
+	}
+
+	inc, err := p.incRepo.Get(ctx, postId)
+	if err != nil {
+		p.l.Error("获取互动数据失败", zap.Error(err))
+		return domain.Post{}, fmt.Errorf("获取互动数据失败: %w", err)
+	}
+
+	// 填充互动数据
+	data.LikeCount = inc.LikeCount
+	data.ReadCount = inc.ReadCount
+	data.CollectCount = inc.CollectCount
+
+	return data, nil
 }
 
 // GetPublishPostById 获取已发布的帖子详细信息
 func (p *postService) GetPublishPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
 	dp, err := p.repo.GetPublishPostById(ctx, postId)
 	if err != nil {
-		return domain.Post{}, err
+		p.l.Error("获取已发布帖子失败", zap.Error(err))
+		return domain.Post{}, fmt.Errorf("获取已发布帖子失败: %w", err)
 	}
 
+	// 设置超时上下文
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
-	// 使用装饰器模式异步处理读取事件
+	// 异步处理阅读事件
 	asyncReadEvent := general.WithAsyncCancel(ctx, cancel, func() error {
 		if er := p.producer.ProduceReadEvent(post.ReadEvent{
 			PostId:  postId,
@@ -120,12 +141,23 @@ func (p *postService) GetPublishPostById(ctx context.Context, postId uint, uid i
 			Title:   dp.Title,
 			Content: dp.Content,
 		}); er != nil {
-			p.l.Error("produce read event failed", zap.Error(er))
-			return fmt.Errorf("produce read event failed: %w", er)
+			p.l.Error("生成阅读事件失败", zap.Error(er))
+			return fmt.Errorf("生成阅读事件失败: %w", er)
 		}
 		return nil
 	})
 	asyncReadEvent()
+
+	// 获取并填充互动数据
+	inc, err := p.incRepo.Get(ctx, postId)
+	if err != nil {
+		p.l.Error("获取互动数据失败", zap.Error(err))
+		return domain.Post{}, fmt.Errorf("获取互动数据失败: %w", err)
+	}
+
+	dp.LikeCount = inc.LikeCount
+	dp.ReadCount = inc.ReadCount
+	dp.CollectCount = inc.CollectCount
 
 	return dp, nil
 }
@@ -148,21 +180,23 @@ func (p *postService) ListPublishPosts(ctx context.Context, pagination domain.Pa
 func (p *postService) Delete(ctx context.Context, postId uint, uid int64) error {
 	_, err := p.repo.GetPostById(ctx, postId, uid)
 	if err != nil {
-		return err
+		p.l.Error("获取帖子失败", zap.Error(err))
+		return fmt.Errorf("获取帖子失败: %w", err)
 	}
 	return p.repo.Delete(ctx, postId, uid)
 }
 
-// GetPost implements PostService.
+// GetPost 获取帖子
 func (p *postService) GetPost(ctx context.Context, postId uint) (domain.Post, error) {
 	dp, err := p.repo.GetPost(ctx, postId)
 	if err != nil {
-		return domain.Post{}, err
+		p.l.Error("获取帖子失败", zap.Error(err))
+		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
 	}
 	return dp, nil
 }
 
-// ListAll implements PostService.
+// ListAll 列出所有帖子
 func (p *postService) ListAll(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
