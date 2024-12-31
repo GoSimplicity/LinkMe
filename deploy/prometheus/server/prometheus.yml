@@ -1,12 +1,18 @@
 global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
 alerting:
   alertmanagers:
     - static_configs:
-        - targets:
+        - targets: []
+
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+
   - job_name: "linkme"
+    metrics_path: /metrics
     static_configs:
-      - targets: ["192.168.3.54:9090"]
+      - targets: ["linkme:9090"]

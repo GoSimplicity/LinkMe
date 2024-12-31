@@ -1,18 +1,29 @@
+server:
+  addr: ":9999"
+
 jwt:
   auth_key: "ebe3vxIP7sblVvUHXb7ZaiMPuz4oXo0l"
   refresh_key: "sadfkhjlkkljKFJDSLAFUDASLFJKLjfj113d2"
   issuer: "K5mBPBYNQeNWEBvCTE5msog3KSGTdhmI"
   auth_expire: 30 # 分钟
   refresh_expire: 150 # 小时
+
+log:
+  dir: "logs"
+  
 db:
-  dsn: "root:root@tcp(192.168.5.11:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+
 redis:
-  addr: "192.168.5.11:6379"
-  filepath: "logs/linkme.json"
+  addr: "redis:6379"
+  password: "v6SxhWHyZC7S"
+
 kafka:
-  addr: "192.168.5.11:9092"
+  addr: "kafka:9092"
+
 es:
-  addr: "http://192.168.5.11:9200"
+  addr: "http://elasticsearch:9200"
+
 sms:
   tencent:
     secretId: ""
