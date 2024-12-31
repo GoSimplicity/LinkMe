@@ -1,4 +1,5 @@
 version: "3"
+
 services:
   mysql:
     image: mysql:8.0
@@ -8,6 +9,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       MYSQL_ROOT_PASSWORD: v6SxhWHyZC7S
+      MYSQL_DATABASE: linkme
     volumes:
       - ./data/mysql/data:/var/lib/mysql
     command:
