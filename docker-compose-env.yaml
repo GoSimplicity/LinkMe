@@ -45,28 +45,29 @@ services:
       - linkme_net
 
   kafka:
-    image: apache/kafka:3.9.0
+    image: bitnami/kafka:3.9.0
     container_name: kafka
     ports:
-      - 9092:9092  # 容器内部之间使用的监听端口
-      - 9094:9094  # 容器外部访问监听端口
+      - "9092:9092"
+      - "9094:9094"
     environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      # 外部访问监听端口为 9092，容器内部使用不同的端口 9094
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://localhost:9093,PLAINTEXT_CONTAINER://kafka:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094,PLAINTEXT_CONTAINER://kafka:9092
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_CONTAINER:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_NUM_PARTITIONS: 3
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_KRAFT_CLUSTER_ID=LlMmNnOoPp
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=1
     volumes:
-      - ./data/kafka/data:/var/lib/kafka/data
+      - ./data/kafka/data:/bitnami/kafka/data:rw
     networks:
       - linkme_net
 
@@ -127,7 +128,6 @@ services:
     image: prom/prometheus:v2.28.1
     container_name: prometheus
     environment:
-      # 时区上海 - Time zone Shanghai (Change if needed)
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/prometheus/server/prometheus.yml:/etc/prometheus/prometheus.yml

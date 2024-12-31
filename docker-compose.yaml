@@ -20,7 +20,7 @@ services:
 
   linkme:
     # 使用项目根目录下的 Dockerfile 自行构建镜像  
-    image: linkme/gomodd:v1.22.1
+    image: linkme/gomodd:v1.22.3
     container_name: linkme
     environment:
       TZ: Asia/Shanghai

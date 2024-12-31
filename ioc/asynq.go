@@ -26,14 +26,16 @@ import (
 
 func InitAsynqClient() *asynq.Client {
 	return asynq.NewClient(asynq.RedisClientOpt{
-		Addr: viper.GetString("redis.addr"),
+		Addr:     viper.GetString("redis.addr"),
+		Password: viper.GetString("redis.password"),
 	})
 }
 
 func InitAsynqServer() *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
-			Addr: viper.GetString("redis.addr"),
+			Addr:     viper.GetString("redis.addr"),
+			Password: viper.GetString("redis.password"),
 		},
 		asynq.Config{
 			Concurrency: 10, // 设置并发数
