@@ -1,0 +1,27 @@
+http.host: "0.0.0.0"
+path.config: /usr/share/logstash/pipeline
+xpack.monitoring.enabled: false
+
+# 增加工作线程数以提高并行处理能力
+pipeline.workers: 4
+
+# 增加批处理大小以提高吞吐量
+pipeline.batch.size: 250
+
+# 减少批处理延迟以降低延迟
+pipeline.batch.delay: 25
+
+# 使用持久化队列以提高可靠性
+queue.type: persisted
+queue.max_bytes: 2048mb
+
+# 设置日志级别
+log.level: info
+
+# 启用管道配置重载
+config.reload.automatic: true
+config.reload.interval: 3s
+
+# JVM堆大小设置
+jvm.heap.initial: 2g 
+jvm.heap.max: 2g
