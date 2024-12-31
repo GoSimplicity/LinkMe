@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/spf13/viper"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 
@@ -66,7 +67,7 @@ func Init() {
 
 	// 在新的goroutine中启动服务器
 	go func() {
-		if err := server.Run(":9999"); err != nil {
+		if err := server.Run(viper.GetString("server.addr")); err != nil {
 			zap.L().Fatal("启动Web服务器失败", zap.Error(err))
 		}
 	}()
