@@ -130,6 +130,7 @@ docker-compose up -d
 admin/admin
 ```
 
+
 ## 许可证
 本项目使用 MIT 许可证，详情请见 [LICENSE](./LICENSE) 文件。
 
