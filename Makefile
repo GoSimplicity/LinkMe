@@ -18,13 +18,15 @@ up: build
 
 # 停止项目
 down:
-	docker-compose down
+	docker-compose down --remove-orphans
 
 # 重新构建并启动
 rebuild: down build up
 
 # 清理所有容器和数据
-clean: down
+clean:
+	docker-compose -f docker-compose-env.yaml down --remove-orphans
+	docker-compose down --remove-orphans
 	rm -rf ./data
 
 # 一键部署 - 执行完整的部署流程
@@ -33,7 +35,7 @@ deploy: init env-up build up
 	@echo "访问 http://localhost:8888 查看项目"
 
 # 一键重新部署 - 清理后重新部署
-redeploy: clean deploy
+redeploy: clean init deploy
 
 # 一键更新 - 拉取最新代码并重新部署
 update:

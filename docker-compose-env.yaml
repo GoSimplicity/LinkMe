@@ -108,10 +108,13 @@ services:
       - elasticsearch
       - kafka
 
+  #####注意：如果访问Kibana需要访问令牌，请检查es许可证是否开启，如果没有开启，使用下述命令开启#####
+  # curl -X POST "localhost:9200/_license/start_trial?acknowledge=true" -u elastic:changeme
+
   elasticsearch:
     container_name: elasticsearch
     image: elasticsearch:8.12.2
-    restart: unless-stopped
+    restart: always
     environment:
       - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
       - "TZ=Asia/Shanghai"
@@ -125,6 +128,22 @@ services:
       - ./data/es/plugins:/usr/share/elasticsearch/plugins
     networks:
       - linkme_net
+
+  kibana:
+    container_name: kibana
+    image: kibana:8.12.2
+    restart: always
+    environment:
+      - "TZ=Asia/Shanghai"
+      - "I18N_LOCALE=zh-CN"
+      - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
+      - "XPACK_SECURITY_ENABLED=false"
+    ports:
+      - "5601:5601"
+    networks:
+      - linkme_net
+    depends_on:
+      - elasticsearch
 
   prometheus:
     image: prom/prometheus:v2.28.1
