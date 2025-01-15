@@ -3,6 +3,7 @@ IMAGE_NAME=linkme/gomodd:v1.22.3
 # 创建数据目录并提权
 init:
 	mkdir -p ./data/kafka/data && chmod -R 777 ./data/kafka
+	mkdir -p ./data/es/data && chmod -R 777 ./data/es
 
 # 启动项目依赖
 env-up:
