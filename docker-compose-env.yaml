@@ -95,7 +95,6 @@ services:
     restart: always
     environment:
       TZ: Asia/Shanghai
-      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
     volumes:
       - ./deploy/logstash/conf/logstash.yml:/usr/share/logstash/config/logstash.yml
       - ./deploy/logstash/pipeline:/usr/share/logstash/pipeline # 日志处理管道
