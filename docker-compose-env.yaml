@@ -170,9 +170,12 @@ services:
     environment:
       # 时区上海 - Time zone Shanghai (Change if needed)
       TZ: Asia/Shanghai
+      GF_SECURITY_ADMIN_USER: admin          # 默认管理员用户名
+      GF_SECURITY_ADMIN_PASSWORD: admin   # 默认管理员密码
     restart: always
     volumes:
       - ./data/grafana/data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3001:3000"
     networks:

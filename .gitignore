@@ -23,7 +23,6 @@ coverage/
 *.gcda
 *.testwise.xml
 *.log
-*.json
 *.svn/
 *.git/
 *.hg/
