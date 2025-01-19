@@ -14,8 +14,9 @@ type Producer interface {
 }
 
 type PublishEvent struct {
-	PostId  uint   `json:"post_id"`
-	Uid     int64  `json:"uid"`
+	PostId uint  `json:"post_id"`
+	Uid    int64 `json:"uid"`
+	Status uint8 `json:"status"`
 }
 
 type SaramaSyncProducer struct {
