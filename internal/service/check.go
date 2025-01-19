@@ -25,18 +25,16 @@ type checkService struct {
 	ActivityRepo repository.ActivityRepository
 	producer     publish.Producer
 	searchRepo   repository.SearchRepository
-	postRepo     repository.PostRepository
 	l            *zap.Logger
 }
 
-func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, producer publish.Producer, postRepo repository.PostRepository) CheckService {
+func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, producer publish.Producer) CheckService {
 	return &checkService{
 		repo:         repo,
 		ActivityRepo: ActivityRepo,
 		searchRepo:   searchRepo,
 		l:            l,
 		producer:     producer,
-		postRepo:     postRepo,
 	}
 }
 
@@ -76,6 +74,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
 			PostId: check.PostID,
 			Uid:    check.Uid,
+			Status: domain.Published,
 		}); err != nil {
 			s.l.Error("发送发布事件失败",
 				zap.Uint("post_id", check.PostID),
@@ -126,12 +125,13 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 			return fmt.Errorf("更新审核状态失败: %w", err)
 		}
 
-		// 更新帖子状态为草稿
-		if err := s.postRepo.UpdateStatus(txCtx, check.PostID, check.Uid, domain.Draft); err != nil {
-			s.l.Error("更新帖子状态失败",
-				zap.Uint("post_id", check.PostID),
-				zap.Error(err))
-			return fmt.Errorf("更新帖子状态失败: %w", err)
+		// 异步发送审核拒绝事件
+		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
+			PostId: check.PostID,
+			Uid:    check.Uid,
+			Status: domain.Draft, // 审核拒绝后,帖子状态为草稿
+		}); err != nil {
+			s.l.Error("发送审核拒绝事件失败", zap.Error(err))
 		}
 
 		return nil
