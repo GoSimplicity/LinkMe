@@ -309,7 +309,13 @@ func (i *interactiveDAO) GetCollectInfo(ctx context.Context, postId uint, uid in
 // Get 获取单个互动信息
 func (i *interactiveDAO) Get(ctx context.Context, postId uint) (Interactive, error) {
 	var inc Interactive
+
 	err := i.db.WithContext(ctx).Where("biz_id = ?", postId).First(&inc).Error
+	if err != nil {
+		i.l.Error("Get Interactive error", zap.Error(err))
+		return Interactive{}, err
+	}
+
 	return inc, err
 }
 

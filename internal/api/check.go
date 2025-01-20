@@ -2,103 +2,103 @@ package api
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api/req"
-	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/middleware"
-	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
-	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
 )
 
 type CheckHandler struct {
 	svc service.CheckService
-	ce  *casbin.Enforcer
-	biz string
 }
 
-func NewCheckHandler(svc service.CheckService, ce *casbin.Enforcer) *CheckHandler {
+func NewCheckHandler(svc service.CheckService) *CheckHandler {
 	return &CheckHandler{
 		svc: svc,
-		ce:  ce,
-		biz: "check",
 	}
 }
 
 func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
-	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce)
 	checkGroup := server.Group("/api/checks")
-	checkGroup.Use(casbinMiddleware.CheckCasbin())
-	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck))
-	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))
-	checkGroup.POST("/list", WrapBody(ch.ListChecks))
-	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))
+
+	checkGroup.POST("/approve", ch.ApproveCheck)
+	checkGroup.POST("/reject", ch.RejectCheck)
+	checkGroup.POST("/list", ch.ListChecks)
+	checkGroup.GET("/detail", ch.CheckDetail)
 }
 
 // ApproveCheck 审核通过
-func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req req.ApproveCheckReq) (Result, error) {
+func (ch *CheckHandler) ApproveCheck(ctx *gin.Context) {
+	var req req.ApproveCheckReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
+
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
-		return Result{
-			Code: RequestsERROR,
-			Msg:  "failed to approve check",
-		}, err
+		apiresponse.ErrorWithData(ctx, err)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  "success to approve check",
-	}, nil
+
+	apiresponse.Success(ctx)
 }
 
 // RejectCheck 审核拒绝
-func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req req.RejectCheckReq) (Result, error) {
+func (ch *CheckHandler) RejectCheck(ctx *gin.Context) {
+	var req req.RejectCheckReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
+
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
-		return Result{
-			Code: RequestsERROR,
-			Msg:  "failed to reject check",
-		}, err
+		apiresponse.ErrorWithData(ctx, err)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  "success to reject check",
-	}, nil
+
+	apiresponse.Success(ctx)
 }
 
 // ListChecks 获取审核列表
-func (ch *CheckHandler) ListChecks(ctx *gin.Context, req req.ListCheckReq) (Result, error) {
+func (ch *CheckHandler) ListChecks(ctx *gin.Context) {
+	var req req.ListCheckReq
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	checks, err := ch.svc.ListChecks(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
 	})
 	if err != nil {
-		return Result{
-			Code: RequestsERROR,
-			Msg:  "failed to list checks",
-		}, err
+		apiresponse.ErrorWithData(ctx, err)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  "success to list checks",
-		Data: checks,
-	}, nil
+
+	apiresponse.SuccessWithData(ctx, checks)
 }
 
 // CheckDetail 获取审核详情
-func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req req.CheckDetailReq) (Result, error) {
+func (ch *CheckHandler) CheckDetail(ctx *gin.Context) {
+	var req req.CheckDetailReq
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
 	if err != nil {
-		return Result{
-			Code: RequestsERROR,
-			Msg:  "failed to get check detail",
-		}, err
+		apiresponse.ErrorWithData(ctx, err)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  "success to get check detail",
-		Data: check,
-	}, nil
+
+	apiresponse.SuccessWithData(ctx, check)
 }

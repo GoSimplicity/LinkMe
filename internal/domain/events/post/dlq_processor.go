@@ -162,7 +162,7 @@ func (i *PostDeadLetterConsumer) handleDeadLetterMessage(ctx context.Context, ev
 	}
 
 	// 保存历史记录
-	if err := i.hisRepo.SetHistory(ctx, []domain.Post{post}); err != nil {
+	if err := i.hisRepo.SetHistory(ctx, post); err != nil {
 		i.l.Error("保存历史记录失败",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid),

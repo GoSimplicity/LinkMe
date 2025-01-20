@@ -69,7 +69,7 @@ func InitWebServer() *Cmd {
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
 	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer)
-	checkHandler := api.NewCheckHandler(checkService, enforcer)
+	checkHandler := api.NewCheckHandler(checkService)
 	v := InitMiddlewares(handler, logger)
 	apiDAO := dao.NewApiDAO(db, logger)
 	permissionDAO := dao.NewPermissionDAO(db, logger, enforcer, apiDAO)
