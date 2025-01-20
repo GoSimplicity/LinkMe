@@ -13,11 +13,10 @@ import (
 )
 
 type CheckService interface {
-	ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error      // 审核通过
-	RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error       // 审核拒绝
-	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
-	CheckDetail(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
-	GetCheckCount(ctx context.Context) (int64, error)
+	ApproveCheck(ctx context.Context, checkID int64, remark string, uid int64) error
+	RejectCheck(ctx context.Context, checkID int64, remark string, uid int64) error
+	ListChecks(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error)
+	CheckDetail(ctx context.Context, checkID int64) (domain.Check, error)
 }
 
 type checkService struct {
@@ -43,11 +42,13 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
+		s.l.Error("获取审核详情失败", zap.Error(err))
 		return fmt.Errorf("获取审核详情失败: %w", err)
 	}
 
 	// 检查是否已审核
 	if check.Status != domain.UnderReview {
+		s.l.Error("当前审核状态不允许操作", zap.Uint8("status", check.Status))
 		return fmt.Errorf("当前审核状态不允许操作,状态:%v", check.Status)
 	}
 
@@ -64,33 +65,37 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
-	// 设置超时上下文
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	// 异步处理非关键任务
+	// 使用errgroup并发处理异步任务
 	go func() {
+		// 创建带超时的context
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		// 发送发布事件
-		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
-			PostId: check.PostID,
-			Uid:    check.Uid,
-			Status: domain.Published,
-		}); err != nil {
-			s.l.Error("发送发布事件失败",
-				zap.Uint("post_id", check.PostID),
-				zap.Int64("uid", check.Uid),
-				zap.Error(err))
-		}
 
-		// 记录最近活动
-		if err := s.ActivityRepo.SetRecentActivity(ctxTimeout, domain.RecentActivity{
-			UserID:      uid,
-			Description: "审核通过",
-			Time:        strconv.FormatInt(time.Now().Unix(), 10),
-		}); err != nil {
-			s.l.Error("记录最近活动失败",
-				zap.Int64("user_id", uid),
-				zap.Error(err))
+		// 并发执行发布事件和记录活动
+		done := make(chan error, 2)
+		go func() {
+			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+				PostId: check.PostID,
+				Uid:    check.Uid,
+				Status: domain.Published,
+			})
+		}()
+
+		go func() {
+			done <- s.recordActivity(uid, "审核通过")
+		}()
+
+		// 等待所有goroutine完成或超时
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-done:
+				if err != nil {
+					s.l.Error("异步任务执行失败", zap.Error(err))
+				}
+			case <-ctx.Done():
+				s.l.Error("异步任务执行超时")
+				return
+			}
 		}
 	}()
 
@@ -102,60 +107,59 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	// 获取审核详情
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
+		s.l.Error("获取审核详情失败", zap.Error(err))
 		return fmt.Errorf("获取审核详情失败: %w", err)
 	}
 
 	// 检查状态
 	if check.Status != domain.UnderReview {
+		s.l.Error("当前审核状态不允许操作", zap.Uint8("status", check.Status))
 		return fmt.Errorf("当前审核状态不允许操作,状态:%v", check.Status)
 	}
 
-	// 使用事务处理状态更新
-	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
-		// 更新审核状态为拒绝
-		if err := s.repo.UpdateStatus(txCtx, domain.Check{
-			ID:     checkID,
-			Remark: remark,
-			Status: domain.UnApproved,
-		}); err != nil {
-			s.l.Error("更新审核状态失败",
-				zap.Int64("check_id", checkID),
-				zap.String("remark", remark),
-				zap.Error(err))
-			return fmt.Errorf("更新审核状态失败: %w", err)
-		}
-
-		// 异步发送审核拒绝事件
-		if err := s.producer.ProducePublishEvent(publish.PublishEvent{
-			PostId: check.PostID,
-			Uid:    check.Uid,
-			Status: domain.Draft, // 审核拒绝后,帖子状态为草稿
-		}); err != nil {
-			s.l.Error("发送审核拒绝事件失败", zap.Error(err))
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
+	if err := s.repo.UpdateStatus(ctx, domain.Check{
+		ID:     checkID,
+		Remark: remark,
+		Status: domain.UnApproved,
+	}); err != nil {
+		s.l.Error("更新审核状态失败",
+			zap.Int64("check_id", checkID),
+			zap.String("remark", remark),
+			zap.Error(err))
+		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
-	// 设置超时上下文
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	// 异步处理非关键任务
+	// 使用errgroup并发处理异步任务
 	go func() {
+		// 创建带超时的context
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		// 记录最近活动
-		if err := s.ActivityRepo.SetRecentActivity(ctxTimeout, domain.RecentActivity{
-			UserID:      uid,
-			Description: "审核拒绝",
-			Time:        strconv.FormatInt(time.Now().Unix(), 10),
-		}); err != nil {
-			s.l.Error("记录最近活动失败",
-				zap.Int64("user_id", uid),
-				zap.Error(err))
+
+		// 并发执行发布事件和记录活动
+		done := make(chan error, 2)
+		go func() {
+			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+				PostId: check.PostID,
+				Uid:    check.Uid,
+				Status: domain.Draft,
+			})
+		}()
+
+		go func() {
+			done <- s.recordActivity(uid, "审核拒绝")
+		}()
+
+		// 等待所有goroutine完成或超时
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-done:
+				if err != nil {
+					s.l.Error("异步任务执行失败", zap.Error(err))
+				}
+			case <-ctx.Done():
+				s.l.Error("异步任务执行超时")
+				return
+			}
 		}
 	}()
 
@@ -170,10 +174,9 @@ func (s *checkService) ListChecks(ctx context.Context, pagination domain.Paginat
 
 	checks, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
+		s.l.Error("获取审核列表失败", zap.Error(err))
 		return nil, err
 	}
-
-	s.l.Info("获取审核列表成功", zap.Int("数量", len(checks)))
 
 	return checks, nil
 }
@@ -182,20 +185,28 @@ func (s *checkService) ListChecks(ctx context.Context, pagination domain.Paginat
 func (s *checkService) CheckDetail(ctx context.Context, checkID int64) (domain.Check, error) {
 	check, err := s.repo.FindByID(ctx, checkID)
 	if err != nil {
+		s.l.Error("获取审核详情失败", zap.Error(err))
 		return domain.Check{}, err
 	}
-
-	s.l.Info("获取审核详情成功", zap.Int64("审核ID", checkID))
 
 	return check, nil
 }
 
-// GetCheckCount 获取审核数量
-func (s *checkService) GetCheckCount(ctx context.Context) (int64, error) {
-	count, err := s.repo.GetCheckCount(ctx)
-	if err != nil {
-		return -1, err
+// recordActivity 记录活动
+func (s *checkService) recordActivity(uid int64, desc string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.ActivityRepo.SetRecentActivity(ctx, domain.RecentActivity{
+		UserID:      uid,
+		Description: desc,
+		Time:        strconv.FormatInt(time.Now().Unix(), 10),
+	}); err != nil {
+		s.l.Error("记录最近活动失败",
+			zap.Int64("user_id", uid),
+			zap.Error(err))
+		return err
 	}
 
-	return count, nil
+	return nil
 }

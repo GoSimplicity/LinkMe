@@ -41,7 +41,7 @@ func (i *InteractiveRepositoryImpl) BatchIncrReadCnt(ctx context.Context, postId
 	return i.dao.BatchIncrReadCnt(ctx, postIds)
 }
 
-// IncrReadCnt implements InteractiveRepository.
+// IncrReadCnt 增加阅读计数
 func (i *InteractiveRepositoryImpl) IncrReadCnt(ctx context.Context, postId uint) error {
 	return i.dao.IncrReadCnt(ctx, postId)
 }
@@ -85,6 +85,7 @@ func (i *InteractiveRepositoryImpl) Get(ctx context.Context, postId uint) (domai
 		i.l.Error(PostGetInteractiveERROR, zap.Error(err))
 		return domain.Interactive{}, err
 	}
+
 	return toDomain(ic), nil
 }
 

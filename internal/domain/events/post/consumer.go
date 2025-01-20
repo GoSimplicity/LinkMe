@@ -82,7 +82,7 @@ func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { re
 func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		// 处理每一条消息
-		if err := h.consumer.processMessage(sess, msg); err != nil {
+		if err := h.consumer.processMessage(msg); err != nil {
 			h.consumer.l.Error("处理消息失败", zap.Error(err), zap.ByteString("message", msg.Value))
 			// 发送到死信队列
 			if err := h.consumer.sendToDLQ(msg); err != nil {
@@ -117,7 +117,7 @@ func (i *EventConsumer) sendToDLQ(msg *sarama.ConsumerMessage) error {
 }
 
 // processMessage 处理从 Kafka 消费的消息
-func (i *EventConsumer) processMessage(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
+func (i *EventConsumer) processMessage(msg *sarama.ConsumerMessage) error {
 	// 参数校验
 	if err := i.validateMessage(msg); err != nil {
 		return err
@@ -200,7 +200,7 @@ func (i *EventConsumer) handleEvent(ctx context.Context, evt *ReadEvent) error {
 	}
 
 	// 保存历史记录
-	if err := i.hisRepo.SetHistory(ctx, []domain.Post{post}); err != nil {
+	if err := i.hisRepo.SetHistory(ctx, post); err != nil {
 		i.l.Error("保存历史记录失败",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid),

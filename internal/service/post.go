@@ -12,6 +12,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/pkg/general"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type PostService interface {
@@ -108,12 +109,17 @@ func (p *postService) GetPostById(ctx context.Context, postId uint, uid int64) (
 	}
 
 	inc, err := p.incRepo.Get(ctx, postId)
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		p.l.Error("获取互动数据失败", zap.Error(err))
 		return domain.Post{}, fmt.Errorf("获取互动数据失败: %w", err)
+	} else if err == gorm.ErrRecordNotFound {
+		inc = domain.Interactive{
+			LikeCount:    0,
+			ReadCount:    0,
+			CollectCount: 0,
+		}
 	}
 
-	// 填充互动数据
 	data.LikeCount = inc.LikeCount
 	data.ReadCount = inc.ReadCount
 	data.CollectCount = inc.CollectCount
@@ -148,11 +154,16 @@ func (p *postService) GetPublishPostById(ctx context.Context, postId uint, uid i
 	})
 	asyncReadEvent()
 
-	// 获取并填充互动数据
 	inc, err := p.incRepo.Get(ctx, postId)
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		p.l.Error("获取互动数据失败", zap.Error(err))
 		return domain.Post{}, fmt.Errorf("获取互动数据失败: %w", err)
+	} else if err == gorm.ErrRecordNotFound {
+		inc = domain.Interactive{
+			LikeCount:    0,
+			ReadCount:    0,
+			CollectCount: 0,
+		}
 	}
 
 	dp.LikeCount = inc.LikeCount

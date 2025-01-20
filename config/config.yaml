@@ -12,14 +12,17 @@ log:
   dir: "logs"
   
 db:
-  dsn: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  # dsn: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:v6SxhWHyZC7S@tcp(192.168.5.11:33306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 
 redis:
-  addr: "redis:6379"
+  # addr: "redis:6379"
+  addr: "192.168.5.11:36379"
   password: "v6SxhWHyZC7S"
 
 kafka:
-  addr: "kafka:9092"
+  # addr: "kafka:9092"
+  addr: "192.168.5.11:9092"
 
 es:
   addr: "http://elasticsearch:9200"

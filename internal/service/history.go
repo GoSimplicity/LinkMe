@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ func NewHistoryService(repo repository.HistoryRepository, l *zap.Logger) History
 	}
 }
 
+// GetHistory 获取历史记录
 func (h *historyService) GetHistory(ctx context.Context, pagination domain.Pagination) ([]domain.History, error) {
 	// 计算偏移量
 	offset := int64(pagination.Page-1) * *pagination.Size
@@ -37,6 +39,8 @@ func (h *historyService) GetHistory(ctx context.Context, pagination domain.Pagin
 
 	return history, nil
 }
+
+// DeleteOneHistory 删除一条历史记录
 func (h *historyService) DeleteOneHistory(ctx context.Context, postId uint, uid int64) error {
 	if err := h.repo.DeleteOneHistory(ctx, postId, uid); err != nil {
 		return err
@@ -45,6 +49,7 @@ func (h *historyService) DeleteOneHistory(ctx context.Context, postId uint, uid 
 	return nil
 }
 
+// DeleteAllHistory 删除所有历史记录
 func (h *historyService) DeleteAllHistory(ctx context.Context, uid int64) error {
 	if err := h.repo.DeleteAllHistory(ctx, uid); err != nil {
 		return err

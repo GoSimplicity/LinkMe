@@ -9,13 +9,11 @@ import (
 )
 
 type CheckRepository interface {
-	Create(ctx context.Context, check domain.Check) (int64, error)                     // 创建审核记录
-	UpdateStatus(ctx context.Context, check domain.Check) error                        // 更新审核状态
-	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) // 获取审核列表
-	FindByID(ctx context.Context, checkID int64) (domain.Check, error)                 // 获取审核详情
-	FindByPostId(ctx context.Context, postID uint) (domain.Check, error)               // 根据帖子ID获取审核信息
-	GetCheckCount(ctx context.Context) (int64, error)                                  // 获取审核数量
-	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error            // 事务
+	Create(ctx context.Context, check domain.Check) (int64, error)
+	UpdateStatus(ctx context.Context, check domain.Check) error
+	FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error)
+	FindByID(ctx context.Context, checkID int64) (domain.Check, error)
+	FindByPostId(ctx context.Context, postID uint) (domain.Check, error)
 }
 
 type checkRepository struct {
@@ -30,6 +28,7 @@ func NewCheckRepository(dao dao.CheckDAO, l *zap.Logger) CheckRepository {
 	}
 }
 
+// Create 创建审核记录
 func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64, error) {
 	// 创建新的审核信息
 	id, err := r.dao.Create(ctx, toDAOCheck(check))
@@ -40,10 +39,12 @@ func (r *checkRepository) Create(ctx context.Context, check domain.Check) (int64
 	return id, nil
 }
 
+// UpdateStatus 更新审核状态
 func (r *checkRepository) UpdateStatus(ctx context.Context, check domain.Check) error {
 	return r.dao.UpdateStatus(ctx, toDAOCheck(check))
 }
 
+// FindAll 获取审核列表
 func (r *checkRepository) FindAll(ctx context.Context, pagination domain.Pagination) ([]domain.Check, error) {
 	checks, err := r.dao.FindAll(ctx, pagination)
 	if err != nil {
@@ -52,6 +53,7 @@ func (r *checkRepository) FindAll(ctx context.Context, pagination domain.Paginat
 	return toDomainChecks(checks), nil
 }
 
+// FindByID 获取审核详情
 func (r *checkRepository) FindByID(ctx context.Context, checkID int64) (domain.Check, error) {
 	check, err := r.dao.FindByID(ctx, checkID)
 	if err != nil {
@@ -60,21 +62,13 @@ func (r *checkRepository) FindByID(ctx context.Context, checkID int64) (domain.C
 	return toDomainCheck(check), nil
 }
 
+// FindByPostId 根据帖子ID获取审核信息
 func (r *checkRepository) FindByPostId(ctx context.Context, postID uint) (domain.Check, error) {
 	check, err := r.dao.FindByPostId(ctx, postID)
 	if err != nil {
 		return domain.Check{}, err
 	}
 	return toDomainCheck(check), nil
-}
-
-func (r *checkRepository) GetCheckCount(ctx context.Context) (int64, error) {
-	return r.dao.GetCheckCount(ctx)
-}
-
-// WithTx 事务
-func (r *checkRepository) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
-	return r.dao.WithTx(ctx, fn)
 }
 
 // toDAOCheck 将 domain.Check 转换为 dao.Check

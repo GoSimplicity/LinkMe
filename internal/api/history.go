@@ -5,10 +5,9 @@ import (
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 type HistoryHandler struct {
@@ -23,12 +22,21 @@ func NewHistoryHandler(svc service.HistoryService) *HistoryHandler {
 
 func (h *HistoryHandler) RegisterRoutes(server *gin.Engine) {
 	historyGroup := server.Group("/api/history")
-	historyGroup.GET("/list", WrapBody(h.GetHistory))
-	historyGroup.DELETE("/delete", WrapBody(h.DeleteOneHistory))
-	historyGroup.DELETE("/delete/all", WrapBody(h.DeleteAllHistory))
+
+	historyGroup.POST("/list", h.GetHistory)
+	historyGroup.DELETE("/delete", h.DeleteOneHistory)
+	historyGroup.DELETE("/delete/all", h.DeleteAllHistory)
 }
 
-func (h *HistoryHandler) GetHistory(ctx *gin.Context, req req.ListHistoryReq) (Result, error) {
+// GetHistory 获取历史记录
+func (h *HistoryHandler) GetHistory(ctx *gin.Context) {
+	var req req.ListHistoryReq
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	history, err := h.svc.GetHistory(ctx, domain.Pagination{
 		Page: req.Page,
@@ -36,44 +44,47 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context, req req.ListHistoryReq) (R
 		Uid:  uc.Uid,
 	})
 	if err != nil {
-		return Result{
-			Code: 500,
-			Msg:  HistoryListError,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, "获取历史记录失败")
+		return
 	}
-	return Result{
-		Code: http.StatusOK,
-		Msg:  HistoryListSuccess,
-		Data: history,
-	}, err
+
+	apiresponse.SuccessWithData(ctx, history)
 }
 
-func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context, req req.DeleteHistoryReq) (Result, error) {
+// DeleteOneHistory 删除一条历史记录
+func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context) {
+	var req req.DeleteHistoryReq
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	if err := h.svc.DeleteOneHistory(ctx, req.PostId, uc.Uid); err != nil {
-		return Result{
-			Code: 500,
-			Msg:  HistoryDeleteError,
-		}, err
+		apiresponse.ErrorWithMessage(ctx, HistoryDeleteError)
+		return
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  HistoryDeleteSuccess,
-	}, nil
+
+	apiresponse.Success(ctx)
 }
 
-func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context, req req.DeleteHistoryAllReq) (Result, error) {
+// DeleteAllHistory 删除所有历史记录
+func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context) {
+	var req req.DeleteHistoryAllReq
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
-	if req.IsDeleteAll == true {
+	if req.IsDeleteAll {
 		if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {
-			return Result{
-				Code: 500,
-				Msg:  HistoryDeleteError,
-			}, err
+			apiresponse.ErrorWithMessage(ctx, HistoryDeleteError)
+			return
 		}
 	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  HistoryDeleteSuccess,
-	}, nil
+
+	apiresponse.Success(ctx)
 }
