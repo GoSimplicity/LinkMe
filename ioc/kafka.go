@@ -2,14 +2,13 @@ package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
-	"github.com/GoSimplicity/LinkMe/pkg/samarap/prometheus" // 假设 promethes 文件放在 pkg 目录下
+	"github.com/GoSimplicity/LinkMe/pkg/samarap/prometheus"
 	"github.com/IBM/sarama"
 	prometheus2 "github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
@@ -71,19 +70,23 @@ func InitConsumers(
 	postConsumer *post.EventConsumer,
 	smsConsumer *sms.SMSConsumer,
 	emailConsumer *email.EmailConsumer,
-	cacheConsumer *cache.CacheConsumer,
 	publishConsumer *publish.PublishPostEventConsumer,
 	esConsumer *es.EsConsumer,
 	checkConsumer *check.CheckEventConsumer,
+	postDLQConsumer *post.PostDeadLetterConsumer,
+	publishDLQConsumer *publish.PublishDeadLetterConsumer,
+	checkDLQConsumer *check.CheckDeadLetterConsumer,
 ) []events.Consumer {
 	// 返回消费者切片
 	return []events.Consumer{
 		postConsumer,
 		smsConsumer,
 		emailConsumer,
-		cacheConsumer,
 		publishConsumer,
 		esConsumer,
 		checkConsumer,
+		postDLQConsumer,
+		publishDLQConsumer,
+		checkDLQConsumer,
 	}
 }

@@ -79,7 +79,7 @@ func (c *consumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) erro
 func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		// 处理每一条消息
-		if err := c.consumer.processMessage(sess, msg); err != nil {
+		if err := c.consumer.processMessage(msg); err != nil {
 			c.consumer.l.Error("处理消息失败", zap.Error(err), zap.ByteString("message", msg.Value))
 			// 发送到死信队列
 			if err := c.consumer.sendToDLQ(msg); err != nil {
@@ -115,7 +115,7 @@ func (p *PublishPostEventConsumer) sendToDLQ(msg *sarama.ConsumerMessage) error 
 }
 
 // processMessage 处理从 Kafka 消费的消息
-func (p *PublishPostEventConsumer) processMessage(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
+func (p *PublishPostEventConsumer) processMessage(msg *sarama.ConsumerMessage) error {
 	// 参数校验
 	if err := p.validateMessage(msg); err != nil {
 		return err

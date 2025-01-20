@@ -30,13 +30,13 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 	casbinMiddleware := middleware.NewCasbinMiddleware(ch.ce)
 	checkGroup := server.Group("/api/checks")
 	checkGroup.Use(casbinMiddleware.CheckCasbin())
-	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck)) // 审核通过
-	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))   // 审核拒绝
-	checkGroup.POST("/list", WrapBody(ch.ListChecks))      // 审核列表
-	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))    // 审核详情
-	checkGroup.GET("/stats", WrapQuery(ch.GetCheckCount))  // 管理员使用
+	checkGroup.POST("/approve", WrapBody(ch.ApproveCheck))
+	checkGroup.POST("/reject", WrapBody(ch.RejectCheck))
+	checkGroup.POST("/list", WrapBody(ch.ListChecks))
+	checkGroup.GET("/detail", WrapBody(ch.CheckDetail))
 }
 
+// ApproveCheck 审核通过
 func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req req.ApproveCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
@@ -52,6 +52,7 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context, req req.ApproveCheckReq) 
 	}, nil
 }
 
+// RejectCheck 审核拒绝
 func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req req.RejectCheckReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
@@ -67,6 +68,7 @@ func (ch *CheckHandler) RejectCheck(ctx *gin.Context, req req.RejectCheckReq) (R
 	}, nil
 }
 
+// ListChecks 获取审核列表
 func (ch *CheckHandler) ListChecks(ctx *gin.Context, req req.ListCheckReq) (Result, error) {
 	checks, err := ch.svc.ListChecks(ctx, domain.Pagination{
 		Page: req.Page,
@@ -85,6 +87,7 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context, req req.ListCheckReq) (Resu
 	}, nil
 }
 
+// CheckDetail 获取审核详情
 func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req req.CheckDetailReq) (Result, error) {
 	check, err := ch.svc.CheckDetail(ctx, req.CheckID)
 	if err != nil {
@@ -97,20 +100,5 @@ func (ch *CheckHandler) CheckDetail(ctx *gin.Context, req req.CheckDetailReq) (R
 		Code: RequestsOK,
 		Msg:  "success to get check detail",
 		Data: check,
-	}, nil
-}
-
-func (ch *CheckHandler) GetCheckCount(ctx *gin.Context, _ req.GetCheckCount) (Result, error) {
-	count, err := ch.svc.GetCheckCount(ctx)
-	if err != nil {
-		return Result{
-			Code: GetCheckERRORCode,
-			Msg:  GetCheckERROR,
-		}, err
-	}
-	return Result{
-		Code: RequestsOK,
-		Msg:  GetCheckSuccess,
-		Data: count,
 	}, nil
 }
