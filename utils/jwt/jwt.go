@@ -1,9 +1,33 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2024 Bamboo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ */
+
 package jwt
 
 import (
 	"errors"
 	"fmt"
-	"github.com/spf13/viper"
 	"strings"
 	"time"
 
@@ -11,6 +35,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 )
 
 type Handler interface {
@@ -38,24 +63,26 @@ type RefreshClaims struct {
 }
 
 type handler struct {
-	client         redis.Cmdable
-	signingMethod  jwt.SigningMethod
-	rcExpiration   time.Duration
-	AuthExpiration time.Duration
-	Issuer         string
-	AuthKey        []byte
-	RefreshKey     []byte
+	client        redis.Cmdable
+	signingMethod jwt.SigningMethod
+	rcExpiration  time.Duration
+	key1          []byte
+	key2          []byte
+	issuer        string
 }
 
 func NewJWTHandler(c redis.Cmdable) Handler {
+	key1 := viper.GetString("jwt.auth_key")
+	key2 := viper.GetString("jwt.refresh_key")
+	issuer := viper.GetString("jwt.issuer")
+
 	return &handler{
-		client:         c,
-		signingMethod:  jwt.SigningMethodHS512,
-		rcExpiration:   time.Hour * viper.GetDuration("jwt.refresh_expire"),
-		AuthExpiration: time.Minute * viper.GetDuration("jwt.auth_expire"),
-		AuthKey:        []byte(viper.GetString("jwt.auth_key")),
-		RefreshKey:     []byte(viper.GetString("jwt.refresh_key")),
-		Issuer:         viper.GetString("jwt.issuer"),
+		client:        c,
+		signingMethod: jwt.SigningMethodHS512,
+		rcExpiration:  time.Hour * 24 * 7,
+		key1:          []byte(key1),
+		key2:          []byte(key2),
+		issuer:        issuer,
 	}
 }
 
@@ -66,31 +93,43 @@ func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, string, er
 	if err != nil {
 		return "", "", err
 	}
+
 	jwtToken, err := h.SetJWTToken(ctx, uid, ssid)
 	if err != nil {
 		return "", "", err
 	}
+
 	return jwtToken, refreshToken, nil
 }
 
 // SetJWTToken 设置短Token
 func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error) {
+	// 从配置文件中获取JWT的过期时间
+	expirationMinutes := viper.GetInt64("jwt.expiration")
+
+	// 如果未设置或值无效，设置一个默认值，例如30分钟
+	if expirationMinutes <= 0 {
+		expirationMinutes = 30
+	}
+
 	uc := UserClaims{
 		Uid:         uid,
 		Ssid:        ssid,
 		UserAgent:   ctx.GetHeader("User-Agent"),
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.AuthExpiration)),
-			Issuer:    h.Issuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(expirationMinutes))),
+			Issuer:    h.issuer,
 		},
 	}
+
 	token := jwt.NewWithClaims(h.signingMethod, uc)
 	// 进行签名
-	signedString, err := token.SignedString(h.AuthKey)
+	signedString, err := token.SignedString(h.key1)
 	if err != nil {
 		return "", err
 	}
+
 	return signedString, nil
 }
 
@@ -104,11 +143,13 @@ func (h *handler) setRefreshToken(_ *gin.Context, uid int64, ssid string) (strin
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.rcExpiration)),
 		},
 	}
+
 	t := jwt.NewWithClaims(h.signingMethod, rc)
-	signedString, err := t.SignedString(h.RefreshKey)
+	signedString, err := t.SignedString(h.key2)
 	if err != nil {
 		return "", err
 	}
+
 	return signedString, nil
 }
 
@@ -118,11 +159,13 @@ func (h *handler) ExtractToken(ctx *gin.Context) string {
 	if authCode == "" {
 		return ""
 	}
+
 	// Authorization 头部格式需为 Bearer string
 	s := strings.Split(authCode, " ")
 	if len(s) != 2 {
 		return ""
 	}
+
 	return s[1]
 }
 
@@ -133,35 +176,63 @@ func (h *handler) CheckSession(ctx *gin.Context, ssid string) error {
 	if err != nil {
 		return err
 	}
+
 	if c != 0 {
 		return errors.New("token失效")
 	}
+
 	return nil
 }
 
 // ClearToken 清空token
 func (h *handler) ClearToken(ctx *gin.Context) error {
-	uc := ctx.MustGet("user").(UserClaims)
-	// 获取 refresh token
-	refreshTokenString := ctx.GetHeader("X-Refresh-Token")
-	if refreshTokenString == "" {
-		return errors.New("missing refresh token")
+	// 获取 Authorization 头部中的 token
+	authToken, err := h.extractBearerToken(ctx)
+	if err != nil {
+		return err
 	}
 
-	ctx.Header("X-Refresh-Token", "")
-
-	// 解析 refresh token
-	refreshClaims := &RefreshClaims{}
-	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, refreshClaims, func(token *jwt.Token) (interface{}, error) {
-		return h.RefreshKey, nil
+	// 提取 token 的 claims 信息
+	claims := &UserClaims{}
+	token, err := jwt.ParseWithClaims(authToken, claims, func(token *jwt.Token) (interface{}, error) {
+		return h.key1, nil
 	})
-	if err != nil || !refreshToken.Valid {
-		return errors.New("invalid refresh token")
+
+	if err != nil || !token.Valid {
+		return errors.New("invalid authorization token")
 	}
-	// 设置redis中的会话ID键的过期时间为refresh token的剩余过期时间
-	remainingTime := refreshClaims.ExpiresAt.Time.Sub(time.Now())
-	if er := h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", uc.Ssid), "", remainingTime).Err(); er != nil {
-		return er
+
+	// 将 token 加入 Redis 黑名单
+	if err := h.addToBlacklist(ctx, authToken, claims.ExpiresAt.Time); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// extractBearerToken 提取 Bearer Token
+func (h *handler) extractBearerToken(ctx *gin.Context) (string, error) {
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		return "", errors.New("missing authorization token")
+	}
+
+	const bearerPrefix = "Bearer "
+	if len(authHeader) <= len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
+		return "", errors.New("invalid authorization token format")
+	}
+
+	return authHeader[len(bearerPrefix):], nil
+}
+
+// addToBlacklist 将 token 加入 Redis 黑名单
+func (h *handler) addToBlacklist(ctx *gin.Context, authToken string, expiresAt time.Time) error {
+	remainingTime := time.Until(expiresAt)
+	blacklistKey := fmt.Sprintf("blacklist:token:%s", authToken)
+
+	// 将 token 存入 Redis，并设置过期时间
+	if err := h.client.Set(ctx, blacklistKey, "invalid", remainingTime).Err(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -171,7 +242,7 @@ func (h *handler) VerifyRefreshToken(ctx *gin.Context, token string) (bool, *Ref
 	// 解析refresh token
 	refreshClaims := &RefreshClaims{}
 	refreshToken, err := jwt.ParseWithClaims(token, refreshClaims, func(token *jwt.Token) (interface{}, error) {
-		return h.RefreshKey, nil
+		return h.key2, nil
 	})
 
 	// 检查解析和验证结果

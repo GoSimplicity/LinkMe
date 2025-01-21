@@ -42,3 +42,10 @@ func InitAsynqServer() *asynq.Server {
 		},
 	)
 }
+
+func InitScheduler() *asynq.Scheduler {
+	return asynq.NewScheduler(asynq.RedisClientOpt{
+		Addr:     viper.GetString("redis.addr"),
+		Password: viper.GetString("redis.password"),
+	}, nil)
+}
