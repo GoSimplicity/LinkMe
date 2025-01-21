@@ -3,89 +3,104 @@ package cache
 import (
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"go.uber.org/zap"
 )
 
 var (
-	ErrCacheEmpty   = errors.New("local cache is empty")
-	ErrCacheExpired = errors.New("local cache expired")
+	ErrCacheEmpty   = errors.New("本地缓存为空")
+	ErrCacheExpired = errors.New("本地缓存已过期")
 )
 
 type RankingLocalCache interface {
-	Set(ctx context.Context, arts []domain.Post) error   // 设置缓存内容并更新过期时间
-	Get(ctx context.Context) ([]domain.Post, error)      // 获取缓存内容，如果缓存已过期或为空则返回错误
-	ForceGet(ctx context.Context) ([]domain.Post, error) // 强制获取缓存内容，即使缓存已过期也返回
+	Set(ctx context.Context, posts []domain.Post) error
+	Get(ctx context.Context) ([]domain.Post, error)
+	ForceGet(ctx context.Context) ([]domain.Post, error)
 }
 
 type rankingLocalCache struct {
-	topN       []domain.Post // 缓存的排名帖子
-	ddl        time.Time     // 缓存的过期时间
-	expiration time.Duration // 缓存的持续时间
-	mu         sync.RWMutex  // 读写锁，保证并发安全
+	posts    []domain.Post
+	expireAt time.Time
+	ttl      time.Duration
+	mu       sync.RWMutex
+	logger   *zap.Logger
 }
 
-func NewRankingLocalCache() RankingLocalCache {
+func NewRankingLocalCache(logger *zap.Logger) RankingLocalCache {
 	return &rankingLocalCache{
-		expiration: 10 * time.Minute, // 固定为10分钟
+		ttl:    10 * time.Minute,
+		logger: logger,
 	}
 }
 
-// Set 设置缓存内容并更新过期时间
-func (r *rankingLocalCache) Set(ctx context.Context, arts []domain.Post) error {
-	if len(arts) == 0 {
+func (r *rankingLocalCache) Set(ctx context.Context, posts []domain.Post) error {
+	if len(posts) == 0 {
+		r.logger.Warn("试图设置空缓存")
 		return ErrCacheEmpty
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.topN = make([]domain.Post, len(arts))
-	copy(r.topN, arts) // 深拷贝避免外部修改
-	r.ddl = time.Now().Add(r.expiration)
+	r.posts = make([]domain.Post, len(posts))
+	copy(r.posts, posts)
+	r.expireAt = time.Now().Add(r.ttl)
 
-	log.Printf("已设置缓存，共 %d 篇文章，过期时间为 %s", len(arts), r.ddl)
+	r.logger.Info("本地缓存已更新",
+		zap.Int("post_count", len(posts)),
+		zap.Time("expire_at", r.expireAt))
 	return nil
 }
 
-// Get 获取缓存内容，如果缓存已过期或为空则返回错误
 func (r *rankingLocalCache) Get(ctx context.Context) ([]domain.Post, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if len(r.topN) == 0 {
-		log.Println("本地缓存为空")
-		return nil, ErrCacheEmpty
+	if err := r.validateCache(); err != nil {
+		return nil, err
 	}
 
-	if time.Now().After(r.ddl) {
-		log.Println("本地缓存已过期")
-		return nil, ErrCacheExpired
-	}
-
-	result := make([]domain.Post, len(r.topN))
-	copy(result, r.topN) // 返回副本避免外部修改
-
-	log.Printf("缓存命中，共 %d 篇文章", len(result))
-	return result, nil
+	return r.copyPosts(), nil
 }
 
-// ForceGet 强制获取缓存内容，即使缓存已过期也返回
 func (r *rankingLocalCache) ForceGet(ctx context.Context) ([]domain.Post, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if len(r.topN) == 0 {
-		log.Println("强制获取：本地缓存为空")
+	if len(r.posts) == 0 {
+		r.logger.Warn("强制获取:本地缓存为空")
 		return nil, ErrCacheEmpty
 	}
 
-	result := make([]domain.Post, len(r.topN))
-	copy(result, r.topN) // 返回副本避免外部修改
-
-	log.Printf("强制获取：缓存命中，共 %d 篇文章", len(result))
+	result := r.copyPosts()
+	r.logger.Debug("强制获取本地缓存成功",
+		zap.Int("post_count", len(result)),
+		zap.Time("expire_at", r.expireAt))
 	return result, nil
+}
+
+func (r *rankingLocalCache) validateCache() error {
+	if len(r.posts) == 0 {
+		r.logger.Warn("本地缓存为空")
+		return ErrCacheEmpty
+	}
+
+	if time.Now().After(r.expireAt) {
+		r.logger.Warn("本地缓存已过期",
+			zap.Time("expire_at", r.expireAt))
+		return ErrCacheExpired
+	}
+
+	return nil
+}
+
+func (r *rankingLocalCache) copyPosts() []domain.Post {
+	result := make([]domain.Post, len(r.posts))
+	copy(result, r.posts)
+	r.logger.Debug("本地缓存命中",
+		zap.Int("post_count", len(result)))
+	return result
 }

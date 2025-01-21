@@ -4,18 +4,21 @@ import "github.com/hibiken/asynq"
 
 type Routes struct {
 	RefreshCache *RefreshCacheTask
+	TimedTask    *TimedTask
 }
 
-func NewRoutes(refreshCache *RefreshCacheTask) *Routes {
+func NewRoutes(refreshCache *RefreshCacheTask, timedTask *TimedTask) *Routes {
 	return &Routes{
 		RefreshCache: refreshCache,
+		TimedTask:    timedTask,
 	}
 }
 
 func (r *Routes) RegisterHandlers() *asynq.ServeMux {
 	mux := asynq.NewServeMux()
+
 	mux.HandleFunc(DeferRefreshPostCache, r.RefreshCache.ProcessTask)
-	// 注册其他任务处理器
+	mux.HandleFunc(DeferTimedTask, r.TimedTask.ProcessTask)
 
 	return mux
 }

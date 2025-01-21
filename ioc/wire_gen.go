@@ -76,10 +76,10 @@ func InitWebServer() *Cmd {
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(logger, permissionRepository)
 	permissionHandler := api.NewPermissionHandler(permissionService, logger)
-	rankingRedisCache := cache.NewRankingRedisCache(cmdable)
-	rankingLocalCache := cache.NewRankingLocalCache()
+	rankingRedisCache := cache.NewRankingRedisCache(cmdable, logger)
+	rankingLocalCache := cache.NewRankingLocalCache(logger)
 	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache, logger)
-	rankingService := service.NewRankingService(interactiveService, postRepository, rankingRepository, logger)
+	rankingService := service.NewRankingService(interactiveRepository, postRepository, rankingRepository, logger)
 	rankingHandler := api.NewRakingHandler(rankingService)
 	plateDAO := dao.NewPlateDAO(logger, db)
 	plateRepository := repository.NewPlateRepository(logger, plateDAO)
@@ -114,7 +114,6 @@ func InitWebServer() *Cmd {
 	menuHandler := api.NewMenuHandler(menuService, logger)
 	apiHandler := api.NewApiHandler(apiService, logger)
 	engine := InitWeb(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler, lotteryDrawHandler, roleHandler, menuHandler, apiHandler)
-	cron := InitRanking(logger, rankingService)
 	eventConsumer := post.NewEventConsumer(interactiveRepository, historyRepository, client, syncProducer, logger)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
@@ -133,15 +132,18 @@ func InitWebServer() *Cmd {
 	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	refreshCacheTask := job.NewRefreshCacheTask(postCache, logger)
-	routes := job.NewRoutes(refreshCacheTask)
+	timedTask := job.NewTimedTask(logger)
+	routes := job.NewRoutes(refreshCacheTask, timedTask)
 	server := InitAsynqServer()
+	scheduler := InitScheduler()
+	timedScheduler := job.NewTimedScheduler(scheduler)
 	cmd := &Cmd{
-		Server:   engine,
-		Cron:     cron,
-		Consumer: v2,
-		Mock:     mockUserRepository,
-		Routes:   routes,
-		Asynq:    server,
+		Server:    engine,
+		Consumer:  v2,
+		Mock:      mockUserRepository,
+		Routes:    routes,
+		Asynq:     server,
+		Scheduler: timedScheduler,
 	}
 	return cmd
 }

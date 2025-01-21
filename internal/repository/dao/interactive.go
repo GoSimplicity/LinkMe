@@ -19,11 +19,14 @@ const (
 
 var (
 	ErrRecordNotFound = gorm.ErrRecordNotFound
+	ErrLikeNotFound   = errors.New("用户未点赞,无法取消")
+	ErrLikeAlready    = errors.New("点赞已取消,请勿重复操作")
+	ErrCollectNotFound = errors.New("用户未收藏,无法取消")
+	ErrCollectAlready = errors.New("收藏已取消,请勿重复操作")
 )
 
 type InteractiveDAO interface {
 	IncrReadCnt(ctx context.Context, postId uint) error
-	BatchIncrReadCnt(ctx context.Context, postIds []uint) error
 	InsertLikeInfo(ctx context.Context, lb UserLikeBiz) error
 	DeleteLikeInfo(ctx context.Context, lb UserLikeBiz) error
 	InsertCollectionBiz(ctx context.Context, cb UserCollectionBiz) error
@@ -99,20 +102,6 @@ func (i *interactiveDAO) IncrReadCnt(ctx context.Context, postId uint) error {
 	}).Error
 }
 
-// BatchIncrReadCnt 批量增加阅读计数,使用事务提升性能
-func (i *interactiveDAO) BatchIncrReadCnt(ctx context.Context, postIds []uint) error {
-	return i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txInc := NewInteractiveDAO(tx, i.l)
-		for _, postId := range postIds {
-			if err := txInc.IncrReadCnt(ctx, postId); err != nil {
-				i.l.Error("增加阅读计数失败", zap.Error(err))
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 // InsertLikeInfo 插入点赞信息,使用事务保证数据一致性
 func (i *interactiveDAO) InsertLikeInfo(ctx context.Context, lb UserLikeBiz) error {
 	now := i.getCurrentTime()
@@ -165,7 +154,7 @@ func (i *interactiveDAO) DeleteLikeInfo(ctx context.Context, lb UserLikeBiz) err
 		if err := tx.Where("uid = ? AND biz_id = ?", lb.Uid, lb.BizID).First(&likeBiz).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				i.l.Error("用户未点赞,无法取消", zap.Error(err))
-				return errors.New("用户未点赞,无法取消")
+				return ErrLikeNotFound
 			}
 			i.l.Error("查询点赞记录失败", zap.Error(err))
 			return err
@@ -173,7 +162,7 @@ func (i *interactiveDAO) DeleteLikeInfo(ctx context.Context, lb UserLikeBiz) err
 
 		if likeBiz.Status == StatusUnliked {
 			i.l.Error("点赞已取消,请勿重复操作")
-			return errors.New("点赞已取消,请勿重复操作")
+			return ErrLikeAlready
 		}
 
 		// 分别更新点赞状态和互动计数
@@ -252,7 +241,7 @@ func (i *interactiveDAO) DeleteCollectionBiz(ctx context.Context, cb UserCollect
 		if err := tx.Where("uid = ? AND biz_id = ?", cb.Uid, cb.BizID).First(&collectionBiz).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				i.l.Error("用户未收藏,无法取消", zap.Error(err))
-				return errors.New("用户未收藏,无法取消")
+				return ErrCollectNotFound
 			}
 			i.l.Error("查询收藏记录失败", zap.Error(err))
 			return err
@@ -260,7 +249,7 @@ func (i *interactiveDAO) DeleteCollectionBiz(ctx context.Context, cb UserCollect
 
 		if collectionBiz.Status == StatusUnCollection {
 			i.l.Error("收藏已取消,请勿重复操作")
-			return errors.New("收藏已取消,请勿重复操作")
+			return ErrCollectAlready
 		}
 
 		// 分别更新收藏状态和互动计数
@@ -309,14 +298,12 @@ func (i *interactiveDAO) GetCollectInfo(ctx context.Context, postId uint, uid in
 // Get 获取单个互动信息
 func (i *interactiveDAO) Get(ctx context.Context, postId uint) (Interactive, error) {
 	var inc Interactive
-
 	err := i.db.WithContext(ctx).Where("biz_id = ?", postId).First(&inc).Error
 	if err != nil {
 		i.l.Error("Get Interactive error", zap.Error(err))
 		return Interactive{}, err
 	}
-
-	return inc, err
+	return inc, nil
 }
 
 // GetByIds 批量获取互动信息
