@@ -6,6 +6,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
+	icontentfilter "github.com/GoSimplicity/LinkMe/utils/contentfilter"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
@@ -34,8 +35,10 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 // CreateComment 创建评论处理器方法
 func (ch *CommentHandler) CreateComment(ctx *gin.Context, req req.CreateCommentReq) (Result, error) {
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	// 进行敏感词过滤
+	SensitiveContent := icontentfilter.SensitiveFilterFun(req.Content)
 	comment := domain.Comment{
-		Content: req.Content,
+		Content: SensitiveContent,
 		PostId:  req.PostId,
 		UserId:  uc.Uid,
 		Biz:     "comment",
@@ -47,6 +50,7 @@ func (ch *CommentHandler) CreateComment(ctx *gin.Context, req req.CreateCommentR
 	if req.PID != nil {
 		comment.ParentComment = &domain.Comment{Id: *req.PID}
 	}
+
 	err := ch.svc.CreateComment(ctx, comment)
 	if err != nil {
 		return Result{
