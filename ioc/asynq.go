@@ -1,6 +1,8 @@
 package ioc
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/job/interfaces"
+	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/hibiken/asynq"
 	"github.com/spf13/viper"
 )
@@ -48,4 +50,8 @@ func InitScheduler() *asynq.Scheduler {
 		Addr:     viper.GetString("redis.addr"),
 		Password: viper.GetString("redis.password"),
 	}, nil)
+}
+
+func InitRankingService(svc service.RankingService) interfaces.RankingService {
+	return svc
 }
