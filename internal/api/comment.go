@@ -30,6 +30,7 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 	commentsGroup.POST("/list", WrapBody(ch.ListComments))
 	commentsGroup.DELETE("/delete/:commentId", WrapParam(ch.DeleteComment))
 	commentsGroup.POST("/get_more", WrapBody(ch.GetMoreCommentReply))
+	commentsGroup.POST("/get_top", WrapBody(ch.GetTopCommentReply))
 }
 
 // CreateComment 创建评论处理器方法
@@ -107,6 +108,21 @@ func (ch *CommentHandler) GetMoreCommentReply(ctx *gin.Context, req req.GetMoreC
 	return Result{
 		Code: RequestsOK,
 		Msg:  GetMoreCommentReplySuccessMsg,
+		Data: comments,
+	}, nil
+}
+
+func (ch *CommentHandler) GetTopCommentReply(ctx *gin.Context, req req.GetTopCommentReplyReq) (Result, error) {
+	comments, err := ch.svc.GetTopCommentsReply(ctx, req.PostId)
+	if err != nil {
+		return Result{
+			Code: GetTopCommentReplyErrorCode,
+			Msg:  GetTopCommentReplyErrorMsg,
+		}, err
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  GetTopCommentReplySuccessMsg,
 		Data: comments,
 	}, nil
 }

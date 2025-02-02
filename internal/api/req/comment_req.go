@@ -22,3 +22,6 @@ type GetMoreCommentReplyReq struct {
 	MaxId  int64 `json:"maxId"`
 	Limit  int64 `json:"limit"`
 }
+type GetTopCommentReplyReq struct {
+	PostId int64 `json:"postId"`
+}
