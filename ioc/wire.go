@@ -38,6 +38,7 @@ func InitWebServer() *Cmd {
 		InitAsynqServer,
 		InitAsynqClient,
 		InitScheduler,
+		InitRankingService,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,

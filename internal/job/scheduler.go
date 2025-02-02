@@ -22,10 +22,10 @@ func NewTimedScheduler(scheduler *asynq.Scheduler) *TimedScheduler {
 }
 
 func (s *TimedScheduler) RegisterTimedTasks() error {
-	// K8s 客户端刷新任务 - 每5分钟
+	// 热榜刷新任务 - 每小时
 	if err := s.registerTask(
 		GetRankingTask,
-		"@every 5m",
+		"@every 1h",
 	); err != nil {
 		return err
 	}
