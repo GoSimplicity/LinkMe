@@ -18,6 +18,7 @@ type CommentService interface {
 	DeleteComment(ctx context.Context, commentId int64) error
 	ListComments(ctx context.Context, postId, minID, limit int64) ([]domain.Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
+	GetTopCommentsReply(ctx context.Context, postId int64) (domain.Comment, error)
 }
 
 // NewCommentService 创建新的评论服务
@@ -47,4 +48,8 @@ func (c *commentService) GetMoreCommentsReply(ctx context.Context, rootId, maxId
 // ListComments 列出评论的实现
 func (c *commentService) ListComments(ctx context.Context, postId, minID, limit int64) ([]domain.Comment, error) {
 	return c.repo.ListComments(ctx, postId, minID, limit)
+}
+
+func (c *commentService) GetTopCommentsReply(ctx context.Context, postId int64) (domain.Comment, error) {
+	return c.repo.GetTopCommentsReply(ctx, postId)
 }

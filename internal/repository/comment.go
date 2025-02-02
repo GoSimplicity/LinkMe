@@ -3,6 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
+	"github.com/redis/go-redis/v9"
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
@@ -13,7 +16,8 @@ import (
 
 // 评论仓库结构体
 type commentRepository struct {
-	dao dao.CommentDAO
+	dao   dao.CommentDAO
+	cache cache.CommentCache
 }
 
 // CommentRepository 评论仓库接口
@@ -22,12 +26,14 @@ type CommentRepository interface {
 	DeleteComment(ctx context.Context, commentId int64) error
 	ListComments(ctx context.Context, postId, minID, limit int64) ([]domain.Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
+	GetTopCommentsReply(ctx context.Context, postId int64) (domain.Comment, error)
 }
 
 // NewCommentRepository 创建新的评论服务
-func NewCommentRepository(dao dao.CommentDAO) CommentRepository {
+func NewCommentRepository(dao dao.CommentDAO, cache cache.CommentCache) CommentRepository {
 	return &commentRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cache,
 	}
 }
 
@@ -45,6 +51,35 @@ func (c *commentRepository) DeleteComment(ctx context.Context, commentId int64) 
 func (c *commentRepository) GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error) {
 	comments, err := c.dao.GetMoreCommentsReply(ctx, rootId, maxId, limit)
 	return c.toDomainSliceComments(comments), err
+}
+
+// 加载顶级评论
+func (c *commentRepository) GetTopCommentsReply(ctx context.Context, postId int64) (domain.Comment, error) {
+
+	// 判断缓存是否存在
+	comments, err := c.cache.Get(ctx, postId)
+	// 存在就直接返回
+	if err == nil {
+		fmt.Println("从缓存 中加载顶级评论")
+		return comments, nil
+	}
+	if err != nil {
+		if err == redis.Nil {
+			// 从数据库中加载顶级评论
+			daoComments, err := c.dao.FindTopCommentsByPostId(ctx, postId)
+			if err != nil {
+				return domain.Comment{}, err
+			}
+			// 放到缓存中
+			err = c.cache.Set(ctx, c.toDomainComment(daoComments))
+			if err != nil {
+				return domain.Comment{}, err
+			}
+			return c.toDomainComment(daoComments), nil
+		}
+		return domain.Comment{}, err
+	}
+	return domain.Comment{}, err
 }
 
 // ListComments 列出评论

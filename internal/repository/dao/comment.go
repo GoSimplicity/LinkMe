@@ -39,6 +39,7 @@ type CommentDAO interface {
 	FindCommentsByPostId(ctx context.Context, postId int64, minId, limit int64) ([]Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]Comment, error)
 	FindRepliesByRid(ctx context.Context, rid int64, id int64, limit int64) ([]Comment, error)
+	FindTopCommentsByPostId(ctx context.Context, postId int64) (Comment, error)
 }
 
 // NewCommentDAO 创建新的评论服务
@@ -103,6 +104,19 @@ func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, min
 	}
 
 	return comments, nil
+}
+
+func (c *commentDAO) FindTopCommentsByPostId(ctx context.Context, postId int64) (Comment, error) {
+	var comment Comment
+	query := c.db.WithContext(ctx).Where("post_id = ? AND pid IS NULL", postId)
+	// 获取 limit 条记录
+	limit := 1 // Note:这里强制获取1条
+	if err := query.Order("id DESC").Limit(int(limit)).Find(&comment).Error; err != nil {
+		c.l.Error("获取评论失败", zap.Error(err))
+		return Comment{}, err
+	}
+
+	return comment, nil
 }
 
 // FindRepliesByRid 根据根评论ID查找回复
