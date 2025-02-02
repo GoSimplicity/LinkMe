@@ -108,8 +108,7 @@ func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, min
 
 func (c *commentDAO) FindTopCommentsByPostId(ctx context.Context, postId int64) (Comment, error) {
 	var comment Comment
-
-	pidValue := 1 // 固定值为 1
+	pidValue := 1 // Note:固定值为 1
 	query := c.db.WithContext(ctx).Where("post_id = ? AND pid = ?", postId, pidValue)
 	// 获取 limit 条记录
 	limit := 1 // Note:这里强制获取1条
