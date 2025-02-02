@@ -26,7 +26,7 @@ type Comment struct {
 	Content       string        `gorm:"column:content;type:text"`                                            // 评论内容
 	PostId        int64         `gorm:"index:idx_post_id"`                                                   // 帖子ID，用于多级评论
 	RootId        sql.NullInt64 `gorm:"column:root_id;index"`                                                // 根评论ID
-	PID           sql.NullInt64 `gorm:"column:pid;index"`                                                    // 父评论ID
+	PID           sql.NullInt64 `gorm:"column:pid;index;default:1"`                                          // 父评论ID
 	ParentComment *Comment      `gorm:"ForeignKey:PID;AssociationForeignKey:ID;constraint:OnDelete:CASCADE"` // 父评论
 	CreatedAt     int64         `gorm:"autoCreateTime"`                                                      // 创建时间
 	UpdatedAt     int64         `gorm:"autoUpdateTime"`                                                      // 更新时间
@@ -108,7 +108,9 @@ func (c *commentDAO) FindCommentsByPostId(ctx context.Context, postId int64, min
 
 func (c *commentDAO) FindTopCommentsByPostId(ctx context.Context, postId int64) (Comment, error) {
 	var comment Comment
-	query := c.db.WithContext(ctx).Where("post_id = ? AND pid IS NULL", postId)
+
+	pidValue := 1 // 固定值为 1
+	query := c.db.WithContext(ctx).Where("post_id = ? AND pid = ?", postId, pidValue)
 	// 获取 limit 条记录
 	limit := 1 // Note:这里强制获取1条
 	if err := query.Order("id DESC").Limit(int(limit)).Find(&comment).Error; err != nil {
