@@ -46,7 +46,7 @@ __consumer_offsets 13 4
 __consumer_offsets 26 0
 __consumer_offsets 21 0
 check_events_dlq 2 0
-__consumer_offsets 19 3
+__consumer_offsets 19 4
 linkme-log 0 0
 __consumer_offsets 33 0
 post_events_dlq 1 0
