@@ -13,6 +13,7 @@ type Producer interface {
 }
 
 type CheckEvent struct {
+	BizId   int64
 	PostId  uint
 	Uid     int64
 	Title   string

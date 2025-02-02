@@ -75,7 +75,11 @@ func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { re
 func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 
 func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// h.consumer.l.Info("ConsumeClaim  function called")
+	// 输出获取的消息数量，确认消息是否被正确获取
+	h.consumer.l.Info("消息数", zap.Int("message_count", len(claim.Messages())))
 	for msg := range claim.Messages() {
+		h.consumer.l.Info("收到消息", zap.ByteString("message", msg.Value))
 		// 处理每一条消息
 		if err := h.consumer.processMessage(msg); err != nil {
 			h.consumer.l.Error("处理消息失败", zap.Error(err), zap.ByteString("message", msg.Value))
@@ -170,7 +174,7 @@ func (c *CheckEventConsumer) validateEvent(evt *CheckEvent) error {
 		return errors.New("事件为空")
 	}
 
-	if evt.PostId == 0 || evt.Uid == 0 || evt.Title == "" || evt.Content == "" {
+	if evt.PostId == 0 || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 0) || evt.Content == "" {
 		c.l.Error("消息参数无效",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid))
@@ -187,6 +191,7 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 	}
 
 	check := domain.Check{
+		BizId:   evt.BizId,
 		PostID:  evt.PostId,
 		Uid:     evt.Uid,
 		Title:   evt.Title,
