@@ -78,6 +78,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 				PostId: check.PostID,
 				Uid:    check.Uid,
 				Status: domain.Published,
+				BizId:  check.BizId, // 用于区分审核的业务类型[1：帖子 2：评论]
 			})
 		}()
 

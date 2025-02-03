@@ -27,6 +27,8 @@ type CommentRepository interface {
 	ListComments(ctx context.Context, postId, minID, limit int64) ([]domain.Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
 	GetTopCommentsReply(ctx context.Context, postId int64) (domain.Comment, error)
+	FindCommentByCommentId(ctx context.Context, commentId int64) (domain.Comment, error)
+	UpdateComment(ctx context.Context, comment domain.Comment) error
 }
 
 // NewCommentRepository 创建新的评论服务
@@ -40,6 +42,17 @@ func NewCommentRepository(dao dao.CommentDAO, cache cache.CommentCache) CommentR
 // CreateComment 创建评论
 func (c *commentRepository) CreateComment(ctx context.Context, comment domain.Comment) error {
 	return c.dao.CreateComment(ctx, c.toDAOComment(comment))
+}
+func (c *commentRepository) FindCommentByCommentId(ctx context.Context, commentId int64) (domain.Comment, error) {
+	comment, err := c.dao.FindCommentByCommentId(ctx, commentId)
+	if err != nil {
+		return domain.Comment{}, err
+	}
+
+	return c.toDomainComment(comment), err
+}
+func (c *commentRepository) UpdateComment(ctx context.Context, comment domain.Comment) error {
+	return c.dao.UpdateComment(ctx, c.toDAOComment(comment))
 }
 
 // DeleteComment 删除评论
@@ -163,6 +176,7 @@ func (c *commentRepository) toDomainComment(daoComment dao.Comment) domain.Comme
 		Content:   daoComment.Content,
 		CreatedAt: daoComment.CreatedAt,
 		UpdatedAt: daoComment.UpdatedAt,
+		Status:    daoComment.Status,
 	}
 	if daoComment.PID.Valid {
 		domainComment.ParentComment = &domain.Comment{
@@ -189,6 +203,7 @@ func (c *commentRepository) toDomainSliceComments(daoComments []dao.Comment) []d
 			Content:   daoComment.Content,
 			CreatedAt: daoComment.CreatedAt,
 			UpdatedAt: daoComment.UpdatedAt,
+			Status:    daoComment.Status,
 		}
 		if daoComment.PID.Valid {
 			domainComment.ParentComment = &domain.Comment{
