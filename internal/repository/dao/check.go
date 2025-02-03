@@ -28,7 +28,7 @@ type Check struct {
 	PostID    uint   `gorm:"not null"`                 // 帖子ID
 	Content   string `gorm:"type:text;not null"`       // 审核内容
 	Title     string `gorm:"size:255;not null"`        // 审核标签
-	BizId     int64  `gorm:"index:idx_biz_type_id"`    // 业务ID: Note:为了让审核模块复用(即既能审核帖子又能审核评论)，其中0：表示帖子业务，1：表示评论业务
+	BizId     int64  `gorm:"index:idx_biz_type_id"`    // 业务ID: Note:为了让审核模块复用(即既能审核帖子又能审核评论)，其中1：表示帖子业务，2：表示评论业务
 	PlateID   int64  `gorm:"index"`
 	Uid       int64  `gorm:"column:uid;index"`                             // 提交审核的用户ID
 	Status    uint8  `gorm:"default:0"`                                    // 审核状态
@@ -49,7 +49,7 @@ func (dao *checkDAO) Create(ctx context.Context, check Check) (int64, error) {
 	now := time.Now().UnixMilli()
 
 	// 判断传入的check是否有效
-	if check.PostID == 0 || check.Content == "" || (check.Title == "" && check.BizId == 0) || check.Uid == 0 {
+	if check.PostID == 0 || check.Content == "" || (check.Title == "" && check.BizId == 1) || check.Uid == 0 {
 		return 0, errors.New("无效输入：缺少必填字段")
 	}
 

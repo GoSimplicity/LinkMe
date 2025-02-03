@@ -54,7 +54,7 @@ func (c *commentService) CreateComment(ctx context.Context, comment domain.Comme
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	comment.BizId = 1 // 表示审核业务类型为帖子
+	comment.BizId = 2 // 表示审核业务类型为评论类型
 
 	go func() {
 		// 异步执行检查事件的发送

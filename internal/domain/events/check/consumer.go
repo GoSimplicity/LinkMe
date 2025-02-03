@@ -174,7 +174,7 @@ func (c *CheckEventConsumer) validateEvent(evt *CheckEvent) error {
 		return errors.New("事件为空")
 	}
 
-	if evt.PostId == 0 || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 0) || evt.Content == "" {
+	if evt.PostId == 0 || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 1) || evt.Content == "" {
 		c.l.Error("消息参数无效",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid))

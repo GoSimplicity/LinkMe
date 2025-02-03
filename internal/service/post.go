@@ -76,7 +76,7 @@ func (p *postService) Publish(ctx context.Context, postId uint, uid int64) error
 	// 异步发送审核事件
 	asyncPublish := general.WithAsyncCancel(ctx, cancel, func() error {
 		return p.checkProducer.ProduceCheckEvent(check.CheckEvent{
-			BizId:   0, // 表示审核业务类型为帖子
+			BizId:   1, // 表示审核业务类型为帖子
 			PostId:  dp.ID,
 			Content: dp.Content,
 			Title:   dp.Title,
