@@ -2,14 +2,18 @@ package service
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"log"
+	"time"
 )
 
 // 评论服务结构体
 type commentService struct {
-	repo repository.CommentRepository
+	repo          repository.CommentRepository
+	checkProducer check.Producer
 }
 
 // CommentService 评论服务接口
@@ -22,16 +26,54 @@ type CommentService interface {
 }
 
 // NewCommentService 创建新的评论服务
-func NewCommentService(repo repository.CommentRepository) CommentService {
+func NewCommentService(repo repository.CommentRepository, c check.Producer) CommentService {
 	return &commentService{
-		repo: repo,
+		repo:          repo,
+		checkProducer: c,
 	}
 }
 
 // CreateComment 创建评论的实现
 func (c *commentService) CreateComment(ctx context.Context, comment domain.Comment) error {
 	// 实现创建评论的逻辑
-	return c.repo.CreateComment(ctx, comment)
+
+	// 异步发送审核事件
+	// 设置超时上下文
+	//ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	//defer cancel()
+	//comment.BizId = 1 // 表示审核业务类型为帖子
+	//asyncPublish := general.WithAsyncCancel(ctx, cancel, func() error {
+	//	return c.checkProducer.ProduceCheckEvent(check.CheckEvent{
+	//		BizId:   comment.BizId, // 表示审核业务类型为帖子
+	//		PostId:  uint(comment.PostId),
+	//		Content: comment.Content,
+	//		Uid:     comment.UserId,
+	//	})
+	//})
+	//asyncPublish()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	comment.BizId = 2 // 表示审核业务类型为评论类型
+
+	go func() {
+		// 异步执行检查事件的发送
+		if err := c.checkProducer.ProduceCheckEvent(check.CheckEvent{
+			BizId:   comment.BizId, // 表示审核业务类型为帖子
+			PostId:  uint(comment.PostId),
+			Content: comment.Content,
+			Uid:     comment.UserId,
+		}); err != nil {
+			// 处理错误，如果需要的话
+			log.Printf("Error sending check event: %v", err)
+		}
+	}()
+	// 创建评论
+	if err := c.repo.CreateComment(ctx, comment); err != nil {
+		return fmt.Errorf("发布评论失败: %w", err)
+	}
+	// TODO:可能创建失败，需要回滚
+	return nil
 }
 
 // DeleteComment 删除评论的实现

@@ -90,7 +90,7 @@ func InitWebServer() *Cmd {
 	commentDAO := dao.NewCommentDAO(db, logger)
 	commentCache := cache.NewCommentCache(cmdable)
 	commentRepository := repository.NewCommentRepository(commentDAO,commentCache)
-	commentService := service.NewCommentService(commentRepository)
+	commentService := service.NewCommentService(commentRepository,checkProducer)
 	commentHandler := api.NewCommentHandler(commentService)
 	searchService := service.NewSearchService(searchRepository)
 	searchHandler := api.NewSearchHandler(searchService)
