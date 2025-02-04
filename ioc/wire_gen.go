@@ -8,7 +8,6 @@ package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
-	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
@@ -21,7 +20,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	"github.com/GoSimplicity/LinkMe/utils/jwt"
 )
 
@@ -70,18 +68,18 @@ func InitWebServer() *Cmd {
 	activityDAO := dao.NewActivityDAO(db, logger)
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
-	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer, postRepository)
-	checkHandler := api.NewCheckHandler(checkService, enforcer)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer)
+	checkHandler := api.NewCheckHandler(checkService)
 	v := InitMiddlewares(handler, logger)
 	apiDAO := dao.NewApiDAO(db, logger)
 	permissionDAO := dao.NewPermissionDAO(db, logger, enforcer, apiDAO)
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(logger, permissionRepository)
 	permissionHandler := api.NewPermissionHandler(permissionService, logger)
-	rankingRedisCache := cache.NewRankingRedisCache(cmdable)
-	rankingLocalCache := cache.NewRankingLocalCache()
+	rankingRedisCache := cache.NewRankingRedisCache(cmdable, logger)
+	rankingLocalCache := cache.NewRankingLocalCache(logger)
 	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache, logger)
-	rankingService := service.NewRankingService(interactiveService, postRepository, rankingRepository, logger)
+	rankingService := service.NewRankingService(interactiveRepository, postRepository, rankingRepository, logger)
 	rankingHandler := api.NewRakingHandler(rankingService)
 	plateDAO := dao.NewPlateDAO(logger, db)
 	plateRepository := repository.NewPlateRepository(logger, plateDAO)
@@ -90,7 +88,8 @@ func InitWebServer() *Cmd {
 	activityService := service.NewActivityService(activityRepository)
 	activityHandler := api.NewActivityHandler(activityService, enforcer)
 	commentDAO := dao.NewCommentDAO(db, logger)
-	commentRepository := repository.NewCommentRepository(commentDAO)
+	commentCache := cache.NewCommentCache(cmdable)
+	commentRepository := repository.NewCommentRepository(commentDAO,commentCache)
 	commentService := service.NewCommentService(commentRepository)
 	commentHandler := api.NewCommentHandler(commentService)
 	searchService := service.NewSearchService(searchRepository)
@@ -116,8 +115,7 @@ func InitWebServer() *Cmd {
 	menuHandler := api.NewMenuHandler(menuService, logger)
 	apiHandler := api.NewApiHandler(apiService, logger)
 	engine := InitWeb(userHandler, postHandler, historyHandler, checkHandler, v, permissionHandler, rankingHandler, plateHandler, activityHandler, commentHandler, searchHandler, relationHandler, lotteryDrawHandler, roleHandler, menuHandler, apiHandler)
-	cron := InitRanking(logger, rankingService)
-	eventConsumer := post.NewEventConsumer(interactiveRepository, historyRepository, client, logger)
+	eventConsumer := post.NewEventConsumer(interactiveRepository, historyRepository, client, syncProducer, logger)
 	smsDAO := dao.NewSmsDAO(db, logger)
 	smsCache := cache.NewSMSCache(cmdable)
 	tencentSms := InitSms()
@@ -126,23 +124,28 @@ func InitWebServer() *Cmd {
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
-	cacheManager := local.NewLocalCacheManager(cmdable)
-	cacheConsumer := cache2.NewCacheConsumer(client, logger, cmdable, cacheManager, historyCache)
-	publishPostEventConsumer := publish.NewPublishPostEventConsumer(postRepository, client, logger)
+	publishPostEventConsumer := publish.NewPublishPostEventConsumer(postRepository, client, syncProducer, logger)
 	esConsumer := es.NewEsConsumer(client, logger, searchRepository)
-	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, logger)
-	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, cacheConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer)
+	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, syncProducer, logger)
+	postDeadLetterConsumer := post.NewPostDeadLetterConsumer(interactiveRepository, historyRepository, client, logger)
+	publishDeadLetterConsumer := publish.NewPublishDeadLetterConsumer(postRepository, client, logger)
+	checkDeadLetterConsumer := check.NewCheckDeadLetterConsumer(checkRepository, client, logger)
+	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	refreshCacheTask := job.NewRefreshCacheTask(postCache, logger)
-	routes := job.NewRoutes(refreshCacheTask)
+	interfacesRankingService := InitRankingService(rankingService)
+	timedTask := job.NewTimedTask(logger, interfacesRankingService)
+	routes := job.NewRoutes(refreshCacheTask, timedTask)
 	server := InitAsynqServer()
+	scheduler := InitScheduler()
+	timedScheduler := job.NewTimedScheduler(scheduler)
 	cmd := &Cmd{
-		Server:   engine,
-		Cron:     cron,
-		Consumer: v2,
-		Mock:     mockUserRepository,
-		Routes:   routes,
-		Asynq:    server,
+		Server:    engine,
+		Consumer:  v2,
+		Mock:      mockUserRepository,
+		Routes:    routes,
+		Asynq:     server,
+		Scheduler: timedScheduler,
 	}
 	return cmd
 }

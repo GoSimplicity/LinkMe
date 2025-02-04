@@ -11,13 +11,11 @@ import (
 )
 
 type CheckDAO interface {
-	Create(ctx context.Context, check Check) (int64, error)                     // 创建审核记录
-	UpdateStatus(ctx context.Context, check Check) error                        // 更新审核状态
-	FindAll(ctx context.Context, pagination domain.Pagination) ([]Check, error) // 获取审核列表
+	Create(ctx context.Context, check Check) (int64, error)
+	UpdateStatus(ctx context.Context, check Check) error
+	FindAll(ctx context.Context, pagination domain.Pagination) ([]Check, error)
 	FindByID(ctx context.Context, checkId int64) (Check, error)
-	FindByPostId(ctx context.Context, postId uint) (Check, error) // 获取审核详情
-	GetCheckCount(ctx context.Context) (int64, error)
-	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error // 事务
+	FindByPostId(ctx context.Context, postId uint) (Check, error)
 }
 
 type checkDAO struct {
@@ -45,6 +43,7 @@ func NewCheckDAO(db *gorm.DB, l *zap.Logger) CheckDAO {
 	}
 }
 
+// Create 创建审核记录
 func (dao *checkDAO) Create(ctx context.Context, check Check) (int64, error) {
 	now := time.Now().UnixMilli()
 
@@ -64,6 +63,7 @@ func (dao *checkDAO) Create(ctx context.Context, check Check) (int64, error) {
 	return check.ID, nil
 }
 
+// UpdateStatus 更新审核状态
 func (dao *checkDAO) UpdateStatus(ctx context.Context, check Check) error {
 	if check.ID == 0 {
 		return errors.New("无效输入：缺少必填字段")
@@ -86,6 +86,7 @@ func (dao *checkDAO) UpdateStatus(ctx context.Context, check Check) error {
 	return nil
 }
 
+// FindAll 获取审核列表
 func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) ([]Check, error) {
 	var checks []Check
 
@@ -105,6 +106,7 @@ func (dao *checkDAO) FindAll(ctx context.Context, pagination domain.Pagination) 
 	return checks, nil
 }
 
+// FindByID 获取审核详情
 func (dao *checkDAO) FindByID(ctx context.Context, checkId int64) (Check, error) {
 	var check Check
 
@@ -120,6 +122,7 @@ func (dao *checkDAO) FindByID(ctx context.Context, checkId int64) (Check, error)
 	return check, nil
 }
 
+// FindByPostId 根据帖子ID获取审核信息
 func (dao *checkDAO) FindByPostId(ctx context.Context, postId uint) (Check, error) {
 	var check Check
 
@@ -133,30 +136,4 @@ func (dao *checkDAO) FindByPostId(ctx context.Context, postId uint) (Check, erro
 	}
 
 	return check, nil
-}
-
-func (dao *checkDAO) GetCheckCount(ctx context.Context) (int64, error) {
-	var count int64
-
-	if err := dao.db.WithContext(ctx).Model(&Check{}).Where("status = ?", domain.UnderReview).Count(&count).Error; err != nil {
-		dao.l.Error("获取审核记录数量失败", zap.Error(err))
-		return -1, err
-	}
-
-	return count, nil
-}
-
-// WithTx 事务处理
-func (dao *checkDAO) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
-	// 使用事务处理
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 创建一个新的上下文,包含事务信息
-		txCtx := context.WithValue(ctx, "tx", tx)
-		// 执行事务函数
-		if err := fn(txCtx); err != nil {
-			dao.l.Error("事务执行失败", zap.Error(err))
-			return err
-		}
-		return nil
-	})
 }

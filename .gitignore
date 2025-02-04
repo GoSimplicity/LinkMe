@@ -4,6 +4,7 @@
 *.swp
 *.swo
 dist/
+data/*
 tmp/
 build/
 target/
@@ -23,7 +24,6 @@ coverage/
 *.gcda
 *.testwise.xml
 *.log
-*.json
 *.svn/
 *.git/
 *.hg/

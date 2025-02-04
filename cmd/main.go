@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/spf13/viper"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 
@@ -42,6 +43,17 @@ func Init() {
 		}
 	}()
 
+	// 启动定时任务和worker
+	go func() {
+		if err := cmd.Scheduler.RegisterTimedTasks(); err != nil {
+			zap.L().Error("注册定时任务失败", zap.Error(err))
+		}
+
+		if err := cmd.Scheduler.Run(); err != nil {
+			zap.L().Error("启动定时任务失败", zap.Error(err))
+		}
+	}()
+
 	// 启动消费者
 	for _, s := range cmd.Consumer {
 		go func(consumer events.Consumer) {
@@ -66,7 +78,7 @@ func Init() {
 
 	// 在新的goroutine中启动服务器
 	go func() {
-		if err := server.Run(":9999"); err != nil {
+		if err := server.Run(viper.GetString("server.addr")); err != nil {
 			zap.L().Fatal("启动Web服务器失败", zap.Error(err))
 		}
 	}()
@@ -77,6 +89,8 @@ func Init() {
 
 	// 关闭异步任务服务器
 	cmd.Asynq.Shutdown()
+
+	cmd.Scheduler.Stop()
 
 	zap.L().Info("服务器已成功关闭")
 	os.Exit(0)

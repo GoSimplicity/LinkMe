@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 )
@@ -25,5 +26,6 @@ func (a *activityService) GetRecentActivity(ctx context.Context) ([]domain.Recen
 	if err != nil {
 		return nil, err
 	}
+
 	return activity, nil
 }

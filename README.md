@@ -32,6 +32,7 @@ https://github.com/GoSimplicity/LinkMe-web
 - 用户、帖子搜索
 - Kubernetes 一键部署
 - 前后端分离架构
+
 ## 技术栈
 - Go 语言
 - Gin Web 框架
@@ -47,6 +48,7 @@ https://github.com/GoSimplicity/LinkMe-web
 - ElasticSearch 搜索引擎
 - Docker 容器化
 - 随项目进度技术栈实时更新..
+
 ## 目录结构
 ```
 .
@@ -65,6 +67,7 @@ https://github.com/GoSimplicity/LinkMe-web
 ├── wire_gen.go      # Wire工具生成的代码
 ├── wire.go          # Wire配置，声明依赖注入关系
 ```
+
 ## 如何贡献
 我们欢迎任何形式的贡献，包括但不限于：
 - 提交代码（Pull Requests）
@@ -72,6 +75,7 @@ https://github.com/GoSimplicity/LinkMe-web
 - 文档改进
 - 功能建议
   请确保在贡献代码之前阅读了我们的[贡献指南](#贡献指南)。
+
 ## 贡献指南
 - Fork 本仓库
 - 创建您的特性分支 (`git checkout -b my-new-feature`)
@@ -79,57 +83,63 @@ https://github.com/GoSimplicity/LinkMe-web
 - 将您的分支推送到 GitHub (`git push origin my-new-feature`)
 - 创建一个 Pull Request
 ## 开始使用
+
 ### 克隆项目
 ```bash
 git@github.com:GoSimplicity/LinkMe.git
 ```
-### 安装依赖
+
+### 环境要求
+- Docker 20.10.0+
+- Docker Compose 2.0.0+
+
+### 部署步骤(一键部署)
 ```bash
-go mod tidy
+make deploy
 ```
-### 创建数据库
-你可以选择手动创建数据库，或者使用提供的 Kubernetes YAML 文件自动创建。
-#### 手动创建
+
+#### 一键重新部署
 ```bash
-# 进入项目目录中的init目录下
-cd deploy/init
-# windows用户执行下面文件
-windows_init.bat
-# linux用户及mac用户执行下面文件
-chmod +x linux_init.sh && ./linux_init.sh
+make redeploy
 ```
-#### 使用 docker-compose 启动中间件(推荐)
+
+### 部署步骤(手动部署)
+
+#### 创建数据目录并提权
 ```bash
-cd deploy && docker-compose up -d
+mkdir -p ./data/kafka/data && chmod -R 777 ./data/kafka
 ```
-#### 使用 Kubernetes YAML 文件 启动中间件
+
+#### 启动项目依赖
 ```bash
-cd deploy && kubectl apply -f yaml/  # 需要有k8s环境
+docker-compose -f docker-compose-env.yaml up -d
 ```
-### 使用 Wire 进行依赖注入
+
+#### 构建镜像
 ```bash
-go install github.com/google/wire/cmd/wire@latest
-wire # 注意需要在wire.go文件所在目录下使用
+docker build -t linkme/gomodd:v1.22.3 .
 ```
-### 构建并启动项目
+
+#### 启动项目
 ```bash
-go build -o linkme . && ./linkme
+docker-compose up -d
 ```
-### 使用 air 启动项目（可选）
-```bash
-go install github.com/cosmtrek/air@1.49.0 # 注意go版本不得低于air指定版本，本项目使用golang版本为1.22
-air
-```
+
 ### 项目超级管理员账号
 ```bash
 admin/admin
 ```
+
+
 ## 许可证
 本项目使用 MIT 许可证，详情请见 [LICENSE](./LICENSE) 文件。
+
 ## 联系方式
 - Email: [wzijian62@gmail.com](mailto:wzijian62@gmail.com)
 - 为了方便交流，可以加我vx：GoSimplicity 我拉你进微信群
+
 ## 致谢
 感谢所有为本项目做出贡献的人！
+
 ---
 欢迎来到 LinkMe，让我们一起构建更好的论坛社区！

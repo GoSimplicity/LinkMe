@@ -4,7 +4,6 @@ package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
-	cache2 "github.com/GoSimplicity/LinkMe/internal/domain/events/cache"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
@@ -17,7 +16,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/GoSimplicity/LinkMe/internal/service"
-	"github.com/GoSimplicity/LinkMe/pkg/cachep/local"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/google/wire"
 	_ "github.com/google/wire"
@@ -36,10 +34,11 @@ func InitWebServer() *Cmd {
 		InitializeSnowflakeNode,
 		InitCasbin,
 		InitSms,
-		InitRanking,
 		InitES,
 		InitAsynqServer,
 		InitAsynqClient,
+		InitScheduler,
+		InitRankingService,
 		ijwt.NewJWTHandler,
 		api.NewUserHandler,
 		api.NewPostHandler,
@@ -93,13 +92,11 @@ func InitWebServer() *Cmd {
 		cache.NewRankingLocalCache,
 		cache.NewRankingRedisCache,
 		cache.NewUserCache,
-		//cache.NewInteractiveCache,
 		cache.NewHistoryCache,
 		cache.NewSMSCache,
 		cache.NewEmailCache,
 		cache.NewRelationCache,
 		cache.NewPostCache,
-		// cache.NewCheckCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
@@ -117,20 +114,23 @@ func InitWebServer() *Cmd {
 		dao.NewApiDAO,
 		post.NewSaramaSyncProducer,
 		post.NewEventConsumer,
+		post.NewPostDeadLetterConsumer,
 		sms.NewSMSConsumer,
 		sms.NewSaramaSyncProducer,
 		email.NewEmailConsumer,
 		email.NewSaramaSyncProducer,
-		local.NewLocalCacheManager,
-		cache2.NewCacheConsumer,
 		publish.NewPublishPostEventConsumer,
 		publish.NewSaramaSyncProducer,
+		publish.NewPublishDeadLetterConsumer,
 		check.NewCheckEventConsumer,
 		check.NewSaramaCheckProducer,
+		check.NewCheckDeadLetterConsumer,
 		es.NewEsConsumer,
 		mock.NewMockUserRepository,
 		job.NewRoutes,
 		job.NewRefreshCacheTask,
+		job.NewTimedTask,
+		job.NewTimedScheduler,
 		// limiter.NewRedisSlidingWindowLimiter,
 		wire.Struct(new(Cmd), "*"),
 	)

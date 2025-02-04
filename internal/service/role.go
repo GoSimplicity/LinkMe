@@ -89,7 +89,7 @@ func (r *roleService) DeleteRole(ctx context.Context, id int) error {
 func (r *roleService) ListRoles(ctx context.Context, page, pageSize int) ([]*domain.Role, int, error) {
 	if page < 1 || pageSize < 1 {
 		r.l.Warn("分页参数无效", zap.Int("页码", page), zap.Int("每页数量", pageSize))
-		return nil, 0, ErrInvalidParams
+		return nil, 0, errors.New("分页参数无效")
 	}
 
 	return r.repo.ListRoles(ctx, page, pageSize)

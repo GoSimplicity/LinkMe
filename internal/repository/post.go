@@ -174,7 +174,7 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 	return result, nil
 }
 
-// GetPublishedPostById 获取已发布的帖子详细信息
+// GetPublishPostById 获取已发布的帖子详细信息
 func (p *postRepository) GetPublishPostById(ctx context.Context, postId uint) (domain.Post, error) {
 	// 构建缓存key
 	cacheKey := fmt.Sprintf("pub:%d", postId)
@@ -236,7 +236,7 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 	return result, nil
 }
 
-// ListPublishedPosts 获取已发布的帖子列表
+// ListPublishPosts 获取已发布的帖子列表
 func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
 	// 构建缓存key
 	cacheKey := fmt.Sprintf("%d", pagination.Page)

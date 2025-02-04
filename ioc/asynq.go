@@ -1,6 +1,8 @@
 package ioc
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/job/interfaces"
+	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/hibiken/asynq"
 	"github.com/spf13/viper"
 )
@@ -26,17 +28,30 @@ import (
 
 func InitAsynqClient() *asynq.Client {
 	return asynq.NewClient(asynq.RedisClientOpt{
-		Addr: viper.GetString("redis.addr"),
+		Addr:     viper.GetString("redis.addr"),
+		Password: viper.GetString("redis.password"),
 	})
 }
 
 func InitAsynqServer() *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
-			Addr: viper.GetString("redis.addr"),
+			Addr:     viper.GetString("redis.addr"),
+			Password: viper.GetString("redis.password"),
 		},
 		asynq.Config{
 			Concurrency: 10, // 设置并发数
 		},
 	)
+}
+
+func InitScheduler() *asynq.Scheduler {
+	return asynq.NewScheduler(asynq.RedisClientOpt{
+		Addr:     viper.GetString("redis.addr"),
+		Password: viper.GetString("redis.password"),
+	}, nil)
+}
+
+func InitRankingService(svc service.RankingService) interfaces.RankingService {
+	return svc
 }
