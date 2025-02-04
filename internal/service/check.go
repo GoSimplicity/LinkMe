@@ -68,7 +68,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	// 使用errgroup并发处理异步任务
 	go func() {
 		// 创建带超时的context
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		// 并发执行发布事件和记录活动
@@ -133,7 +133,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	// 使用errgroup并发处理异步任务
 	go func() {
 		// 创建带超时的context
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		// 并发执行发布事件和记录活动

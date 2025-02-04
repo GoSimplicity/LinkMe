@@ -22,7 +22,7 @@ type commentRepository struct {
 
 // CommentRepository 评论仓库接口
 type CommentRepository interface {
-	CreateComment(ctx context.Context, comment domain.Comment) error
+	CreateComment(ctx context.Context, comment domain.Comment) (int64, error)
 	DeleteComment(ctx context.Context, commentId int64) error
 	ListComments(ctx context.Context, postId, minID, limit int64) ([]domain.Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]domain.Comment, error)
@@ -40,7 +40,7 @@ func NewCommentRepository(dao dao.CommentDAO, cache cache.CommentCache) CommentR
 }
 
 // CreateComment 创建评论
-func (c *commentRepository) CreateComment(ctx context.Context, comment domain.Comment) error {
+func (c *commentRepository) CreateComment(ctx context.Context, comment domain.Comment) (int64, error) {
 	return c.dao.CreateComment(ctx, c.toDAOComment(comment))
 }
 func (c *commentRepository) FindCommentByCommentId(ctx context.Context, commentId int64) (domain.Comment, error) {
@@ -149,6 +149,7 @@ func (c *commentRepository) toDAOComment(comment domain.Comment) dao.Comment {
 		Content:   comment.Content,
 		CreatedAt: time.Now().UnixMilli(),
 		UpdatedAt: time.Now().UnixMilli(),
+		Status:    comment.Status,
 	}
 	if comment.ParentComment != nil {
 		daoComment.PID = sql.NullInt64{
