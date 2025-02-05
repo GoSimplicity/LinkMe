@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"strconv"
 	"time"
 
@@ -20,20 +21,22 @@ type CheckService interface {
 }
 
 type checkService struct {
-	repo         repository.CheckRepository
-	ActivityRepo repository.ActivityRepository
-	producer     publish.Producer
-	searchRepo   repository.SearchRepository
-	l            *zap.Logger
+	repo            repository.CheckRepository
+	ActivityRepo    repository.ActivityRepository
+	producer        publish.Producer
+	searchRepo      repository.SearchRepository
+	l               *zap.Logger
+	commentProducer comment.Producer
 }
 
-func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, producer publish.Producer) CheckService {
+func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, publishProducer publish.Producer, commentProducer comment.Producer) CheckService {
 	return &checkService{
-		repo:         repo,
-		ActivityRepo: ActivityRepo,
-		searchRepo:   searchRepo,
-		l:            l,
-		producer:     producer,
+		repo:            repo,
+		ActivityRepo:    ActivityRepo,
+		searchRepo:      searchRepo,
+		l:               l,
+		producer:        publishProducer,
+		commentProducer: commentProducer,
 	}
 }
 
@@ -74,12 +77,23 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		// 并发执行发布事件和记录活动
 		done := make(chan error, 2)
 		go func() {
-			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
-				PostId: check.PostID,
-				Uid:    check.Uid,
-				Status: domain.Published,
-				BizId:  check.BizId, // 用于区分审核的业务类型[1：帖子 2：评论]
-			})
+			// 用于区分审核的业务类型[1：帖子 2：评论]
+			if check.BizId == 1 {
+				done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			} else if check.BizId == 2 {
+				done <- s.commentProducer.ProduceCommentEvent(comment.CommentEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			}
+
 		}()
 
 		go func() {

@@ -6,14 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 	"time"
 )
-
-const TopicPublishEvent = "publish_events"
 
 type PublishCommentEventConsumer struct {
 	repo   repository.CommentRepository
@@ -77,7 +74,7 @@ func (p *PublishCommentEventConsumer) Start(ctx context.Context) error {
 				return
 			default:
 				// 开始消费指定的 Kafka 主题
-				if err := cg.Consume(ctx, []string{TopicPublishEvent}, &consumerGroupHandler{consumer: p}); err != nil {
+				if err := cg.Consume(ctx, []string{TopicCommentEvent}, &consumerGroupHandler{consumer: p}); err != nil {
 					p.l.Error("消费循环出错", zap.Error(err))
 					continue
 				}
@@ -95,7 +92,7 @@ func (p *PublishCommentEventConsumer) processMessage(msg *sarama.ConsumerMessage
 		return err
 	}
 
-	var event publish.PublishEvent
+	var event CommentEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
 		p.l.Error("反序列化消息失败",
 			zap.Error(err),
@@ -149,7 +146,7 @@ func (p *PublishCommentEventConsumer) validateMessage(msg *sarama.ConsumerMessag
 }
 
 // validateEvent 验证事件参数是否有效
-func (p *PublishCommentEventConsumer) validateEvent(event *publish.PublishEvent) error {
+func (p *PublishCommentEventConsumer) validateEvent(event *CommentEvent) error {
 	if event == nil {
 		return errors.New("事件为空")
 	}
@@ -168,7 +165,7 @@ func (p *PublishCommentEventConsumer) validateEvent(event *publish.PublishEvent)
 }
 
 // handleEvent 处理发布事件
-func (p *PublishCommentEventConsumer) handleEvent(ctx context.Context, event *publish.PublishEvent) error {
+func (p *PublishCommentEventConsumer) handleEvent(ctx context.Context, event *CommentEvent) error {
 	if ctx == nil {
 		return errors.New("context为空")
 	}
