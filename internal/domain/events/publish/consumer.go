@@ -133,7 +133,14 @@ func (p *PublishPostEventConsumer) processMessage(msg *sarama.ConsumerMessage) e
 	if err := p.validateEvent(&event); err != nil {
 		return err
 	}
-
+	// 判断这个审核业务类型是否是帖子
+	if event.BizId != 1 {
+		p.l.Warn("无效的审核业务类型",
+			zap.Int64("bizid", event.BizId),
+			zap.Uint("post_id", event.PostId),
+			zap.Int64("uid", event.Uid))
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

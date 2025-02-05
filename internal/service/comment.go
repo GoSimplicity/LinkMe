@@ -51,16 +51,23 @@ func (c *commentService) CreateComment(ctx context.Context, comment domain.Comme
 	//	})
 	//})
 	//asyncPublish()
+
+	// 创建评论
+	commentId, err := c.repo.CreateComment(ctx, comment)
+	if err != nil {
+		return fmt.Errorf("发布评论失败: %w", err)
+	}
+	// 异步发送审核事件
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-
+	//fmt.Println("uint(comment.Id):%d", uint(comment.Id))
 	comment.BizId = 2 // 表示审核业务类型为评论类型
 
 	go func() {
 		// 异步执行检查事件的发送
 		if err := c.checkProducer.ProduceCheckEvent(check.CheckEvent{
 			BizId:   comment.BizId, // 表示审核业务类型为帖子
-			PostId:  uint(comment.PostId),
+			PostId:  uint(commentId),
 			Content: comment.Content,
 			Uid:     comment.UserId,
 		}); err != nil {
@@ -68,11 +75,7 @@ func (c *commentService) CreateComment(ctx context.Context, comment domain.Comme
 			log.Printf("Error sending check event: %v", err)
 		}
 	}()
-	// 创建评论
-	if err := c.repo.CreateComment(ctx, comment); err != nil {
-		return fmt.Errorf("发布评论失败: %w", err)
-	}
-	// TODO:可能创建失败，需要回滚
+
 	return nil
 }
 

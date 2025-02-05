@@ -9,6 +9,7 @@ package ioc
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
@@ -68,7 +69,8 @@ func InitWebServer() *Cmd {
 	activityDAO := dao.NewActivityDAO(db, logger)
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
-	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer)
+	commentProducer := comment.NewSaramaCommentProducer(syncProducer)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer,commentProducer)
 	checkHandler := api.NewCheckHandler(checkService)
 	v := InitMiddlewares(handler, logger)
 	apiDAO := dao.NewApiDAO(db, logger)
@@ -121,6 +123,7 @@ func InitWebServer() *Cmd {
 	tencentSms := InitSms()
 	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
 	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
+	commentConsumer := comment.NewPublishCommentEventConsumer(commentRepository, client, logger)
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
@@ -130,7 +133,7 @@ func InitWebServer() *Cmd {
 	postDeadLetterConsumer := post.NewPostDeadLetterConsumer(interactiveRepository, historyRepository, client, logger)
 	publishDeadLetterConsumer := publish.NewPublishDeadLetterConsumer(postRepository, client, logger)
 	checkDeadLetterConsumer := check.NewCheckDeadLetterConsumer(checkRepository, client, logger)
-	v2 := InitConsumers(eventConsumer, smsConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
+	v2 := InitConsumers(eventConsumer, smsConsumer,commentConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
 	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
 	refreshCacheTask := job.NewRefreshCacheTask(postCache, logger)
 	interfacesRankingService := InitRankingService(rankingService)

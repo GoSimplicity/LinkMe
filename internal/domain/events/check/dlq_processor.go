@@ -123,7 +123,7 @@ func (c *CheckDeadLetterConsumer) processDLQMessage(msg *sarama.ConsumerMessage)
 		zap.String("original_topic", originalTopic),
 		zap.ByteString("message", msg.Value))
 
-	if evt.PostId == 0 || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 1) || evt.Content == "" {
+	if (evt.PostId == 0 && evt.BizId == 1) || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 1) || evt.Content == "" {
 		c.l.Error("死信消息参数无效",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid))
