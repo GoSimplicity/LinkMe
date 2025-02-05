@@ -47,6 +47,21 @@ type Post struct {
 	CommentCount int64        `mapstructure:"comment_count"`
 }
 
+// Comment 结构体表示评论的数据结构
+type Comment struct {
+	ID        int64  `mapstructure:"id"`
+	UserID    int64  `mapstructure:"user_id"`
+	Biz       string `mapstructure:"biz"`
+	BizID     int64  `mapstructure:"biz_id"`
+	Content   string `mapstructure:"content"`
+	PostID    int64  `mapstructure:"post_id"`
+	RootID    int64  `mapstructure:"root_id"`
+	PID       int64  `mapstructure:"pid"`
+	CreatedAt int64  `mapstructure:"created_at"`
+	UpdatedAt int64  `mapstructure:"updated_at"`
+	Status    uint8  `mapstructure:"status"`
+}
+
 // User 结构体表示用户的数据结构
 type User struct {
 	ID        int64   `mapstructure:"id"`
@@ -138,6 +153,19 @@ func (r *EsConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Consu
 				return
 			}
 		}
+	case "comments":
+		// 处理评论的逻辑
+		var comments []Comment
+		if err := decodeEventDataToComments(e.Data, &comments); err != nil {
+			r.l.Error("数据映射到结构体失败", zap.Error(err))
+			return
+		}
+		for _, comment := range comments {
+			if err := r.handleEsComment(sess.Context(), comment); err != nil {
+				r.l.Error("处理ES失败", zap.Int64("id", comment.ID), zap.Error(err))
+				return
+			}
+		}
 	}
 
 	sess.MarkMessage(msg, "")
@@ -149,6 +177,14 @@ func (r *EsConsumer) handleEsPost(ctx context.Context, post Post) error {
 		return r.pushOrUpdatePostIndex(ctx, post)
 	}
 	return r.deletePostIndex(ctx, post)
+}
+
+// handleEsComment 处理评论的ES操作，发布或删除索引
+func (r *EsConsumer) handleEsComment(ctx context.Context, comment Comment) error {
+	if comment.Status == domain.Published {
+		return r.pushOrUpdateCommentIndex(ctx, comment)
+	}
+	return r.deleteCommentIndex(ctx, comment)
 }
 
 // handleEsUser 处理用户的ES操作，创建或删除用户索引
@@ -182,6 +218,29 @@ func (r *EsConsumer) pushOrUpdatePostIndex(ctx context.Context, post Post) error
 	}
 
 	r.l.Info("Post 索引创建成功", zap.Uint("id", post.ID))
+	return nil
+}
+
+// pushOrUpdateCommentIndex 创建或更新评论索引
+func (r *EsConsumer) pushOrUpdateCommentIndex(ctx context.Context, comment Comment) error {
+	exists, err := r.isCommentIndexExists(ctx, comment.ID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		r.l.Debug("Comment 已存在，跳过处理", zap.Int64("id", comment.ID))
+		return nil
+	}
+	err = r.rs.InputComment(ctx, domain.CommentSearch{
+		Id:      uint(comment.ID),
+		Content: comment.Content,
+		Status:  comment.Status,
+	})
+	if err != nil {
+		r.l.Error("创建索引失败", zap.Int64("id", comment.ID), zap.Error(err))
+		return err
+	}
+	r.l.Info("Comment 索引创建成功", zap.Int64("id", comment.ID))
 	return nil
 }
 
@@ -229,6 +288,24 @@ func (r *EsConsumer) deletePostIndex(ctx context.Context, post Post) error {
 	return nil
 }
 
+// deleteCommentIndex 删除评论索引
+func (r *EsConsumer) deleteCommentIndex(ctx context.Context, comment Comment) error {
+	exists, err := r.isCommentIndexExists(ctx, comment.ID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		r.l.Debug("Comment 不存在于索引中，跳过删除", zap.Int64("id", comment.ID))
+		return nil
+	}
+	if err := r.rs.DeleteCommentIndex(ctx, uint(comment.ID)); err != nil {
+		r.l.Error("删除索引失败", zap.Int64("id", comment.ID), zap.Error(err))
+		return err
+	}
+	r.l.Info("Comment 索引删除成功", zap.Int64("id", comment.ID))
+	return nil
+}
+
 // deleteUserIndex 删除用户索引
 func (r *EsConsumer) deleteUserIndex(ctx context.Context, user User) error {
 	exists, err := r.isUserIndexExists(ctx, user.ID)
@@ -263,6 +340,17 @@ func (r *EsConsumer) isPostIndexExists(ctx context.Context, postID uint) (bool, 
 	return exist, nil
 }
 
+// isCommentIndexExists 查询Comment索引是否存在
+func (r *EsConsumer) isCommentIndexExists(ctx context.Context, commentID int64) (bool, error) {
+	exist, err := r.rs.IsExistComment(ctx, uint(commentID))
+	if err != nil {
+		r.l.Error("Elasticsearch 查询返回错误", zap.Error(err))
+		return false, fmt.Errorf("elasticsearch returned an error: %s", err)
+	}
+	r.l.Debug("Comment 索引查询结果", zap.Int64("id", commentID), zap.Bool("exists", exist))
+	return exist, nil
+}
+
 // isUserIndexExists 查询User索引是否存在
 func (r *EsConsumer) isUserIndexExists(ctx context.Context, userID int64) (bool, error) {
 	exist, err := r.rs.IsExistUser(ctx, userID)
@@ -293,6 +381,24 @@ func decodeEventDataToPosts(data interface{}, posts *[]Post) error {
 		return err
 	}
 
+	return decoder.Decode(data)
+}
+
+// decodeEventDataToComments 解析事件数据为 Comment 结构体
+func decodeEventDataToComments(data interface{}, comments *[]Comment) error {
+	config := &mapstructure.DecoderConfig{
+		Result:           comments,
+		TagName:          "mapstructure",
+		WeaklyTypedInput: true,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToTimeHookFunc("2006-01-02 15:04:05.999"),
+			stringToNullTimeHookFunc("2006-01-02 15:04:05.999"),
+		),
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return err
+	}
 	return decoder.Decode(data)
 }
 

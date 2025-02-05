@@ -178,5 +178,8 @@ func (p *PublishCommentEventConsumer) handleEvent(ctx context.Context, event *Co
 	if err := p.repo.UpdateComment(ctx, comment); err != nil {
 		return err
 	}
+
+	// 同时将这个消息放到es中，方便后期es进行内容查询
+
 	return nil
 }
