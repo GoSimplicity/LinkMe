@@ -23,7 +23,7 @@ type CheckService interface {
 type checkService struct {
 	repo            repository.CheckRepository
 	ActivityRepo    repository.ActivityRepository
-	producer        publish.Producer
+	postProducer    publish.Producer
 	searchRepo      repository.SearchRepository
 	l               *zap.Logger
 	commentProducer comment.Producer
@@ -35,7 +35,7 @@ func NewCheckService(repo repository.CheckRepository, searchRepo repository.Sear
 		ActivityRepo:    ActivityRepo,
 		searchRepo:      searchRepo,
 		l:               l,
-		producer:        publishProducer,
+		postProducer:    publishProducer,
 		commentProducer: commentProducer,
 	}
 }
@@ -79,7 +79,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		go func() {
 			// 用于区分审核的业务类型[1：帖子 2：评论]
 			if check.BizId == 1 {
-				done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+				done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 					PostId: check.PostID,
 					Uid:    check.Uid,
 					Status: domain.Published,
@@ -153,7 +153,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		// 并发执行发布事件和记录活动
 		done := make(chan error, 2)
 		go func() {
-			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+			done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 				PostId: check.PostID,
 				Uid:    check.Uid,
 				Status: domain.Draft,
