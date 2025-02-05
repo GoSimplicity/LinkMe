@@ -25,7 +25,7 @@ kafka:
   addr: "localhost:9092"
 
 es:
-  addr: "http://elasticsearch:9200"
+  addr: "http://localhost:9200"
 
 sms:
   tencent:

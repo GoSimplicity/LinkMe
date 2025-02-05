@@ -13,9 +13,10 @@ import (
 )
 
 type PublishCommentEventConsumer struct {
-	repo   repository.CommentRepository
-	client sarama.Client
-	l      *zap.Logger
+	repo       repository.CommentRepository
+	client     sarama.Client
+	l          *zap.Logger
+	searchRepo repository.SearchRepository
 }
 
 type consumerGroupHandler struct {
@@ -47,11 +48,12 @@ func (c consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cla
 	return nil
 }
 
-func NewPublishCommentEventConsumer(repo repository.CommentRepository, client sarama.Client, l *zap.Logger) *PublishCommentEventConsumer {
+func NewPublishCommentEventConsumer(repo repository.CommentRepository, searchRepo repository.SearchRepository, client sarama.Client, l *zap.Logger) *PublishCommentEventConsumer {
 	return &PublishCommentEventConsumer{
-		repo:   repo,
-		client: client,
-		l:      l,
+		repo:       repo,
+		client:     client,
+		l:          l,
+		searchRepo: searchRepo,
 	}
 }
 
@@ -180,6 +182,14 @@ func (p *PublishCommentEventConsumer) handleEvent(ctx context.Context, event *Co
 	}
 
 	// 同时将这个消息放到es中，方便后期es进行内容查询
-
+	err = p.searchRepo.InputComment(ctx, domain.CommentSearch{
+		Id:       uint(comment.Id),
+		Content:  comment.Content,
+		Status:   comment.Status,
+		AuthorId: comment.UserId,
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }

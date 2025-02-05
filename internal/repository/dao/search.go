@@ -186,10 +186,11 @@ func (s *searchDAO) SearchComments(ctx context.Context, keywords []string) ([]Co
 	query := types.NewQuery()
 	query.Bool = &types.BoolQuery{
 		Must: []types.Query{
+
 			types.Query{
 				Term: map[string]types.TermQuery{
-					"status.keyword": {
-						Value: "Published",
+					"status": {
+						Value: 1,
 					},
 				},
 			},

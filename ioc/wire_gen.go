@@ -123,7 +123,7 @@ func InitWebServer() *Cmd {
 	tencentSms := InitSms()
 	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
 	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
-	commentConsumer := comment.NewPublishCommentEventConsumer(commentRepository, client, logger)
+	commentConsumer := comment.NewPublishCommentEventConsumer(commentRepository,searchRepository, client, logger)
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
