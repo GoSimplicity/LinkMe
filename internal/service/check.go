@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"strconv"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
@@ -75,7 +76,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		defer cancel()
 
 		// 并发执行发布事件和记录活动
-		done := make(chan error, 2)
+		done := make(chan error, 3)
 		go func() {
 			// 用于区分审核的业务类型[1：帖子 2：评论]
 			if check.BizId == 1 {
@@ -101,7 +102,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		}()
 
 		// 等待所有goroutine完成或超时
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 3; i++ {
 			select {
 			case err := <-done:
 				if err != nil {
@@ -151,7 +152,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		defer cancel()
 
 		// 并发执行发布事件和记录活动
-		done := make(chan error, 2)
+		done := make(chan error, 3)
 		go func() {
 			done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 				PostId: check.PostID,
@@ -165,7 +166,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		}()
 
 		// 等待所有goroutine完成或超时
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 3; i++ {
 			select {
 			case err := <-done:
 				if err != nil {

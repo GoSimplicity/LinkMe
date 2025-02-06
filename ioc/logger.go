@@ -21,7 +21,7 @@ func InitLogger() *zap.Logger {
 		Filename:   logFile,
 		MaxSize:    10,   // 每个日志文件最大10MB
 		MaxBackups: 5,    // 保留最近5个日志文件
-		MaxAge:     1,    // 日志文件最多保留1天
+		MaxAge:     30,   // 日志文件最多保留30天
 		Compress:   true, // 压缩旧日志
 		LocalTime:  true, // 使用本地时间
 	}

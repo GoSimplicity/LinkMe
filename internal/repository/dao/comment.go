@@ -60,7 +60,7 @@ func (c *commentDAO) CreateComment(ctx context.Context, comment Comment) (int64,
 
 	if err := c.db.WithContext(ctx).Create(&comment).Error; err != nil {
 		c.l.Error("创建评论失败", zap.Error(err))
-		return 0, err // Note:返回错误和0
+		return 0, err
 	}
 	return comment.Id, nil
 }

@@ -20,7 +20,7 @@ var (
 )
 
 type RankingService interface {
-	interfaces.RankingService
+	interfaces.RankingService // 接口嵌入
 	GetTopN(ctx context.Context) ([]domain.Post, error)
 	GetRankingConfig(ctx context.Context) (domain.RankingParameter, error)
 	ResetRankingConfig(ctx context.Context, rankingParameter domain.RankingParameter) error
