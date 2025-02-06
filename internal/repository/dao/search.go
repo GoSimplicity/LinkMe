@@ -4,18 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
-
-	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
-
 	"strconv"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 const (
@@ -53,6 +51,7 @@ type searchDAO struct {
 	l      *zap.Logger
 }
 
+// PostSearch 定义帖子搜索模型
 type PostSearch struct {
 	Id       uint     `json:"id"`
 	Title    string   `json:"title"`
@@ -62,18 +61,24 @@ type PostSearch struct {
 	Tags     []string `json:"tags"`
 }
 
+// UserSearch 定义用户搜索模型
 type UserSearch struct {
 	Id       int64  `json:"id"`
 	Username string `json:"username"`
 	RealName string `json:"real_name"`
 	Phone    string `json:"phone"`
 }
+<<<<<<< HEAD
 type CommentSearch struct {
 	Id       int64  `json:"id"`
 	AuthorId int64  `json:"author_id"`
 	Content  string `json:"content"`
 	Status   uint8  `json:"status"`
 }
+=======
+
+// ReadEvent 定义日志事件模型
+>>>>>>> db4d0af (update)
 type ReadEvent struct {
 	Timestamp int64  `json:"timestamp"`
 	Level     string `json:"level"`
@@ -89,35 +94,39 @@ func NewSearchDAO(db *gorm.DB, client *elasticsearch.TypedClient, l *zap.Logger)
 	}
 }
 
-// CreateIndex 创建一个新的index, 可指定mapping属性
+// CreateIndex 创建一个新的索引,可指定mapping属性
 func (s *searchDAO) CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error {
-	if success, err := s.client.Indices.Exists(indexName).IsSuccess(ctx); success || err != nil {
-		if err != nil {
-			s.l.Error("Failed to check if index exists", zap.Error(err))
-		}
+	exists, err := s.client.Indices.Exists(indexName).IsSuccess(ctx)
+	if err != nil {
+		s.l.Error("检查索引是否存在失败", zap.Error(err))
+		return err
+	}
+	if exists {
 		return nil
 	}
 
-	prop := map[string]types.Property{}
-	if len(properties) != 0 {
+	prop := make(map[string]types.Property)
+	if len(properties) > 0 {
 		if p, ok := properties[0].(map[string]types.Property); ok {
 			prop = p
 		} else {
-			s.l.Info("invalid properties type", zap.Any("properties", properties))
+			s.l.Warn("无效的属性类型", zap.Any("properties", properties))
 		}
 	}
 
-	_, err := s.client.Indices.Create(indexName).Request(&create.Request{
+	_, err = s.client.Indices.Create(indexName).Request(&create.Request{
 		Mappings: &types.TypeMapping{
 			Properties: prop,
 		},
 	}).Do(ctx)
 	if err != nil {
-		s.l.Error("create index failed", zap.Error(err))
+		s.l.Error("创建索引失败", zap.Error(err))
+		return err
 	}
 	return nil
 }
 
+<<<<<<< HEAD
 // CreateCommentIndex 创建comment的es索引
 
 func (s *searchDAO) CreateCommentIndex(ctx context.Context, properties ...interface{}) error {
@@ -136,41 +145,46 @@ func (s *searchDAO) CreateCommentIndex(ctx context.Context, properties ...interf
 }
 
 // CreatePostIndex 创建post的es索引
+=======
+// CreatePostIndex 创建帖子索引
+>>>>>>> db4d0af (update)
 func (s *searchDAO) CreatePostIndex(ctx context.Context, properties ...interface{}) error {
-	var prop = map[string]types.Property{}
-	if len(properties) != 0 {
-		prop = properties[0].(map[string]types.Property)
-	} else {
-		prop = map[string]types.Property{
-			"id":        types.NewUnsignedLongNumberProperty(),
-			"title":     types.NewTextProperty(),
-			"author.id": types.NewLongNumberProperty(),
-			"status":    types.NewByteNumberProperty(),
-			"content":   types.NewTextProperty(),
-			"tags":      types.NewKeywordProperty(),
+	prop := map[string]types.Property{
+		"id":        types.NewUnsignedLongNumberProperty(),
+		"title":     types.NewTextProperty(),
+		"author.id": types.NewLongNumberProperty(),
+		"status":    types.NewByteNumberProperty(),
+		"content":   types.NewTextProperty(),
+		"tags":      types.NewKeywordProperty(),
+	}
+
+	if len(properties) > 0 {
+		if p, ok := properties[0].(map[string]types.Property); ok {
+			prop = p
 		}
 	}
 
 	return s.CreateIndex(ctx, PostIndex, prop)
 }
 
-// CreateUserIndex 创建uesr的es索引
+// CreateUserIndex 创建用户索引
 func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface{}) error {
-	var prop = map[string]types.Property{}
-	if len(properties) != 0 {
-		prop = properties[0].(map[string]types.Property)
-	} else {
-		prop = map[string]types.Property{
-			"id":       types.NewUnsignedLongNumberProperty(),
-			"email":    types.NewKeywordProperty(),
-			"nickname": types.NewTextProperty(),
-			"phone":    types.NewKeywordProperty(),
+	prop := map[string]types.Property{
+		"id":       types.NewUnsignedLongNumberProperty(),
+		"email":    types.NewKeywordProperty(),
+		"nickname": types.NewTextProperty(),
+		"phone":    types.NewKeywordProperty(),
+	}
+
+	if len(properties) > 0 {
+		if p, ok := properties[0].(map[string]types.Property); ok {
+			prop = p
 		}
 	}
 	return s.CreateIndex(ctx, UserIndex, prop)
 }
 
-// CreateLogsIndex 创建logs的es索引
+// CreateLogsIndex 创建日志索引
 func (s *searchDAO) CreateLogsIndex(ctx context.Context) error {
 	prop := map[string]types.Property{
 		"timestamp": types.NewDateProperty(),
@@ -180,6 +194,7 @@ func (s *searchDAO) CreateLogsIndex(ctx context.Context) error {
 	return s.CreateIndex(ctx, LogsIndex, prop)
 }
 
+<<<<<<< HEAD
 // SearchComment 根据关键词搜索评论，返回匹配的结果
 func (s *searchDAO) SearchComments(ctx context.Context, keywords []string) ([]CommentSearch, error) {
 	queryString := strings.Join(keywords, " ")
@@ -223,20 +238,21 @@ func (s *searchDAO) SearchComments(ctx context.Context, keywords []string) ([]Co
 }
 
 // SearchPosts 根据关键词搜索帖子，返回匹配的结果
+=======
+// SearchPosts 根据关键词搜索帖子
+>>>>>>> db4d0af (update)
 func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostSearch, error) {
 	queryString := strings.Join(keywords, " ")
 
 	query := types.NewQuery()
 	query.Bool = &types.BoolQuery{
 		Must: []types.Query{
-			types.Query{
+			{
 				Term: map[string]types.TermQuery{
-					"status.keyword": {
-						Value: "Published",
-					},
+					"status.keyword": {Value: "Published"},
 				},
 			},
-			types.Query{
+			{
 				MultiMatch: &types.MultiMatchQuery{
 					Query:  queryString,
 					Fields: []string{"title", "content"},
@@ -245,87 +261,73 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 		},
 	}
 
-	// 创建并执行搜索请求
 	resp, err := s.client.Search().Index(PostIndex).Query(query).Do(ctx)
 	if err != nil {
-		s.l.Error("Search request failed", zap.Error(err))
+		s.l.Error("搜索请求失败", zap.Error(err))
 		return nil, err
 	}
 
-	// 将查询结果反序列化为 PostSearch 对象
-	var posts []PostSearch
-
+	posts := make([]PostSearch, 0, len(resp.Hits.Hits))
 	for _, hit := range resp.Hits.Hits {
 		var post PostSearch
 		if err := json.Unmarshal(hit.Source_, &post); err != nil {
-			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
+			s.l.Error("解析搜索结果失败", zap.Error(err))
 			return nil, err
 		}
 		posts = append(posts, post)
 	}
 
-	s.l.Info("Successfully completed SearchPosts", zap.Int("resultCount", len(posts)))
+	s.l.Info("搜索帖子完成", zap.Int("结果数量", len(posts)))
 	return posts, nil
 }
 
-// ListAllPostsWithAuthorId 根据authorId 查找所有post
+// ListAllPostsWithAuthorId 根据作者ID查找所有帖子
 func (s *searchDAO) ListAllPostsWithAuthorId(ctx context.Context, authorid string) ([]PostSearch, error) {
 	query := types.NewQuery()
 	query.Term = map[string]types.TermQuery{
-		"author.id": {
-			Value: authorid,
-		},
+		"author.id": {Value: authorid},
 	}
 
-	//创建并执行搜索请求
 	resp, err := s.client.Search().Index(PostIndex).Query(query).Do(ctx)
 	if err != nil {
-		s.l.Error("Search request failed", zap.Error(err))
+		s.l.Error("搜索请求失败", zap.Error(err))
 		return nil, err
 	}
 
-	// 将查询结果反序列化为 PostSearch 对象
-	var posts []PostSearch
-
+	posts := make([]PostSearch, 0, len(resp.Hits.Hits))
 	for _, hit := range resp.Hits.Hits {
 		var post PostSearch
 		if err := json.Unmarshal(hit.Source_, &post); err != nil {
-			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
+			s.l.Error("解析搜索结果失败", zap.Error(err))
 			return nil, err
 		}
 		posts = append(posts, post)
 	}
 
-	s.l.Info("Successfully completed ListAllPostsWithAuthor", zap.Int("resultCount", len(posts)))
+	s.l.Info("查找作者帖子完成", zap.Int("结果数量", len(posts)))
 	return posts, nil
 }
 
-// SearchUsers 根据关键词搜索用户，返回匹配的结果
+// SearchUsers 根据关键词搜索用户
 func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserSearch, error) {
 	queryString := strings.Join(keywords, " ")
 
 	query := types.NewQuery()
 	query.Bool = &types.BoolQuery{
 		Should: []types.Query{
-			types.Query{
+			{
 				Match: map[string]types.MatchQuery{
-					"email": types.MatchQuery{
-						Query: queryString,
-					},
+					"email": {Query: queryString},
 				},
 			},
-			types.Query{
+			{
 				Match: map[string]types.MatchQuery{
-					"nickname": types.MatchQuery{
-						Query: queryString,
-					},
+					"nickname": {Query: queryString},
 				},
 			},
-			types.Query{
+			{
 				Match: map[string]types.MatchQuery{
-					"phone": types.MatchQuery{
-						Query: queryString,
-					},
+					"phone": {Query: queryString},
 				},
 			},
 		},
@@ -333,66 +335,70 @@ func (s *searchDAO) SearchUsers(ctx context.Context, keywords []string) ([]UserS
 
 	resp, err := s.client.Search().Index(UserIndex).Query(query).Do(ctx)
 	if err != nil {
-		s.l.Error("Search request failed", zap.Error(err))
+		s.l.Error("搜索请求失败", zap.Error(err))
 		return nil, err
 	}
 
-	var users []UserSearch
+	users := make([]UserSearch, 0, len(resp.Hits.Hits))
 	for _, hit := range resp.Hits.Hits {
 		var user UserSearch
 		if err := json.Unmarshal(hit.Source_, &user); err != nil {
-			s.l.Error("Failed to unmarshal search hit", zap.Error(err))
+			s.l.Error("解析搜索结果失败", zap.Error(err))
 			return nil, err
 		}
 		users = append(users, user)
 	}
 
-	s.l.Info("Successfully completed SearchUsers", zap.Int("resultCount", len(users)))
+	s.l.Info("搜索用户完成", zap.Int("结果数量", len(users)))
 	return users, nil
 }
 
-// IsExistsPost 查看指定postId的post是否存在
+// IsExistsPost 检查帖子是否存在
 func (s *searchDAO) IsExistsPost(ctx context.Context, postid string) (bool, error) {
 	return s.client.Exists(PostIndex, postid).Do(ctx)
 }
 
-// IsExistsUser 查看指定userId的user是否存在
+// IsExistsUser 检查用户是否存在
 func (s *searchDAO) IsExistsUser(ctx context.Context, userid string) (bool, error) {
 	return s.client.Exists(UserIndex, userid).Do(ctx)
 }
 
+<<<<<<< HEAD
 // IsExistsComment 查看指定commentId的comment是否存在
 func (s *searchDAO) IsExistsComment(ctx context.Context, commentid string) (bool, error) {
 	return s.client.Exists(CommentIndex, commentid).Do(ctx)
 }
 
 // InputUser 将用户信息输入到 Elasticsearch 索引中
+=======
+// InputUser 添加用户到搜索索引
+>>>>>>> db4d0af (update)
 func (s *searchDAO) InputUser(ctx context.Context, user UserSearch) error {
 	_, err := s.client.Index(UserIndex).
 		Id(strconv.FormatInt(user.Id, 10)).
 		Document(user).
 		Do(ctx)
 	if err != nil {
-		s.l.Error("Failed to create user index", zap.Error(err))
+		s.l.Error("创建用户索引失败", zap.Error(err))
 		return err
 	}
-
 	return nil
 }
 
-// InputPost 将帖子信息输入到 Elasticsearch 索引中
+// InputPost 添加帖子到搜索索引
 func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
 	_, err := s.client.Index(PostIndex).
 		Id(strconv.FormatInt(int64(post.Id), 10)).
 		Document(post).
 		Do(ctx)
 	if err != nil {
-		s.l.Error("Failed to create post index", zap.Error(err))
+		s.l.Error("创建帖子索引失败", zap.Error(err))
 		return err
 	}
 	return nil
 }
 
+<<<<<<< HEAD
 // InputComment 将评论信息输入到 Elasticsearch 索引中
 func (s *searchDAO) InputComment(ctx context.Context, comment CommentSearch) error {
 	_, err := s.client.Index(CommentIndex).
@@ -414,52 +420,64 @@ func (s *searchDAO) BulkInputLogs(ctx context.Context, event []ReadEvent) error 
 	}
 	if _, err := s.client.Bulk().Index(LogsIndex).Request(&req).Do(ctx); err != nil {
 		s.l.Error("bulk index failed", zap.Error(err))
+=======
+// BulkInputLogs 批量添加日志
+func (s *searchDAO) BulkInputLogs(ctx context.Context, events []ReadEvent) error {
+	req := make(bulk.Request, len(events))
+	for i, event := range events {
+		req[i] = event
+>>>>>>> db4d0af (update)
 	}
 
-	s.l.Info("bulk index successfully")
+	if _, err := s.client.Bulk().Index(LogsIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("批量索引失败", zap.Error(err))
+		return err
+	}
+
+	s.l.Info("批量索引成功")
 	return nil
 }
 
-// DeleteUserIndex 从 Elasticsearch 索引中删除指定用户
+// DeleteUserIndex 删除用户索引
 func (s *searchDAO) DeleteUserIndex(ctx context.Context, userId int64) error {
 	return s.deleteIndex(ctx, UserIndex, strconv.FormatInt(userId, 10))
 }
 
-// DeletePostIndex 从 Elasticsearch 索引中删除指定帖子
+// DeletePostIndex 删除帖子索引
 func (s *searchDAO) DeletePostIndex(ctx context.Context, postId uint) error {
 	return s.deleteIndex(ctx, PostIndex, strconv.FormatInt(int64(postId), 10))
 }
 
+<<<<<<< HEAD
 // DeleteCommentIndex 从 Elasticsearch 索引中删除指定评论
 func (s *searchDAO) DeleteCommentIndex(ctx context.Context, commentId uint) error {
 	return s.deleteIndex(ctx, CommentIndex, strconv.FormatInt(int64(commentId), 10))
 }
 
 // deleteIndex 根据索引名称和文档 ID 删除 Elasticsearch 中的文档
+=======
+// deleteIndex 删除指定索引
+>>>>>>> db4d0af (update)
 func (s *searchDAO) deleteIndex(ctx context.Context, index, docID string) error {
-
-	resq, err := s.client.Delete(index, docID).Do(ctx)
+	resp, err := s.client.Delete(index, docID).Do(ctx)
 	if err != nil {
-		s.l.Error(fmt.Sprintf("Failed to delete %s index", index), zap.Error(err))
+		s.l.Error("删除索引失败", zap.String("index", index), zap.Error(err))
 		return err
 	}
-	s.l.Info("Successfully deleted index", zap.String("index", resq.Index_), zap.String("docID", resq.Id_))
-
+	s.l.Info("成功删除索引", zap.String("index", resp.Index_), zap.String("docID", resp.Id_))
 	return nil
 }
 
-// handleElasticsearchError 处理 Elasticsearch 返回的错误响应
+// handleElasticsearchError 处理ES错误响应
 func (s *searchDAO) handleElasticsearchError(resp *esapi.Response) error {
 	var errMsg map[string]interface{}
-
 	if err := json.NewDecoder(resp.Body).Decode(&errMsg); err == nil {
-		s.l.Error("Elasticsearch returned an error response",
+		s.l.Error("ES返回错误响应",
 			zap.String("status", resp.Status()),
 			zap.Any("error", errMsg))
-		return fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
+		return fmt.Errorf("ES返回错误响应: %s", resp.Status())
 	}
 
-	s.l.Error("Elasticsearch returned an error response", zap.String("status", resp.Status()))
-
-	return fmt.Errorf("elasticsearch returned an error response: %s", resp.Status())
+	s.l.Error("ES返回错误响应", zap.String("status", resp.Status()))
+	return fmt.Errorf("ES返回错误响应: %s", resp.Status())
 }
