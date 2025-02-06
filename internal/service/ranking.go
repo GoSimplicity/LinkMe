@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/job/interfaces"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/pkg/priorityqueue"
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ var (
 )
 
 type RankingService interface {
-	TopN(ctx context.Context) error
+	interfaces.RankingService
 	GetTopN(ctx context.Context) ([]domain.Post, error)
 }
 
@@ -72,6 +73,12 @@ func (rs *rankingService) TopN(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("计算前 N 名帖子失败: %w", err)
 	}
+
+	if len(posts) == 0 {
+		rs.l.Info("没有需要排名的帖子")
+		return nil
+	}
+
 	return rs.rankingRepository.ReplaceTopN(ctx, posts)
 }
 
@@ -140,9 +147,9 @@ func (rs *rankingService) fetchPosts(ctx context.Context, offset int) ([]domain.
 	if offset < 0 {
 		return nil, ErrOffsetNegative
 	}
-	page := offset / rs.batchSize
 	size := int64(rs.batchSize)
-	return rs.postRepository.ListPublishPosts(ctx, domain.Pagination{Page: page, Size: &size})
+	offsetInt64 := int64(offset)
+	return rs.postRepository.ListPublishPosts(ctx, domain.Pagination{Size: &size, Offset: &offsetInt64})
 }
 
 // fetchInteractions 获取帖子的交互数据

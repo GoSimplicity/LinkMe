@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/GoSimplicity/LinkMe/internal/job/interfaces"
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 )
 
 type TimedTask struct {
-	l *zap.Logger
+	l   *zap.Logger
+	svc interfaces.RankingService
 }
 
 type TimedPayload struct {
@@ -19,9 +21,10 @@ type TimedPayload struct {
 	LastRunTime time.Time `json:"last_run_time"`
 }
 
-func NewTimedTask(l *zap.Logger) *TimedTask {
+func NewTimedTask(l *zap.Logger, svc interfaces.RankingService) *TimedTask {
 	return &TimedTask{
-		l: l,
+		l:   l,
+		svc: svc,
 	}
 }
 
@@ -41,7 +44,7 @@ func (t *TimedTask) ProcessTask(ctx context.Context, task *asynq.Task) error {
 
 	// 定义任务处理映射
 	taskHandlers := map[string]func(context.Context) error{
-		GetRankingTask: nil,
+		GetRankingTask: t.svc.TopN,
 	}
 
 	// 获取对应的处理函数
