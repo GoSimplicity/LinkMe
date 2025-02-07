@@ -29,7 +29,8 @@ func CheckPostContent(content string) (bool, error) {
 	client := getClient()
 	checkLanguage := "你是一个负责评论审核的人工智能，请判断输入内容是否包含违规信息,返回结果1或者0，其中1表示包含，0表示不包含。"
 	//checkContents := "操你妈hhh"
-	checkContents := "hhh"
+	//checkContents := "hhh"
+	checkContents := content
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		ark.ChatCompletionRequest{
@@ -50,7 +51,7 @@ func CheckPostContent(content string) (bool, error) {
 		fmt.Printf("ChatCompletion error: %v\n", err)
 		return false, errors.New("AI 审核失败")
 	}
-	fmt.Println(resp.Choices[0].Message.Content)
+	//fmt.Println(resp.Choices[0].Message.Content)
 	ans := true
 	if resp.Choices[0].Message.Content == "1" {
 		ans = false

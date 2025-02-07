@@ -227,50 +227,52 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 				zap.Int64("uid", evt.Uid))
 			return nil
 		}
-	}
-	// AI审核通过，直接更新帖子状态|传给各个消费者我
+	} else {
+		// AI审核通过，直接更新帖子状态|传给各个消费者我
 
-	// 创建对应的审核记录，然后发送给各个消费者使用
-	go func() {
-		// 创建带超时的context
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-
-		// 并发执行发布事件和记录活动
-		done := make(chan error, 2)
+		// 创建对应的审核记录，然后发送给各个消费者使用
 		go func() {
-			// 用于区分审核的业务类型[1：帖子 2：评论]
-			if check.BizId == 1 {
-				done <- c.postProducer.ProducePublishEvent(publish.PublishEvent{
-					PostId: check.PostID,
-					Uid:    check.Uid,
-					Status: domain.Published,
-					BizId:  check.BizId,
-				})
-			} else if check.BizId == 2 {
-				done <- c.commentProducer.ProduceCommentEvent(comment.CommentEvent{
-					PostId: check.PostID,
-					Uid:    check.Uid,
-					Status: domain.Published,
-					BizId:  check.BizId,
-				})
-			}
+			// 创建带超时的context
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
 
+			// 并发执行发布事件和记录活动
+			done := make(chan error, 2)
+			go func() {
+				// 用于区分审核的业务类型[1：帖子 2：评论]
+				if check.BizId == 1 {
+					done <- c.postProducer.ProducePublishEvent(publish.PublishEvent{
+						PostId: check.PostID,
+						Uid:    check.Uid,
+						Status: domain.Published,
+						BizId:  check.BizId,
+					})
+				} else if check.BizId == 2 {
+					done <- c.commentProducer.ProduceCommentEvent(comment.CommentEvent{
+						PostId: check.PostID,
+						Uid:    check.Uid,
+						Status: domain.Published,
+						BizId:  check.BizId,
+					})
+				}
+
+			}()
+
+			// 等待所有goroutine完成或超时
+			for i := 0; i < 2; i++ {
+				select {
+				case err := <-done:
+					if err != nil {
+						c.l.Error("异步任务执行失败", zap.Error(err))
+					}
+				case <-ctx.Done():
+					c.l.Error("异步任务执行超时")
+					return
+				}
+			}
 		}()
 
-		// 等待所有goroutine完成或超时
-		for i := 0; i < 2; i++ {
-			select {
-			case err := <-done:
-				if err != nil {
-					c.l.Error("异步任务执行失败", zap.Error(err))
-				}
-			case <-ctx.Done():
-				c.l.Error("异步任务执行超时")
-				return
-			}
-		}
-	}()
+	}
 
 	return nil
 }
