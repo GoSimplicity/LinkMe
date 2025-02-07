@@ -15,25 +15,28 @@ type PostCache interface {
 	Get(ctx context.Context, id int64) (domain.Post, error)
 	Set(ctx context.Context, post domain.Post) error
 	Del(ctx context.Context, id int64) error
-	PreHeat(ctx context.Context, post domain.Post) error
-	GetList(ctx context.Context, key string) ([]domain.Post, error)
-	SetList(ctx context.Context, key string, posts []domain.Post) error
+	PreHeat(ctx context.Context, posts []domain.Post) error
+	GetList(ctx context.Context, page int, size int) ([]domain.Post, error)
+	SetList(ctx context.Context, page int, size int, posts []domain.Post) error
 	DelList(ctx context.Context, key string) error
-	GetPubList(ctx context.Context, key string) ([]domain.Post, error)
-	SetPubList(ctx context.Context, key string, posts []domain.Post) error
+	GetPubList(ctx context.Context, page int, size int) ([]domain.Post, error)
+	SetPubList(ctx context.Context, page int, size int, posts []domain.Post) error
 	DelPubList(ctx context.Context, key string) error
 	GetPub(ctx context.Context, key string) (domain.Post, error)
 	SetPub(ctx context.Context, key string, post domain.Post) error
 	DelPub(ctx context.Context, key string) error
+	SetEmpty(ctx context.Context, id int64) error // 新增缓存空对象方法
 }
 
 type postCache struct {
 	client        redis.Cmdable
 	expiration    time.Duration
 	prefix        string
+	emptyPrefix   string
 	listPrefix    string
 	listPubPrefix string
 	pubPrefix     string
+	lockPrefix    string
 }
 
 func NewPostCache(client redis.Cmdable) PostCache {
@@ -41,9 +44,11 @@ func NewPostCache(client redis.Cmdable) PostCache {
 		client:        client,
 		expiration:    time.Minute * 30, // 基础过期时间30分钟
 		prefix:        "linkeme:post:",
+		emptyPrefix:   "linkeme:post:empty:",
 		listPrefix:    "linkeme:post:list:",
 		listPubPrefix: "linkeme:post:list:pub:",
 		pubPrefix:     "linkeme:post:pub:",
+		lockPrefix:    "linkeme:post:lock:",
 	}
 }
 
@@ -87,20 +92,43 @@ func (c *postCache) Set(ctx context.Context, post domain.Post) error {
 	return c.client.Set(ctx, key, data, randomExpiration).Err()
 }
 
-// PreHeat 预热热点缓存,设置更长的过期时间
-func (c *postCache) PreHeat(ctx context.Context, post domain.Post) error {
-	if post.ID <= 0 {
-		return fmt.Errorf("无效的帖子ID: %d", post.ID)
+// SetEmpty 缓存空对象,使用较短的过期时间
+func (c *postCache) SetEmpty(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("无效的帖子ID: %d", id)
 	}
 
-	data, err := json.Marshal(post)
+	key := c.emptyKey(id)
+	emptyPost := domain.Post{}
+	data, err := json.Marshal(emptyPost)
 	if err != nil {
-		return fmt.Errorf("序列化帖子数据失败: %v", err)
+		return fmt.Errorf("序列化空对象失败: %v", err)
 	}
 
-	// 热点数据设置更长的过期时间,1小时
-	key := c.key(int64(post.ID))
-	return c.client.Set(ctx, key, data, time.Hour).Err()
+	return c.client.Set(ctx, key, data, time.Second*30).Err()
+}
+
+// PreHeat 预热热点缓存,设置更长的过期时间
+func (c *postCache) PreHeat(ctx context.Context, posts []domain.Post) error {
+	if len(posts) == 0 {
+		return fmt.Errorf("帖子列表为空")
+	}
+
+	data, err := json.Marshal(posts)
+	if err != nil {
+		return fmt.Errorf("序列化帖子列表数据失败: %v", err)
+	}
+
+	// 只缓存前三页,每页设置不同的过期时间
+	for i := 1; i <= 3; i++ {
+		key := c.pubListKey(fmt.Sprintf("%d_%d", i, len(posts))) // 加入size信息
+		expiration := time.Hour * time.Duration(4-i)             // 第一页3小时,第二页2小时,第三页1小时
+		if err := c.client.Set(ctx, key, data, expiration).Err(); err != nil {
+			return fmt.Errorf("缓存第%d页数据失败: %v", i, err)
+		}
+	}
+
+	return nil
 }
 
 // Del 删除帖子缓存
@@ -114,7 +142,8 @@ func (c *postCache) Del(ctx context.Context, id int64) error {
 }
 
 // GetList 获取帖子列表缓存
-func (c *postCache) GetList(ctx context.Context, key string) ([]domain.Post, error) {
+func (c *postCache) GetList(ctx context.Context, page int, size int) ([]domain.Post, error) {
+	key := fmt.Sprintf("%d_%d", page, size)
 	data, err := c.client.Get(ctx, c.listKey(key)).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -132,7 +161,7 @@ func (c *postCache) GetList(ctx context.Context, key string) ([]domain.Post, err
 }
 
 // SetList 设置帖子列表缓存
-func (c *postCache) SetList(ctx context.Context, key string, posts []domain.Post) error {
+func (c *postCache) SetList(ctx context.Context, page int, size int, posts []domain.Post) error {
 	data, err := json.Marshal(posts)
 	if err != nil {
 		return fmt.Errorf("序列化帖子列表数据失败: %v", err)
@@ -140,6 +169,7 @@ func (c *postCache) SetList(ctx context.Context, key string, posts []domain.Post
 
 	// 列表缓存使用随机过期时间
 	randomExpiration := c.expiration + time.Duration(rand.Int63n(300))*time.Second
+	key := fmt.Sprintf("%d_%d", page, size)
 	return c.client.Set(ctx, c.listKey(key), data, randomExpiration).Err()
 }
 
@@ -183,7 +213,8 @@ func (c *postCache) DelList(ctx context.Context, key string) error {
 }
 
 // GetPubList 获取已发布帖子列表缓存
-func (c *postCache) GetPubList(ctx context.Context, key string) ([]domain.Post, error) {
+func (c *postCache) GetPubList(ctx context.Context, page int, size int) ([]domain.Post, error) {
+	key := fmt.Sprintf("%d_%d", page, size)
 	data, err := c.client.Get(ctx, c.pubListKey(key)).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -201,7 +232,19 @@ func (c *postCache) GetPubList(ctx context.Context, key string) ([]domain.Post, 
 }
 
 // SetPubList 设置已发布帖子列表缓存
-func (c *postCache) SetPubList(ctx context.Context, key string, posts []domain.Post) error {
+func (c *postCache) SetPubList(ctx context.Context, page int, size int, posts []domain.Post) error {
+	// 获取分布式锁
+	key := fmt.Sprintf("%d_%d", page, size)
+	lockKey := c.lockKey(key)
+	ok, err := c.client.SetNX(ctx, lockKey, "1", time.Second*5).Result()
+	if err != nil {
+		return fmt.Errorf("获取分布式锁失败: %v", err)
+	}
+	if !ok {
+		return fmt.Errorf("获取分布式锁失败: 锁已被占用")
+	}
+	defer c.client.Del(ctx, lockKey)
+
 	data, err := json.Marshal(posts)
 	if err != nil {
 		return fmt.Errorf("序列化已发布帖子列表数据失败: %v", err)
@@ -216,13 +259,14 @@ func (c *postCache) SetPubList(ctx context.Context, key string, posts []domain.P
 func (c *postCache) DelPubList(ctx context.Context, key string) error {
 	if key == "*" {
 		pattern := c.listPubPrefix + key
-		// 使用SCAN命令批量删除,每次扫描100个key
 		var cursor uint64
 		var keys []string
 
 		for {
 			var scanKeys []string
 			var err error
+
+			// 每次扫描100个key
 			scanKeys, cursor, err = c.client.Scan(ctx, cursor, pattern, 100).Result()
 			if err != nil {
 				return fmt.Errorf("扫描缓存键失败: %v", err)
@@ -230,6 +274,7 @@ func (c *postCache) DelPubList(ctx context.Context, key string) error {
 
 			keys = append(keys, scanKeys...)
 
+			// 如果游标为0，表示扫描完成
 			if cursor == 0 {
 				break
 			}
@@ -237,18 +282,25 @@ func (c *postCache) DelPubList(ctx context.Context, key string) error {
 
 		// 如果有key需要删除,则使用pipeline批量删除
 		if len(keys) > 0 {
-			pipe := c.client.Pipeline()
-			for _, key := range keys {
-				pipe.Del(ctx, key)
-			}
-			if _, err := pipe.Exec(ctx); err != nil {
-				return fmt.Errorf("批量删除缓存键失败: %v", err)
+			var err error
+			for i := 0; i < 3; i++ { // 重试3次
+				pipe := c.client.Pipeline()
+				for _, key := range keys {
+					pipe.Del(ctx, key)
+				}
+
+				if _, err = pipe.Exec(ctx); err == nil {
+					break
+				}
+
+				if i == 2 { // 最后一次重试失败
+					return fmt.Errorf("批量删除缓存键失败(重试3次): %v", err)
+				}
 			}
 		}
-
 		return nil
 	}
-	return c.client.Del(ctx, c.pubListKey(key)).Err()
+	return nil
 }
 
 // GetPub 获取已发布帖子缓存
@@ -271,6 +323,17 @@ func (c *postCache) GetPub(ctx context.Context, key string) (domain.Post, error)
 
 // SetPub 设置已发布帖子缓存
 func (c *postCache) SetPub(ctx context.Context, key string, post domain.Post) error {
+	// 获取分布式锁
+	lockKey := c.lockKey(key)
+	ok, err := c.client.SetNX(ctx, lockKey, "1", time.Second*5).Result()
+	if err != nil {
+		return fmt.Errorf("获取分布式锁失败: %v", err)
+	}
+	if !ok {
+		return fmt.Errorf("获取分布式锁失败: 锁已被占用")
+	}
+	defer c.client.Del(ctx, lockKey)
+
 	data, err := json.Marshal(post)
 	if err != nil {
 		return fmt.Errorf("序列化已发布帖子数据失败: %v", err)
@@ -300,4 +363,12 @@ func (c *postCache) pubListKey(key string) string {
 
 func (c *postCache) pubKey(key string) string {
 	return c.pubPrefix + key
+}
+
+func (c *postCache) emptyKey(id int64) string {
+	return c.emptyPrefix + fmt.Sprint(id)
+}
+
+func (c *postCache) lockKey(key interface{}) string {
+	return c.lockPrefix + fmt.Sprint(key)
 }
