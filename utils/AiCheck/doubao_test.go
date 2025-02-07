@@ -8,7 +8,7 @@ import (
 )
 
 func TestContent(t *testing.T) {
-	ARK_API_KEY := "b3977816-2a07-44df-9fe2-4ec02224e147"
+	ARK_API_KEY := ""
 	config := ark.DefaultConfig(ARK_API_KEY)
 	config.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 	client := ark.NewClientWithConfig(config)

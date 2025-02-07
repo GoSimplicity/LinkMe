@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	ark "github.com/sashabaranov/go-openai"
+	"github.com/spf13/viper"
 	"sync"
 )
 
@@ -13,10 +14,18 @@ var (
 	clientOnce sync.Once
 )
 
+type config struct {
+	KEY string `yaml:"dsn"`
+}
+
 // 获取单例 client
 func getClient() *ark.Client {
 	clientOnce.Do(func() {
-		ARK_API_KEY := "b3977816-2a07-44df-9fe2-4ec02224e147" // 这个AIP是可以修改的
+		var c config
+		if err := viper.UnmarshalKey("ark_api", &c); err != nil {
+			panic(fmt.Errorf("init failed：%v", err))
+		}
+		ARK_API_KEY := c.KEY // 这个AIP是可以修改的
 		config := ark.DefaultConfig(ARK_API_KEY)
 		config.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 		client = ark.NewClientWithConfig(config)
