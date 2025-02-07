@@ -202,7 +202,7 @@ func (rs *rankingService) fetchPosts(ctx context.Context, offset int) ([]domain.
 	}
 	size := int64(rs.batchSize)
 	offsetInt64 := int64(offset)
-	return rs.postRepository.ListPublishPosts(ctx, domain.Pagination{Size: &size, Offset: &offsetInt64})
+	return rs.postRepository.ListPublishPosts(ctx, domain.Pagination{Size: &size, Offset: &offsetInt64}, 1) // 1 表示内部调用
 }
 
 // fetchInteractions 获取帖子的交互数据

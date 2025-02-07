@@ -25,7 +25,7 @@ type PostRepository interface {
 	UpdateStatus(ctx context.Context, postId uint, uid int64, status uint8) error
 	GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error)
 	GetPublishPostById(ctx context.Context, postId uint) (domain.Post, error)
-	ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	ListPublishPosts(ctx context.Context, pagination domain.Pagination, biz ...int) ([]domain.Post, error)
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, postId uint, uid int64) error
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
@@ -240,7 +240,7 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 }
 
 // ListPublishPosts 获取已发布的帖子列表
-func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
+func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain.Pagination, biz ...int) ([]domain.Post, error) {
 	// 先从缓存中获取
 	posts, err := p.cache.GetPubList(ctx, pagination.Page, int(*pagination.Size))
 	if err == nil && len(posts) > 0 {
@@ -254,7 +254,7 @@ func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain
 		return nil, fmt.Errorf("从数据库获取已发布帖子列表失败: %w", err)
 	}
 
-	if len(pub) == 0 {
+	if len(pub) == 0 && len(biz) == 0 {
 		p.l.Info("没有找到已发布的帖子")
 		// 缓存空对象
 		if err := p.cache.SetEmpty(ctx, int64(pagination.Page)); err != nil {
