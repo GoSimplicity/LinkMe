@@ -3,6 +3,7 @@ package sms
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )
@@ -24,7 +25,6 @@ type SaramaSyncProducer struct {
 	logger   *zap.Logger
 }
 
-// NewSaramaSyncProducer 创建一个新的SaramaSyncProducer实例
 func NewSaramaSyncProducer(producer sarama.SyncProducer, logger *zap.Logger) Producer {
 	return &SaramaSyncProducer{
 		producer: producer,
@@ -49,6 +49,8 @@ func (s *SaramaSyncProducer) ProduceSMSCode(ctx context.Context, evt SMSCodeEven
 		s.logger.Error("发送信息到Kafka失败", zap.Error(err))
 		return err
 	}
+
 	s.logger.Info("成功发送消息到Kafka", zap.String("topic", TopicSMS), zap.Int32("partition", partition), zap.Int64("offset", offset))
+
 	return nil
 }
