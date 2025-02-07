@@ -13,19 +13,19 @@ log:
   
 db:
   # dsn: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
-  dsn: "root:v6SxhWHyZC7S@tcp(localhost:33306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:v6SxhWHyZC7S@tcp(192.168.5.11:33306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 
 redis:
   # addr: "redis:6379"
-  addr: "localhost:36379"
+  addr: "192.168.5.11:36379"
   password: "v6SxhWHyZC7S"
 
 kafka:
   # addr: "kafka:9092"
-  addr: "localhost:9092"
+  addr: "192.168.5.11:9092"
 
 es:
-  addr: "http://localhost:9200"
+  addr: "http://192.168.5.11:9200"
 
 sms:
   tencent:
@@ -35,3 +35,6 @@ sms:
     smsID: ""
     sign: ""
     templateID: ""
+
+ark_api:
+  key: "b3977816-2a07-44df-9fe2-4ec02224e147"

@@ -24,7 +24,7 @@ func (ch *CheckHandler) RegisterRoutes(server *gin.Engine) {
 
 	checkGroup.POST("/approve", ch.ApproveCheck)
 	checkGroup.POST("/reject", ch.RejectCheck)
-	checkGroup.POST("/list", ch.ListChecks)
+	checkGroup.GET("/list", ch.ListChecks)
 	checkGroup.GET("/detail", ch.CheckDetail)
 }
 
