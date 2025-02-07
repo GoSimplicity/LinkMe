@@ -175,6 +175,7 @@ func (p *PublishCommentEventConsumer) handleEvent(ctx context.Context, event *Co
 	if err != nil {
 		return err
 	}
+
 	// 更改评论状态
 	comment.Status = domain.Published
 	if err := p.repo.UpdateComment(ctx, comment); err != nil {
