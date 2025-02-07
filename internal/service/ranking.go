@@ -20,7 +20,7 @@ var (
 )
 
 type RankingService interface {
-	interfaces.RankingService // 接口嵌入
+	interfaces.RankingService
 	GetTopN(ctx context.Context) ([]domain.Post, error)
 	GetRankingConfig(ctx context.Context) (domain.RankingParameter, error)
 	ResetRankingConfig(ctx context.Context, rankingParameter domain.RankingParameter) error
@@ -42,7 +42,13 @@ type rankingService struct {
 	scoreFunc                  func(likeCount int64, ReadCount int64, CollectCount int64, updatedTime time.Time, rankingConfig domain.RankingParameter) float64
 }
 
-func NewRankingService(interactiveRepo repository.InteractiveRepository, postRepo repository.PostRepository, rankingRepo repository.RankingRepository, rankingParameterRepository repository.RankingParameterRepository, l *zap.Logger) RankingService {
+func NewRankingService(
+	interactiveRepo repository.InteractiveRepository,
+	postRepo repository.PostRepository,
+	rankingRepo repository.RankingRepository,
+	rankingParameterRepository repository.RankingParameterRepository,
+	l *zap.Logger,
+) RankingService {
 	return &rankingService{
 		interactiveRepository:      interactiveRepo,
 		postRepository:             postRepo,
@@ -55,19 +61,40 @@ func NewRankingService(interactiveRepo repository.InteractiveRepository, postRep
 	}
 }
 
-// 重置榜单配置
+// 核心业务方法
+// TopN 计算并更新排名前 N 的帖子
+func (rs *rankingService) TopN(ctx context.Context) error {
+	posts, err := rs.computeTopN(ctx)
+	if err != nil {
+		return fmt.Errorf("计算前 N 名帖子失败: %w", err)
+	}
+
+	if len(posts) == 0 {
+		rs.l.Info("没有需要排名的帖子")
+		return nil
+	}
+
+	return rs.rankingRepository.ReplaceTopN(ctx, posts)
+}
+
+// GetTopN 获取排名前 N 的帖子
+func (rs *rankingService) GetTopN(ctx context.Context) ([]domain.Post, error) {
+	return rs.rankingRepository.GetTopN(ctx)
+}
+
+// 榜单配置相关方法
+// GetRankingConfig 获取当前榜单配置
+func (rs *rankingService) GetRankingConfig(ctx context.Context) (domain.RankingParameter, error) {
+	return rs.rankingParameterRepository.FindLastParameter(ctx)
+}
+
+// ResetRankingConfig 重置榜单配置
 func (rs *rankingService) ResetRankingConfig(ctx context.Context, rankingParameter domain.RankingParameter) error {
-	// 插入新的榜单配置
 	_, err := rs.rankingParameterRepository.Insert(ctx, rankingParameter)
 	if err != nil {
 		return fmt.Errorf("重置榜单配置失败: %w", err)
 	}
 	return nil
-}
-
-// 获取当前榜单配置
-func (rs *rankingService) GetRankingConfig(ctx context.Context) (domain.RankingParameter, error) {
-	return rs.rankingParameterRepository.FindLastParameter(ctx)
 }
 
 // calculateScore 计算帖子得分
@@ -101,26 +128,6 @@ func calculateScore(likeCount int64, readCount int64, collectCount int64, update
 		rankingConfig.Gamma*float64(readCount)) / math.Pow(duration+2, rankingConfig.Lambda)
 
 	return score
-}
-
-// GetTopN 获取排名前 N 的帖子
-func (rs *rankingService) GetTopN(ctx context.Context) ([]domain.Post, error) {
-	return rs.rankingRepository.GetTopN(ctx)
-}
-
-// TopN 计算并更新排名前 N 的帖子
-func (rs *rankingService) TopN(ctx context.Context) error {
-	posts, err := rs.computeTopN(ctx)
-	if err != nil {
-		return fmt.Errorf("计算前 N 名帖子失败: %w", err)
-	}
-
-	if len(posts) == 0 {
-		rs.l.Info("没有需要排名的帖子")
-		return nil
-	}
-
-	return rs.rankingRepository.ReplaceTopN(ctx, posts)
 }
 
 // computeTopN 计算排名前 N 的帖子
@@ -172,10 +179,12 @@ func (rs *rankingService) processBatch(ctx context.Context, offset int, queue *p
 	if err != nil {
 		return nil, fmt.Errorf("获取交互数据失败: %w", err)
 	}
-	rankingConfigVal, err1 := rs.GetRankingConfig(ctx)
-	if err1 != nil {
+
+	rankingConfigVal, err := rs.GetRankingConfig(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("获取榜单配置失败: %w", err)
 	}
+
 	for _, post := range posts {
 		if interaction, ok := interactions[post.ID]; ok {
 			score := rs.scoreFunc(interaction.LikeCount, interaction.ReadCount, interaction.CollectCount, post.UpdatedAt, rankingConfigVal)
