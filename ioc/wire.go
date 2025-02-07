@@ -31,7 +31,7 @@ func InitWebServer() *Cmd {
 		InitSaramaClient,
 		InitConsumers,
 		InitSyncProducer,
-		InitializeSnowflakeNode,
+		// InitializeSnowflakeNode,
 		InitCasbin,
 		InitSms,
 		InitES,

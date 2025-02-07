@@ -39,18 +39,18 @@ func Init() {
 	// 启动 Prometheus 监控
 	go func() {
 		if err := startMetricsServer(); err != nil {
-			zap.L().Error("启动监控服务器失败", zap.Error(err))
+			zap.L().Fatal("启动监控服务器失败", zap.Error(err))
 		}
 	}()
 
 	// 启动定时任务和worker
 	go func() {
 		if err := cmd.Scheduler.RegisterTimedTasks(); err != nil {
-			zap.L().Error("注册定时任务失败", zap.Error(err))
+			zap.L().Fatal("注册定时任务失败", zap.Error(err))
 		}
 
 		if err := cmd.Scheduler.Run(); err != nil {
-			zap.L().Error("启动定时任务失败", zap.Error(err))
+			zap.L().Fatal("启动定时任务失败", zap.Error(err))
 		}
 	}()
 
@@ -58,7 +58,7 @@ func Init() {
 	for _, s := range cmd.Consumer {
 		go func(consumer events.Consumer) {
 			if err := consumer.Start(context.Background()); err != nil {
-				zap.L().Error("启动消费者失败", zap.Error(err))
+				zap.L().Fatal("启动消费者失败", zap.Error(err))
 			}
 		}(s)
 	}

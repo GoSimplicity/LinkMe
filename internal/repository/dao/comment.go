@@ -3,6 +3,8 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -30,16 +32,19 @@ type Comment struct {
 	ParentComment *Comment      `gorm:"ForeignKey:PID;AssociationForeignKey:ID;constraint:OnDelete:CASCADE"` // 父评论
 	CreatedAt     int64         `gorm:"autoCreateTime"`                                                      // 创建时间
 	UpdatedAt     int64         `gorm:"autoUpdateTime"`                                                      // 更新时间
+	Status        uint8         `gorm:"default:0"`                                                           // 评论状态 和domain/post.go中的Status对应
 }
 
 // CommentDAO 评论数据访问接口定义
 type CommentDAO interface {
-	CreateComment(ctx context.Context, comment Comment) error
+	CreateComment(ctx context.Context, comment Comment) (int64, error)
 	DeleteCommentById(ctx context.Context, commentId int64) error
 	FindCommentsByPostId(ctx context.Context, postId int64, minId, limit int64) ([]Comment, error)
 	GetMoreCommentsReply(ctx context.Context, rootId, maxId, limit int64) ([]Comment, error)
 	FindRepliesByRid(ctx context.Context, rid int64, id int64, limit int64) ([]Comment, error)
 	FindTopCommentsByPostId(ctx context.Context, postId int64) (Comment, error)
+	FindCommentByCommentId(ctx context.Context, commentId int64) (Comment, error)
+	UpdateComment(ctx context.Context, comment Comment) error
 }
 
 // NewCommentDAO 创建新的评论服务
@@ -51,9 +56,33 @@ func NewCommentDAO(db *gorm.DB, l *zap.Logger) CommentDAO {
 }
 
 // CreateComment 创建评论
-func (c *commentDAO) CreateComment(ctx context.Context, comment Comment) error {
+func (c *commentDAO) CreateComment(ctx context.Context, comment Comment) (int64, error) {
+
 	if err := c.db.WithContext(ctx).Create(&comment).Error; err != nil {
 		c.l.Error("创建评论失败", zap.Error(err))
+		return 0, err
+	}
+	return comment.Id, nil
+}
+
+// FindCommentByCommentId 根据commentId查找评论
+func (c *commentDAO) FindCommentByCommentId(ctx context.Context, commentId int64) (Comment, error) {
+	// 先查找评论是否存在
+	var comment Comment
+	if err := c.db.WithContext(ctx).First(&comment, "id = ?", commentId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.l.Error("评论不存在", zap.Int64("commentId", commentId), zap.Error(err))
+			return Comment{}, fmt.Errorf("评论不存在")
+		}
+		c.l.Error("查找评论失败", zap.Error(err))
+		return Comment{}, err
+	}
+	return comment, nil
+}
+func (c *commentDAO) UpdateComment(ctx context.Context, comment Comment) error {
+	// 确保更新的是指定 ID 的评论
+	if err := c.db.WithContext(ctx).Model(&Comment{}).Where("id = ?", comment.Id).Updates(comment).Error; err != nil {
+		c.l.Error("更新评论失败", zap.Error(err))
 		return err
 	}
 	return nil

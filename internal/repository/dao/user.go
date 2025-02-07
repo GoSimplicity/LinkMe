@@ -37,15 +37,14 @@ type UserDAO interface {
 }
 
 type userDAO struct {
-	db   *gorm.DB
-	node *sf.Node
-	l    *zap.Logger
-	ce   *casbin.Enforcer
+	db *gorm.DB
+	l  *zap.Logger
+	ce *casbin.Enforcer
 }
 
 // User 用户模型
 type User struct {
-	ID           int64   `gorm:"primarykey"`
+	ID           int64   `gorm:"primarykey;autoIncrement"`
 	CreateTime   int64   `gorm:"column:created_at;type:bigint;not null"`
 	UpdatedTime  int64   `gorm:"column:updated_at;type:bigint;not null"`
 	DeletedTime  int64   `gorm:"column:deleted_at;type:bigint;index"`
@@ -70,10 +69,9 @@ type Profile struct {
 
 func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger, ce *casbin.Enforcer) UserDAO {
 	return &userDAO{
-		db:   db,
-		node: node,
-		l:    l,
-		ce:   ce,
+		db: db,
+		l:  l,
+		ce: ce,
 	}
 }
 
@@ -86,7 +84,6 @@ func (ud *userDAO) CreateUser(ctx context.Context, u User) error {
 	now := ud.currentTime()
 	u.CreateTime = now
 	u.UpdatedTime = now
-	u.ID = ud.node.Generate().Int64()
 
 	if u.Roles == "" {
 		u.Roles = "[]"

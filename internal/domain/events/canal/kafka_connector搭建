@@ -1,0 +1,34 @@
+#拉取镜像
+docker pull quay.io/debezium/connect
+
+#创建容器
+docker run -it --rm --name linkme-connect -p 8083:8083 \
+-e GROUP_ID=1 \
+-e CONFIG_STORAGE_TOPIC=my_connect_configs \
+-e OFFSET_STORAGE_TOPIC=my_connect_offsets \
+-e STATUS_STORAGE_TOPIC=my_connect_statuses \
+-e BOOTSTRAP_SERVERS=192.168.84.130:9092 \
+--link linkme-kafka:linkme-kafka --link linkme-mysql:linkme-mysql \
+--network linkme_default \
+quay.io/debezium/connect
+
+#创建connector
+
+curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d \
+'{
+  "name": "linkme-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "linkme-mysql",
+    "database.port": "3306",
+    "database.user": "root",
+    "database.password": "root",
+    "database.server.id": "184054",
+    "database.server.name": "linkme",
+    "database.include.list": "linkme",
+    "schema.history.internal.kafka.bootstrap.servers": "192.168.84.130:9092",
+    "schema.history.internal.kafka.topic": "schema-changes.linkme",
+    "topic.prefix":"oracle"
+  }
+}'

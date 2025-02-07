@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
@@ -20,20 +22,22 @@ type CheckService interface {
 }
 
 type checkService struct {
-	repo         repository.CheckRepository
-	ActivityRepo repository.ActivityRepository
-	producer     publish.Producer
-	searchRepo   repository.SearchRepository
-	l            *zap.Logger
+	repo            repository.CheckRepository
+	ActivityRepo    repository.ActivityRepository
+	postProducer    publish.Producer
+	searchRepo      repository.SearchRepository
+	l               *zap.Logger
+	commentProducer comment.Producer
 }
 
-func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, producer publish.Producer) CheckService {
+func NewCheckService(repo repository.CheckRepository, searchRepo repository.SearchRepository, l *zap.Logger, ActivityRepo repository.ActivityRepository, publishProducer publish.Producer, commentProducer comment.Producer) CheckService {
 	return &checkService{
-		repo:         repo,
-		ActivityRepo: ActivityRepo,
-		searchRepo:   searchRepo,
-		l:            l,
-		producer:     producer,
+		repo:            repo,
+		ActivityRepo:    ActivityRepo,
+		searchRepo:      searchRepo,
+		l:               l,
+		postProducer:    publishProducer,
+		commentProducer: commentProducer,
 	}
 }
 
@@ -68,17 +72,29 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 	// 使用errgroup并发处理异步任务
 	go func() {
 		// 创建带超时的context
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		// 并发执行发布事件和记录活动
-		done := make(chan error, 2)
+		done := make(chan error, 3)
 		go func() {
-			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
-				PostId: check.PostID,
-				Uid:    check.Uid,
-				Status: domain.Published,
-			})
+			// 用于区分审核的业务类型[1：帖子 2：评论]
+			if check.BizId == 1 {
+				done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			} else if check.BizId == 2 {
+				done <- s.commentProducer.ProduceCommentEvent(comment.CommentEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			}
+
 		}()
 
 		go func() {
@@ -86,7 +102,7 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		}()
 
 		// 等待所有goroutine完成或超时
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 3; i++ {
 			select {
 			case err := <-done:
 				if err != nil {
@@ -132,13 +148,13 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 	// 使用errgroup并发处理异步任务
 	go func() {
 		// 创建带超时的context
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		// 并发执行发布事件和记录活动
-		done := make(chan error, 2)
+		done := make(chan error, 3)
 		go func() {
-			done <- s.producer.ProducePublishEvent(publish.PublishEvent{
+			done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 				PostId: check.PostID,
 				Uid:    check.Uid,
 				Status: domain.Draft,
@@ -150,7 +166,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		}()
 
 		// 等待所有goroutine完成或超时
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 3; i++ {
 			select {
 			case err := <-done:
 				if err != nil {

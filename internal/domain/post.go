@@ -11,6 +11,7 @@ const (
 	Published              // 1: 发布状态
 	Withdrawn              // 2: 撤回状态
 	Deleted                // 3: 删除状态
+
 )
 
 type Post struct {

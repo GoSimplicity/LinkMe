@@ -1,4 +1,4 @@
-package check
+package comment
 
 import (
 	"encoding/json"
@@ -6,39 +6,40 @@ import (
 	"github.com/IBM/sarama"
 )
 
-const TopicCheckEvent = "check_events"
+const TopicCommentEvent = "comment_events"
 
 type Producer interface {
-	ProduceCheckEvent(evt CheckEvent) error
+	ProduceCommentEvent(evt CommentEvent) error
 }
 
-type CheckEvent struct {
+type CommentEvent struct {
 	BizId   int64
 	PostId  uint
 	Uid     int64
 	Title   string
 	Content string
 	PlateID int64
+	Status  uint8
 }
 
-type SaramaCheckProducer struct {
+type SaramaCommentProducer struct {
 	producer sarama.SyncProducer
 }
 
-func NewSaramaCheckProducer(producer sarama.SyncProducer) Producer {
-	return &SaramaCheckProducer{
+func NewSaramaCommentProducer(producer sarama.SyncProducer) Producer {
+	return &SaramaCommentProducer{
 		producer: producer,
 	}
 }
 
-func (s *SaramaCheckProducer) ProduceCheckEvent(evt CheckEvent) error {
+func (s *SaramaCommentProducer) ProduceCommentEvent(evt CommentEvent) error {
 	val, err := json.Marshal(evt)
 	if err != nil {
 		return err
 	}
 
 	_, _, err = s.producer.SendMessage(&sarama.ProducerMessage{
-		Topic: TopicCheckEvent,
+		Topic: TopicCommentEvent,
 		Value: sarama.StringEncoder(val),
 	})
 

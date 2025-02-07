@@ -12,4 +12,5 @@ type Comment struct {
 	Children      []Comment // 子节点
 	CreatedAt     int64
 	UpdatedAt     int64
+	Status        uint8 // 评论的审核状态
 }

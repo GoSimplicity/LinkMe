@@ -17,7 +17,8 @@ type Limiter interface {
 }
 
 type limiter struct {
-	cmd      redis.Cmdable
+	cmd redis.Cmdable
+	// 时间窗口间隔
 	interval time.Duration
 	// 阈值
 	rate int
