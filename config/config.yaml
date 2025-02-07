@@ -35,3 +35,6 @@ sms:
     smsID: ""
     sign: ""
     templateID: ""
+
+ark_api:
+  key: "b3977816-2a07-44df-9fe2-4ec02224e147"

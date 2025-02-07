@@ -131,7 +131,7 @@ func InitWebServer() *Cmd {
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	publishPostEventConsumer := publish.NewPublishPostEventConsumer(postRepository, client, syncProducer, logger)
 	esConsumer := es.NewEsConsumer(client, logger, searchRepository)
-	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, syncProducer, logger)
+	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, syncProducer, logger, publishProducer,commentProducer)
 	postDeadLetterConsumer := post.NewPostDeadLetterConsumer(interactiveRepository, historyRepository, client, logger)
 	publishDeadLetterConsumer := publish.NewPublishDeadLetterConsumer(postRepository, client, logger)
 	checkDeadLetterConsumer := check.NewCheckDeadLetterConsumer(checkRepository, client, logger)
