@@ -25,7 +25,7 @@ func getClient() *ark.Client {
 	return client
 }
 
-func checkContent(content string) (bool, error) {
+func CheckPostContent(content string) (bool, error) {
 	client := getClient()
 	checkLanguage := "你是一个负责评论审核的人工智能，请判断输入内容是否包含违规信息,返回结果1或者0，其中1表示包含，0表示不包含。"
 	//checkContents := "操你妈hhh"

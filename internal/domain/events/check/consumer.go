@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
+	aiCheck "github.com/GoSimplicity/LinkMe/utils/AiCheck"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
+	"time"
 )
 
 const (
@@ -19,10 +21,12 @@ const (
 )
 
 type CheckEventConsumer struct {
-	checkRepo repository.CheckRepository
-	client    sarama.Client
-	l         *zap.Logger
-	dlqProd   sarama.SyncProducer // 死信队列生产者
+	checkRepo       repository.CheckRepository
+	client          sarama.Client
+	l               *zap.Logger
+	dlqProd         sarama.SyncProducer // 死信队列生产者
+	postProducer    publish.Producer
+	commentProducer comment.Producer
 }
 
 func NewCheckEventConsumer(
@@ -30,12 +34,16 @@ func NewCheckEventConsumer(
 	client sarama.Client,
 	dlqProd sarama.SyncProducer,
 	l *zap.Logger,
+	postProducer publish.Producer,
+	commentProducer comment.Producer,
 ) *CheckEventConsumer {
 	return &CheckEventConsumer{
-		checkRepo: checkRepo,
-		client:    client,
-		l:         l,
-		dlqProd:   dlqProd,
+		checkRepo:       checkRepo,
+		client:          client,
+		l:               l,
+		dlqProd:         dlqProd,
+		postProducer:    postProducer,
+		commentProducer: commentProducer,
 	}
 }
 
@@ -198,24 +206,71 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 		Content: evt.Content,
 		PlateID: evt.PlateID,
 	}
+	// 先使用AI进行审核，如果AI审核失败，再交由人工审核。
 
-	// 创建审核记录
-	code, err := c.checkRepo.Create(ctx, check)
-	if err != nil {
-		c.l.Error("创建审核记录失败",
-			zap.Uint("post_id", evt.PostId),
-			zap.Int64("uid", evt.Uid),
-			zap.Error(err))
-		return fmt.Errorf("创建审核记录失败: %w", err)
-	}
+	checkResult, err2 := aiCheck.CheckPostContent(evt.Content)
+	if err2 != nil || checkResult == false {
+		// 交由人工审核
+		code, err := c.checkRepo.Create(ctx, check)
+		if err != nil {
+			c.l.Error("创建审核记录失败",
+				zap.Uint("post_id", evt.PostId),
+				zap.Int64("uid", evt.Uid),
+				zap.Error(err))
+			return fmt.Errorf("创建审核记录失败: %w", err)
+		}
 
-	// 记录已存在,标记消息处理完成
-	if code == -1 {
-		c.l.Info("审核记录已存在",
-			zap.Uint("post_id", evt.PostId),
-			zap.Int64("uid", evt.Uid))
-		return nil
+		// 记录已存在,标记消息处理完成
+		if code == -1 {
+			c.l.Info("审核记录已存在",
+				zap.Uint("post_id", evt.PostId),
+				zap.Int64("uid", evt.Uid))
+			return nil
+		}
 	}
+	// AI审核通过，直接更新帖子状态|传给各个消费者我
+
+	// 创建对应的审核记录，然后发送给各个消费者使用
+	go func() {
+		// 创建带超时的context
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		// 并发执行发布事件和记录活动
+		done := make(chan error, 2)
+		go func() {
+			// 用于区分审核的业务类型[1：帖子 2：评论]
+			if check.BizId == 1 {
+				done <- c.postProducer.ProducePublishEvent(publish.PublishEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			} else if check.BizId == 2 {
+				done <- c.commentProducer.ProduceCommentEvent(comment.CommentEvent{
+					PostId: check.PostID,
+					Uid:    check.Uid,
+					Status: domain.Published,
+					BizId:  check.BizId,
+				})
+			}
+
+		}()
+
+		// 等待所有goroutine完成或超时
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-done:
+				if err != nil {
+					c.l.Error("异步任务执行失败", zap.Error(err))
+				}
+			case <-ctx.Done():
+				c.l.Error("异步任务执行超时")
+				return
+			}
+		}
+	}()
 
 	return nil
 }
