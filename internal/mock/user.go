@@ -51,9 +51,10 @@ type Profile struct {
 
 func (m *mockUserRepository) MockUser() error {
 	var existingUser User
+	//existingUser := new(User)
 
-	if err := m.db.Where("username = ?", "admin").First(&existingUser).Error; err == nil {
-		m.l.Info("user already exists, skipping creation", zap.String("email", "admin"))
+	if err := m.db.Where("username=?", "admin").First(&existingUser).Error; err == nil {
+		m.l.Info("user already exists, skipping creation", zap.String("username", "admin"))
 		return nil
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		m.l.Error("failed to query user", zap.Error(err))
@@ -64,6 +65,7 @@ func (m *mockUserRepository) MockUser() error {
 	if err != nil {
 		panic(err)
 	}
+	//hash := []byte("admin")
 	user := User{
 		Username:     "admin",
 		PasswordHash: string(hash),

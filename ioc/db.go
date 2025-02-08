@@ -40,7 +40,7 @@ func InitDB() *gorm.DB {
 	// 注册 Prometheus 插件
 	if err = db.Use(prometheus.New(prometheus.Config{
 		DBName:          "linkme", // Prometheus中标识数据库的名称
-		RefreshInterval: 5,        // 监控数据刷新间隔，单位为秒
+		RefreshInterval: 5000,     // 监控数据刷新间隔，单位为豪秒
 	})); err != nil {
 		log.Println("register prometheus plugin failed")
 	}
