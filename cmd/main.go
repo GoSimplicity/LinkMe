@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events"
+	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/spf13/viper"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/GoSimplicity/LinkMe/ioc"
-	"github.com/spf13/viper"
-
-	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 
 	"github.com/GoSimplicity/LinkMe/config"
 	"github.com/gin-gonic/gin"
@@ -38,6 +37,7 @@ func Init() {
 
 	// 启动 Prometheus 监控
 	go func() {
+
 		if err := startMetricsServer(); err != nil {
 			zap.L().Fatal("启动监控服务器失败", zap.Error(err))
 		}
@@ -109,5 +109,10 @@ func printHeaders(c *gin.Context) {
 // startMetricsServer 启动 Prometheus 监控服务器
 func startMetricsServer() error {
 	http.Handle("/metrics", promhttp.Handler())
-	return http.ListenAndServe(":9090", nil)
+	// 启动 HTTP 服务器并捕获可能的错误
+	if err := http.ListenAndServe(":9091", nil); err != nil {
+		log.Fatalf("Prometheus 启动失败: %v", err)
+		return err
+	}
+	return nil
 }

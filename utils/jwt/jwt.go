@@ -165,7 +165,6 @@ func (h *handler) ExtractToken(ctx *gin.Context) string {
 	if len(s) != 2 {
 		return ""
 	}
-
 	return s[1]
 }
 
