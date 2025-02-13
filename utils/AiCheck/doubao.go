@@ -17,20 +17,19 @@ var (
 	client     *ark.Client
 	clientOnce sync.Once
 	breaker    *gobreaker.CircuitBreaker
-	logger     *zap.Logger
 )
 
 func init() {
 	breaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        "AI_Check",
-		Timeout:     3 * time.Second,    // 超时时间
-		MaxRequests: 5,                  // 半开状态下允许的试探请求
-		Interval:    1 * time.Minute,    // 统计窗口间隔
+		Timeout:     3 * time.Second, // 超时时间
+		MaxRequests: 5,               // 半开状态下允许的试探请求
+		Interval:    1 * time.Minute, // 统计窗口间隔
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			return counts.ConsecutiveFailures > 5 // 连续失败触发熔断
 		},
 		OnStateChange: func(name string, from, to gobreaker.State) {
-			logger.Info("熔断状态变更", zap.String("name", name), zap.Any("from", from), zap.Any("to", to))
+			zap.L().Info("熔断状态变更", zap.String("name", name), zap.Any("from", from), zap.Any("to", to))
 		},
 	})
 }
@@ -63,7 +62,7 @@ func CheckPostContent(title string, content string) (bool, error) {
 		resp, err := client.CreateChatCompletion(
 			context.Background(),
 			ark.ChatCompletionRequest{
-				Model: "ep-20250207162731-kvrzk", 
+				Model: "ep-20250207162731-kvrzk",
 				Messages: []ark.ChatCompletionMessage{
 					{
 						Role:    ark.ChatMessageRoleSystem,
