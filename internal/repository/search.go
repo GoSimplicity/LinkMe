@@ -18,6 +18,8 @@ type SearchRepository interface {
 	IsExistUser(ctx context.Context, userId int64) (bool, error)
 	InputUser(ctx context.Context, user domain.UserSearch) error // 处理输入用户
 	InputPost(ctx context.Context, post domain.PostSearch) error
+	BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error
+	BulkInputUsers(ctx context.Context, users []domain.UserSearch) error
 	BulkInputLogs(ctx context.Context, event []domain.ReadEvent) error // 处理输入文章
 	DeleteUserIndex(ctx context.Context, userId int64) error           // 删除用户索引
 	DeletePostIndex(ctx context.Context, postId uint) error            // 删除文章索引
@@ -55,6 +57,22 @@ func (s *searchRepository) InputPost(ctx context.Context, post domain.PostSearch
 	return s.dao.InputPost(ctx, s.toDaoPostSearch(post))
 }
 
+func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error {
+	var daoPosts []dao.PostSearch
+	for _, post := range posts {
+		daoPosts = append(daoPosts, s.toDaoPostSearch(post))
+	}
+	return s.dao.BulkInputPosts(ctx, daoPosts)
+}
+
+func (s *searchRepository) BulkInputUsers(ctx context.Context, users []domain.UserSearch) error {
+	var daoUsers []dao.UserSearch
+	for _, user := range users {
+		daoUsers = append(daoUsers, s.toDaoUserSearch(user))
+	}
+	return s.dao.BulkInputUsers(ctx, daoUsers)
+}
+
 func (s *searchRepository) BulkInputLogs(ctx context.Context, event []domain.ReadEvent) error {
 	return s.dao.BulkInputLogs(ctx, s.toDaoReadEvent(event))
 }
@@ -79,9 +97,12 @@ func (s *searchRepository) toDaoPostSearch(domainPosts domain.PostSearch) dao.Po
 
 func (s *searchRepository) toDaoUserSearch(domainUsers domain.UserSearch) dao.UserSearch {
 	return dao.UserSearch{
-		Username: domainUsers.Username,
 		Id:       domainUsers.Id,
-		RealName: domainUsers.RealName,
+		Nickname: domainUsers.Nickname,
+		Birthday: domainUsers.Birthday,
+		Email:    domainUsers.Email,
+		Phone:    domainUsers.Phone,
+		About:    domainUsers.About,
 	}
 }
 
@@ -116,9 +137,12 @@ func (s *searchRepository) toDomainUserSearch(daoUsers []dao.UserSearch) []domai
 	domainUsers := make([]domain.UserSearch, len(daoUsers))
 	for i, daoUser := range daoUsers {
 		domainUsers[i] = domain.UserSearch{
-			Username: daoUser.Username,
 			Id:       daoUser.Id,
-			RealName: daoUser.RealName,
+			Nickname: daoUser.Nickname,
+			Birthday: daoUser.Birthday,
+			Email:    daoUser.Email,
+			Phone:    daoUser.Phone,
+			About:    daoUser.About,
 		}
 	}
 	return domainUsers

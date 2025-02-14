@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
+	"sync"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
-
 	"strconv"
 	"strings"
 
@@ -25,7 +25,6 @@ const (
 )
 
 type SearchDAO interface {
-	CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error
 	CreatePostIndex(ctx context.Context, properties ...interface{}) error
 	CreateUserIndex(ctx context.Context, properties ...interface{}) error
 	CreateLogsIndex(ctx context.Context) error
@@ -36,31 +35,34 @@ type SearchDAO interface {
 	IsExistsUser(ctx context.Context, userid string) (bool, error)
 	InputUser(ctx context.Context, user UserSearch) error
 	InputPost(ctx context.Context, post PostSearch) error
+	BulkInputPosts(ctx context.Context, posts []PostSearch) error
+	BulkInputUsers(ctx context.Context, users []UserSearch) error
 	BulkInputLogs(ctx context.Context, event []ReadEvent) error
 	DeleteUserIndex(ctx context.Context, userId int64) error
 	DeletePostIndex(ctx context.Context, postId uint) error
 }
 
 type searchDAO struct {
-	db     *gorm.DB
 	client *elasticsearch.TypedClient
 	l      *zap.Logger
 }
 
 type PostSearch struct {
-	Id       uint     `json:"id"`
-	Title    string   `json:"title"`
-	AuthorId int64    `json:"author_id"`
-	Status   uint8    `json:"status"`
-	Content  string   `json:"content"`
-	Tags     []string `json:"tags"`
+	Id       uint   `json:"id"`
+	Title    string `json:"title"`
+	AuthorId int64  `json:"author_id"`
+	Status   uint8  `json:"status"`
+	Content  string `json:"content"`
+	Tags     string `json:"tags"`
 }
 
 type UserSearch struct {
-	Id       int64  `json:"id"`
-	Username string `json:"username"`
-	RealName string `json:"real_name"`
-	Phone    string `json:"phone"`
+	Id       int64     `json:"id"`
+	Nickname string    `json:"nickname"`
+	Birthday time.Time `json:"birthday"`
+	Email    string    `json:"email"`
+	Phone    string    `json:"phone"`
+	About    string    `json:"about"`
 }
 
 type ReadEvent struct {
@@ -69,22 +71,39 @@ type ReadEvent struct {
 	Message   string `json:"message"`
 }
 
+var once sync.Once
+
 // NewSearchDAO 创建并返回一个新的 SearchDAO 实例
-func NewSearchDAO(db *gorm.DB, client *elasticsearch.TypedClient, l *zap.Logger) SearchDAO {
-	return &searchDAO{
-		db:     db,
+func NewSearchDAO(client *elasticsearch.TypedClient, l *zap.Logger) SearchDAO {
+	//先创建索引，再执行批量插入请求
+	s := &searchDAO{
 		client: client,
 		l:      l,
 	}
+	//在初始化的同时，提前创建好es的user索引和post索引
+	once.Do(func() {
+		ctx := context.Background()
+		if err := s.CreatePostIndex(ctx); err != nil {
+			s.l.Error("failed to create post index", zap.Error(err))
+		}
+		if err := s.CreateUserIndex(ctx); err != nil {
+			s.l.Error("failed to create user index", zap.Error(err))
+		}
+	})
+
+	return s
 }
 
 // CreateIndex 创建一个新的index, 可指定mapping属性
-func (s *searchDAO) CreateIndex(ctx context.Context, indexName string, properties ...interface{}) error {
+func (s *searchDAO) createIndex(ctx context.Context, indexName string, properties ...interface{}) error {
 	if success, err := s.client.Indices.Exists(indexName).IsSuccess(ctx); success || err != nil {
 		if err != nil {
 			s.l.Error("Failed to check if index exists", zap.Error(err))
 		}
-		return nil
+		//如果索引已经存在，说明索引内数据已经过期，需要删除该索引
+		if _, err := s.client.Indices.Delete(indexName).Do(ctx); err != nil {
+			return err
+		}
 	}
 
 	prop := map[string]types.Property{}
@@ -123,7 +142,7 @@ func (s *searchDAO) CreatePostIndex(ctx context.Context, properties ...interface
 		}
 	}
 
-	return s.CreateIndex(ctx, PostIndex, prop)
+	return s.createIndex(ctx, PostIndex, prop)
 }
 
 // CreateUserIndex 创建uesr的es索引
@@ -135,11 +154,13 @@ func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface
 		prop = map[string]types.Property{
 			"id":       types.NewUnsignedLongNumberProperty(),
 			"email":    types.NewKeywordProperty(),
-			"nickname": types.NewTextProperty(),
+			"nickname": types.NewKeywordProperty(),
 			"phone":    types.NewKeywordProperty(),
+			"birthday": types.NewDateProperty(),
+			"about":    types.NewTextProperty(),
 		}
 	}
-	return s.CreateIndex(ctx, UserIndex, prop)
+	return s.createIndex(ctx, UserIndex, prop)
 }
 
 // CreateLogsIndex 创建logs的es索引
@@ -149,7 +170,7 @@ func (s *searchDAO) CreateLogsIndex(ctx context.Context) error {
 		"level":     types.NewKeywordProperty(),
 		"message":   types.NewTextProperty(),
 	}
-	return s.CreateIndex(ctx, LogsIndex, prop)
+	return s.createIndex(ctx, LogsIndex, prop)
 }
 
 // SearchPosts 根据关键词搜索帖子，返回匹配的结果
@@ -298,7 +319,7 @@ func (s *searchDAO) InputUser(ctx context.Context, user UserSearch) error {
 		Document(user).
 		Do(ctx)
 	if err != nil {
-		s.l.Error("Failed to create user index", zap.Error(err))
+		s.l.Error("Failed to input user to elasticsearch", zap.Error(err))
 		return err
 	}
 
@@ -312,9 +333,37 @@ func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
 		Document(post).
 		Do(ctx)
 	if err != nil {
-		s.l.Error("Failed to create post index", zap.Error(err))
+		s.l.Error("Failed to input post to elasticsearch", zap.Error(err))
 		return err
 	}
+	return nil
+}
+
+// BulkInputPosts 批量向es插入post，主要用于同步全量快照的数据
+func (s *searchDAO) BulkInputPosts(ctx context.Context, posts []PostSearch) error {
+	var req bulk.Request
+	for _, post := range posts {
+		req = append(req, post)
+	}
+	if _, err := s.client.Bulk().Index(PostIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("bulk input posts failed", zap.Error(err))
+	}
+
+	s.l.Info("bulk input logs successfully")
+	return nil
+}
+
+// BulkInputUsers 批量向es插入user，主要用于同步全量快照的数据
+func (s *searchDAO) BulkInputUsers(ctx context.Context, users []UserSearch) error {
+	var req bulk.Request
+	for _, user := range users {
+		req = append(req, user)
+	}
+	if _, err := s.client.Bulk().Index(UserIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("bulk input logs failed", zap.Error(err))
+	}
+
+	s.l.Info("bulk input logs successfully")
 	return nil
 }
 
@@ -325,10 +374,10 @@ func (s *searchDAO) BulkInputLogs(ctx context.Context, event []ReadEvent) error 
 		req = append(req, eve)
 	}
 	if _, err := s.client.Bulk().Index(LogsIndex).Request(&req).Do(ctx); err != nil {
-		s.l.Error("bulk index failed", zap.Error(err))
+		s.l.Error("bulk input logs failed", zap.Error(err))
 	}
 
-	s.l.Info("bulk index successfully")
+	s.l.Info("bulk input logs successfully")
 	return nil
 }
 

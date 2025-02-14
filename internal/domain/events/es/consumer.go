@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"time"
 
-	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
-	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
 )
 
@@ -20,14 +18,28 @@ type EsConsumer struct {
 	client sarama.Client
 	rs     repository.SearchRepository
 	l      *zap.Logger
+
+	flushUser *FlushUser
+	flushPost *FlushPost
 }
 
 // Event 结构体表示Kafka消息的事件数据
-type Event struct {
-	Type     string                   `json:"type"`
-	Database string                   `json:"database"`
-	Table    string                   `json:"table"`
-	Data     []map[string]interface{} `json:"data"`
+type ChangeEvent struct {
+	Payload struct { //数据的主体部分
+		Before map[string]interface{} `json:"before"`
+		After  map[string]interface{} `json:"after"`
+		Source struct {
+			Connector string      `json:"connector"` //创建链接器的对象即被备份的数据库
+			Name      string      `json:"name"`      //自定义topic前缀
+			Snapshot  string      `json:"snapshot"`  //是否是快照
+			Db        string      `json:"db"`        //数据库名
+			Table     string      `json:"table"`     //表名
+			Gtid      interface{} `json:"gtid"`
+			File      string      `json:"file"` //从哪个binlog日志中取得数据的
+			Pos       int         `json:"pos"`  //偏移量
+		} `json:"source"`
+		Op string `json:"op"` //指令类型(c:INSERT u:UPDATE d:DELETE
+	} `json:"payload"`
 }
 
 // Post 结构体表示文章的数据结构
@@ -45,18 +57,23 @@ type Post struct {
 	CategoryID   int64        `mapstructure:"category_id"`
 	Tags         string       `mapstructure:"tags"`
 	CommentCount int64        `mapstructure:"comment_count"`
+	uid          int64        `mapstructure:"uid"`
+	IsSubmit     int8         `mapstructure:"is_submit"`
 }
 
 // User 结构体表示用户的数据结构
 type User struct {
-	ID        int64   `mapstructure:"id"`
-	Username  string  `mapstructure:"username"`
-	Phone     *string `mapstructure:"phone"`
-	Email     string  `mapstructure:"email"`
-	Password  string  `mapstructure:"password"`
-	CreatedAt int64   `mapstructure:"created_at"`
-	UpdatedAt int64   `mapstructure:"updated_at"`
-	Deleted   bool    `mapstructure:"deleted"`
+	Id           int64     `mapstructure:"id"`
+	CreatedAt    int64     `mapstructure:"created_at"`
+	UpdatedAt    int64     `mapstructure:"updated_at"`
+	DeletedAt    int64     `mapstructure:"deleted_at"`
+	NickName     string    `mapstructure:"nick_name"`
+	PasswordHash string    `mapstructure:"password_hash"`
+	Birthday     time.Time `mapstructure:"birthday"`
+	Deleted      int8      `mapstructure:"deleted"`
+	Email        string    `mapstructure:"email"`
+	Phone        string    `mapstructure:"phone"`
+	About        string    `mapstructure:"about"`
 }
 
 // consumerGroupHandler 结构体实现了Kafka Consumer Group的接口
@@ -66,11 +83,14 @@ type consumerGroupHandler struct {
 
 // NewEsConsumer 创建并返回一个新的EsConsumer实例
 func NewEsConsumer(client sarama.Client, l *zap.Logger, rs repository.SearchRepository) *EsConsumer {
-	return &EsConsumer{
+	esConsumer := &EsConsumer{
 		client: client,
 		rs:     rs,
 		l:      l,
 	}
+	esConsumer.flushUser = NewFlushUser(esConsumer)
+	esConsumer.flushPost = NewFlushPost(esConsumer)
+	return esConsumer
 }
 
 // Start 启动Kafka消费者，监听消息并进行处理
@@ -84,7 +104,7 @@ func (r *EsConsumer) Start(_ context.Context) error {
 
 	go func() {
 		for {
-			if err := cg.Consume(context.Background(), []string{"linkme_binlog"}, &consumerGroupHandler{r: r}); err != nil {
+			if err := cg.Consume(context.Background(), []string{"oracle.linkme.users", "oracle.linkme.posts"}, &consumerGroupHandler{r: r}); err != nil {
 				r.l.Error("退出了消费循环异常", zap.Error(err))
 				time.Sleep(time.Second * 5)
 			}
@@ -107,37 +127,88 @@ func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 
 // Consume 处理Kafka消息，根据不同的表名执行不同的操作
 func (r *EsConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) {
-	var e Event
+	var e ChangeEvent
 	if err := json.Unmarshal(msg.Value, &e); err != nil {
 		r.l.Error("消息反序列化失败", zap.Error(err))
 		return
 	}
 
-	switch e.Table {
+	r.l.Info("开始消费event")
+
+	switch e.Payload.Source.Table {
 	case "posts":
-		var posts []Post
-		if err := decodeEventDataToPosts(e.Data, &posts); err != nil {
+		var post Post
+		var err error
+		switch e.Payload.Op {
+		case "r":
+			if err := decodeEventDataToPost(e.Payload.After, &post); err != nil {
+				r.l.Error("解析快照用户数据失败", zap.Error(err))
+				return
+			}
+			// 加锁并写入缓冲区
+			r.flushPost.bufferMutex.Lock()
+			r.flushPost.postBuffer = append(r.flushPost.postBuffer, post)
+			bufferLen := len(r.flushUser.userBuffer)
+			isLast := e.Payload.Source.Snapshot == "last"
+			r.flushUser.bufferMutex.Unlock()
+			// 触发插入条件：达到批量大小或快照结束
+			if bufferLen >= r.flushUser.bulkSize || isLast {
+				r.flushUser.flushBuffer()
+			}
+			return
+		case "c":
+			err = decodeEventDataToPost(e.Payload.After, &post)
+		case "u":
+			err = decodeEventDataToPost(e.Payload.After, &post)
+		case "d":
+			err = decodeEventDataToPost(e.Payload.Before, &post)
+		}
+		if err != nil {
 			r.l.Error("数据映射到结构体失败", zap.Error(err))
 			return
 		}
-		for _, post := range posts {
-			if err := r.handleEsPost(sess.Context(), post); err != nil {
-				r.l.Error("处理ES失败", zap.Uint("id", post.ID), zap.Error(err))
-				return
-			}
+
+		if err := r.handleEsPost(sess.Context(), post); err != nil {
+			r.l.Error("处理ES失败", zap.Uint("id", post.ID), zap.Error(err))
+			return
 		}
+
 	case "users":
-		var users []User
-		if err := decodeEventDataToUsers(e.Data, &users); err != nil {
+		var user User
+		var err error
+		switch e.Payload.Op {
+		case "r":
+			if err := decodeEventDataToUser(e.Payload.After, &user); err != nil {
+				r.l.Error("解析快照用户数据失败", zap.Error(err))
+				return
+			}
+			// 加锁并写入缓冲区
+			r.flushUser.bufferMutex.Lock()
+			r.flushUser.userBuffer = append(r.flushUser.userBuffer, user)
+			bufferLen := len(r.flushUser.userBuffer)
+			isLast := e.Payload.Source.Snapshot == "last"
+			r.flushUser.bufferMutex.Unlock()
+			// 触发插入条件：达到批量大小或快照结束
+			if bufferLen >= r.flushUser.bulkSize || isLast {
+				r.flushUser.flushBuffer()
+			}
+			return
+		case "c":
+			err = decodeEventDataToUser(e.Payload.After, &user)
+		case "u":
+			err = decodeEventDataToUser(e.Payload.After, &user)
+		case "d":
+			err = decodeEventDataToUser(e.Payload.Before, &user)
+		}
+		if err != nil {
 			r.l.Error("数据映射到结构体失败", zap.Error(err))
 			return
 		}
-		for _, user := range users {
-			if err := r.handleEsUser(sess.Context(), user); err != nil {
-				r.l.Error("处理ES失败", zap.Int64("id", user.ID), zap.Error(err))
-				return
-			}
+		if err := r.handleEsUser(sess.Context(), user); err != nil {
+			r.l.Error("处理ES失败", zap.Int64("id", user.Id), zap.Error(err))
+			return
 		}
+
 	}
 
 	sess.MarkMessage(msg, "")
@@ -153,7 +224,7 @@ func (r *EsConsumer) handleEsPost(ctx context.Context, post Post) error {
 
 // handleEsUser 处理用户的ES操作，创建或删除用户索引
 func (r *EsConsumer) handleEsUser(ctx context.Context, user User) error {
-	if user.Deleted {
+	if user.Deleted == 1 {
 		return r.deleteUserIndex(ctx, user)
 	}
 	return r.pushOrUpdateUserIndex(ctx, user)
@@ -187,26 +258,60 @@ func (r *EsConsumer) pushOrUpdatePostIndex(ctx context.Context, post Post) error
 
 // pushOrUpdateUserIndex 创建或更新用户索引
 func (r *EsConsumer) pushOrUpdateUserIndex(ctx context.Context, user User) error {
-	exists, err := r.isUserIndexExists(ctx, user.ID)
+	exists, err := r.isUserExists(ctx, user.Id)
 	if err != nil {
 		return err
 	}
 	if exists {
-		r.l.Debug("User 已存在，跳过处理", zap.Int64("id", user.ID))
+		r.l.Debug("User 已存在，执行更新操作", zap.Int64("id", user.Id))
 		return nil
 	}
 
 	err = r.rs.InputUser(ctx, domain.UserSearch{
-		Id:       user.ID,
-		Username: user.Username,
+		Id:       user.Id,
+		Nickname: user.NickName,
+		Birthday: user.Birthday,
+		Email:    user.Email,
+		Phone:    user.Phone,
+		About:    user.About,
 	})
 	if err != nil {
-		r.l.Error("创建索引失败", zap.Int64("id", user.ID), zap.Error(err))
+		r.l.Error("创建索引失败", zap.Int64("id", user.Id), zap.Error(err))
 		return err
 	}
 
-	r.l.Info("User 索引创建成功", zap.Int64("id", user.ID))
+	r.l.Info("User 索引创建成功", zap.Int64("id", user.Id))
 	return nil
+}
+
+func (r *EsConsumer) bulkInsertUser(ctx context.Context, users []User) error {
+	var searchUsers []domain.UserSearch
+	for _, user := range users {
+		searchUsers = append(searchUsers, domain.UserSearch{
+			Id:       user.Id,
+			Nickname: user.NickName,
+			Email:    user.Email,
+			Phone:    user.Phone,
+			Birthday: user.Birthday,
+			About:    user.About,
+		})
+	}
+	return r.rs.BulkInputUsers(ctx, searchUsers)
+}
+
+func (r *EsConsumer) bulkInsertPost(ctx context.Context, posts []Post) error {
+	var searchPosts []domain.PostSearch
+	for _, post := range posts {
+		searchPosts = append(searchPosts, domain.PostSearch{
+			Id:       post.ID,
+			AuthorId: post.AuthorID,
+			Title:    post.Title,
+			Content:  post.Content,
+			Status:   post.Status,
+			Tags:     post.Tags,
+		})
+	}
+	return r.rs.BulkInputPosts(ctx, searchPosts)
 }
 
 // deletePostIndex 删除文章索引
@@ -229,23 +334,23 @@ func (r *EsConsumer) deletePostIndex(ctx context.Context, post Post) error {
 	return nil
 }
 
-// deleteUserIndex 删除用户索引
+// deleteUserIndex 删除索引中的指定用户
 func (r *EsConsumer) deleteUserIndex(ctx context.Context, user User) error {
-	exists, err := r.isUserIndexExists(ctx, user.ID)
+	exists, err := r.isUserExists(ctx, user.Id)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		r.l.Debug("User 不存在于索引中，跳过删除", zap.Int64("id", user.ID))
+		r.l.Debug("User 不存在于索引中，跳过删除", zap.Int64("id", user.Id))
 		return nil
 	}
 
-	if err := r.rs.DeleteUserIndex(ctx, user.ID); err != nil {
-		r.l.Error("删除索引失败", zap.Int64("id", user.ID), zap.Error(err))
+	if err := r.rs.DeleteUserIndex(ctx, user.Id); err != nil {
+		r.l.Error("删除索引失败", zap.Int64("id", user.Id), zap.Error(err))
 		return err
 	}
 
-	r.l.Info("User 索引删除成功", zap.Int64("id", user.ID))
+	r.l.Info("User 索引删除成功", zap.Int64("id", user.Id))
 	return nil
 }
 
@@ -263,8 +368,8 @@ func (r *EsConsumer) isPostIndexExists(ctx context.Context, postID uint) (bool, 
 	return exist, nil
 }
 
-// isUserIndexExists 查询User索引是否存在
-func (r *EsConsumer) isUserIndexExists(ctx context.Context, userID int64) (bool, error) {
+// isUserExists 查询指定User是否存在
+func (r *EsConsumer) isUserExists(ctx context.Context, userID int64) (bool, error) {
 	exist, err := r.rs.IsExistUser(ctx, userID)
 	if err != nil {
 		r.l.Error("Elasticsearch 查询返回错误", zap.Error(err))
@@ -274,79 +379,4 @@ func (r *EsConsumer) isUserIndexExists(ctx context.Context, userID int64) (bool,
 	r.l.Debug("User 索引查询结果", zap.Int64("id", userID), zap.Bool("exists", exist))
 
 	return exist, nil
-}
-
-// decodeEventDataToPosts 解析事件数据为 Post 结构体
-func decodeEventDataToPosts(data interface{}, posts *[]Post) error {
-	config := &mapstructure.DecoderConfig{
-		Result:           posts,
-		TagName:          "mapstructure",
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			stringToTimeHookFunc("2006-01-02 15:04:05.999"),
-			stringToNullTimeHookFunc("2006-01-02 15:04:05.999"),
-		),
-	}
-
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-
-	return decoder.Decode(data)
-}
-
-// decodeEventDataToUsers 解析事件数据为 User 结构体
-func decodeEventDataToUsers(data interface{}, users *[]User) error {
-	config := &mapstructure.DecoderConfig{
-		Result:           users,
-		TagName:          "mapstructure",
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			stringToNullTimeHookFunc("2006-01-02 15:04:05.999"),
-		),
-	}
-
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-
-	return decoder.Decode(data)
-}
-
-// stringToTimeHookFunc 转换字符串到时间类型
-func stringToTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
-	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
-		if f != reflect.String || t != reflect.Struct {
-			return data, nil
-		}
-
-		str := data.(string)
-		if str == "" {
-			return time.Time{}, nil
-		}
-
-		return time.Parse(layout, str)
-	}
-}
-
-// stringToNullTimeHookFunc 转换字符串到 NullTime 类型
-func stringToNullTimeHookFunc(layout string) mapstructure.DecodeHookFunc {
-	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
-		if f != reflect.String || t != reflect.Struct {
-			return data, nil
-		}
-
-		str := data.(string)
-		if str == "" {
-			return sql.NullTime{Valid: false}, nil
-		}
-
-		parsedTime, err := time.Parse(layout, str)
-		if err != nil {
-			return nil, err
-		}
-		return sql.NullTime{Time: parsedTime, Valid: true}, nil
-	}
 }
