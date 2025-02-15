@@ -13,11 +13,11 @@ log:
   
 db:
   # dsn: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
-  dsn: "root:v6SxhWHyZC7S@tcp(localhost:33306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:root@tcp(localhost:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
 
 redis:
   # addr: "redis:6379"
-  addr: "localhost:36379"
+  addr: "localhost:6379"
   password: "v6SxhWHyZC7S"
 
 kafka:

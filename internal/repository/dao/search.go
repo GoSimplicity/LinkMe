@@ -4,23 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 	"sync"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
-	"go.uber.org/zap"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 	"strconv"
 	"strings"
 
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/elastic/go-elasticsearch/v8/esapi"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
+
+	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 )
 
 const (
@@ -44,6 +40,7 @@ type SearchDAO interface {
 	IsExistsComment(ctx context.Context, commentid string) (bool, error)
 	InputUser(ctx context.Context, user UserSearch) error
 	InputPost(ctx context.Context, post PostSearch) error
+	InputComment(ctx context.Context, comment CommentSearch) error
 	BulkInputPosts(ctx context.Context, posts []PostSearch) error
 	BulkInputUsers(ctx context.Context, users []UserSearch) error
 	BulkInputLogs(ctx context.Context, event []ReadEvent) error
@@ -133,7 +130,7 @@ func (s *searchDAO) createIndex(ctx context.Context, indexName string, propertie
 		}
 	}
 
-	_, err = s.client.Indices.Create(indexName).Request(&create.Request{
+	_, err := s.client.Indices.Create(indexName).Request(&create.Request{
 		Mappings: &types.TypeMapping{
 			Properties: prop,
 		},
@@ -159,7 +156,7 @@ func (s *searchDAO) CreateCommentIndex(ctx context.Context, properties ...interf
 			"status":    types.NewByteNumberProperty(),
 		}
 	}
-	return s.CreateIndex(ctx, CommentIndex, prop)
+	return s.createIndex(ctx, CommentIndex, prop)
 }
 
 // CreatePostIndex 创建post的es索引
@@ -406,6 +403,38 @@ func (s *searchDAO) InputPost(ctx context.Context, post PostSearch) error {
 		s.l.Error("Failed to input post to elasticsearch", zap.Error(err))
 		return err
 	}
+	return nil
+}
+
+// InputComment 添加评论到搜索索引
+func (s *searchDAO) InputComment(ctx context.Context, comment CommentSearch) error {
+	_, err := s.client.Index(CommentIndex).
+		Id(strconv.FormatInt(int64(comment.Id), 10)).
+		Document(comment).
+		Do(ctx)
+	if err != nil {
+		s.l.Error("Failed to input comment to elasticsearch", zap.Error(err))
+		return err
+	}
+	if _, err := s.client.Bulk().Index(PostIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("bulk input posts failed", zap.Error(err))
+	}
+
+	s.l.Info("bulk input logs successfully")
+	return nil
+}
+
+// BulkInputUsers 批量向es插入user，主要用于同步全量快照的数据
+func (s *searchDAO) BulkInputUsers(ctx context.Context, users []UserSearch) error {
+	var req bulk.Request
+	for _, user := range users {
+		req = append(req, user)
+	}
+	if _, err := s.client.Bulk().Index(UserIndex).Request(&req).Do(ctx); err != nil {
+		s.l.Error("bulk input logs failed", zap.Error(err))
+	}
+
+	s.l.Info("bulk input logs successfully")
 	return nil
 }
 
