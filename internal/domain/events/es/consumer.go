@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
 	"github.com/GoSimplicity/LinkMe/internal/domain"
-
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"

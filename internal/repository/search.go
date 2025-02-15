@@ -71,8 +71,12 @@ func (s *searchRepository) InputPost(ctx context.Context, post domain.PostSearch
 	return s.dao.InputPost(ctx, s.toDaoPostSearch(post))
 }
 
-func (s *searchRepository) InputComment(ctx context.Context, comment domain.CommentSearch) error {
-	return s.dao.InputComment(ctx, s.toDaoCommentSearch(comment))
+func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error {
+	var daoPosts []dao.PostSearch
+	for _, post := range posts {
+		daoPosts = append(daoPosts, s.toDaoPostSearch(post))
+	}
+	return s.dao.BulkInputPosts(ctx, daoPosts)
 }
 
 func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error {
