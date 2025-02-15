@@ -22,6 +22,7 @@ func (s *SearchHandler) RegisterRoutes(server *gin.Engine) {
 	permissionGroup := server.Group("/api/search")
 	permissionGroup.POST("/search_user", WrapBody(s.SearchUser))
 	permissionGroup.POST("/search_post", WrapBody(s.SearchPost))
+	permissionGroup.POST("/search_comment", WrapBody(s.SearchComment))
 }
 
 func (s *SearchHandler) SearchUser(ctx *gin.Context, req req.SearchReq) (Result, error) {
@@ -51,5 +52,19 @@ func (s *SearchHandler) SearchPost(ctx *gin.Context, req req.SearchReq) (Result,
 		Code: RequestsOK,
 		Msg:  SearchPostSuccess,
 		Data: posts,
+	}, nil
+}
+func (s *SearchHandler) SearchComment(ctx *gin.Context, req req.SearchReq) (Result, error) {
+	comments, err := s.svc.SearchComments(ctx, req.Expression)
+	if err != nil {
+		return Result{
+			Code: SearchCommentERRORCode,
+			Msg:  SearchCommentERROR,
+		}, nil
+	}
+	return Result{
+		Code: RequestsOK,
+		Msg:  SearchCommentSuccess,
+		Data: comments,
 	}, nil
 }

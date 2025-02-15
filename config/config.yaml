@@ -25,7 +25,7 @@ kafka:
   addr: "localhost:9092"
 
 es:
-  addr: "http://elasticsearch:9200"
+  addr: "http://localhost:9200"
 
 sms:
   tencent:
@@ -35,3 +35,6 @@ sms:
     smsID: ""
     sign: ""
     templateID: ""
+
+ark_api:
+  key: "b3977816-2a07-44df-9fe2-4ec02224e147"

@@ -61,6 +61,21 @@ type Post struct {
 	IsSubmit     int8         `mapstructure:"is_submit"`
 }
 
+// Comment 结构体表示评论的数据结构
+type Comment struct {
+	ID        int64  `mapstructure:"id"`
+	UserID    int64  `mapstructure:"user_id"`
+	Biz       string `mapstructure:"biz"`
+	BizID     int64  `mapstructure:"biz_id"`
+	Content   string `mapstructure:"content"`
+	PostID    int64  `mapstructure:"post_id"`
+	RootID    int64  `mapstructure:"root_id"`
+	PID       int64  `mapstructure:"pid"`
+	CreatedAt int64  `mapstructure:"created_at"`
+	UpdatedAt int64  `mapstructure:"updated_at"`
+	Status    uint8  `mapstructure:"status"`
+}
+
 // User 结构体表示用户的数据结构
 type User struct {
 	Id           int64     `mapstructure:"id"`
@@ -208,7 +223,6 @@ func (r *EsConsumer) Consume(sess sarama.ConsumerGroupSession, msg *sarama.Consu
 			r.l.Error("处理ES失败", zap.Int64("id", user.Id), zap.Error(err))
 			return
 		}
-
 	}
 
 	sess.MarkMessage(msg, "")
@@ -220,6 +234,14 @@ func (r *EsConsumer) handleEsPost(ctx context.Context, post Post) error {
 		return r.pushOrUpdatePostIndex(ctx, post)
 	}
 	return r.deletePostIndex(ctx, post)
+}
+
+// handleEsComment 处理评论的ES操作，发布或删除索引
+func (r *EsConsumer) handleEsComment(ctx context.Context, comment Comment) error {
+	if comment.Status == domain.Published {
+		return r.pushOrUpdateCommentIndex(ctx, comment)
+	}
+	return r.deleteCommentIndex(ctx, comment)
 }
 
 // handleEsUser 处理用户的ES操作，创建或删除用户索引
@@ -253,6 +275,29 @@ func (r *EsConsumer) pushOrUpdatePostIndex(ctx context.Context, post Post) error
 	}
 
 	r.l.Info("Post 索引创建成功", zap.Uint("id", post.ID))
+	return nil
+}
+
+// pushOrUpdateCommentIndex 创建或更新评论索引
+func (r *EsConsumer) pushOrUpdateCommentIndex(ctx context.Context, comment Comment) error {
+	exists, err := r.isCommentIndexExists(ctx, comment.ID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		r.l.Debug("Comment 已存在，跳过处理", zap.Int64("id", comment.ID))
+		return nil
+	}
+	err = r.rs.InputComment(ctx, domain.CommentSearch{
+		Id:      uint(comment.ID),
+		Content: comment.Content,
+		Status:  comment.Status,
+	})
+	if err != nil {
+		r.l.Error("创建索引失败", zap.Int64("id", comment.ID), zap.Error(err))
+		return err
+	}
+	r.l.Info("Comment 索引创建成功", zap.Int64("id", comment.ID))
 	return nil
 }
 
@@ -334,7 +379,6 @@ func (r *EsConsumer) deletePostIndex(ctx context.Context, post Post) error {
 	return nil
 }
 
-// deleteUserIndex 删除索引中的指定用户
 func (r *EsConsumer) deleteUserIndex(ctx context.Context, user User) error {
 	exists, err := r.isUserExists(ctx, user.Id)
 	if err != nil {

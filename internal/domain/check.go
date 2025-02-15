@@ -17,4 +17,5 @@ type Check struct {
 	Remark    string // 审核备注
 	CreatedAt int64  // 创建时间
 	UpdatedAt int64  // 更新时间
+	BizId     int64  // 审核类型（帖子或者评论）
 }

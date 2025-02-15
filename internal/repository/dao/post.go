@@ -47,7 +47,7 @@ type Post struct {
 	Plate        Plate  `gorm:"foreignKey:PlateID"`           // 关联板块
 	Tags         string `gorm:"type:varchar(255);default:''"` // 标签
 	CommentCount int64  `gorm:"default:0"`                    // 评论数
-	IsSubmit     bool   `gorm:"default:false"`
+	IsSubmit     bool   `gorm:"default:false"`                // 是否提交审核
 }
 
 type PubPost struct {

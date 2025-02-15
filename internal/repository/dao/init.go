@@ -27,5 +27,6 @@ func InitTables(db *gorm.DB) error {
 		&LotteryDraw{},
 		&SecondKillEvent{},
 		&Participant{},
+		&RankingParameter{},
 	)
 }

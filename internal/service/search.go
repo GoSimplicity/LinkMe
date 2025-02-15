@@ -15,6 +15,7 @@ type searchService struct {
 type SearchService interface {
 	SearchPosts(ctx context.Context, expression string) ([]domain.PostSearch, error)
 	SearchUsers(ctx context.Context, expression string) ([]domain.UserSearch, error)
+	SearchComments(ctx context.Context, expression string) ([]domain.CommentSearch, error)
 }
 
 func NewSearchService(repo repository.SearchRepository) SearchService {
@@ -22,7 +23,26 @@ func NewSearchService(repo repository.SearchRepository) SearchService {
 		repo: repo,
 	}
 }
-
+func (s *searchService) SearchComments(ctx context.Context, expression string) ([]domain.CommentSearch, error) {
+	// 将表达式拆分为关键字数组
+	keywords := strings.Split(expression, " ")
+	var eg errgroup.Group
+	var comments []domain.CommentSearch
+	eg.Go(func() error {
+		// 搜索评论
+		foundComments, err := s.repo.SearchComments(ctx, keywords)
+		if err != nil {
+			return err
+		}
+		comments = foundComments
+		return nil
+	})
+	// 等待所有并发任务完成
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return comments, nil
+}
 func (s *searchService) SearchPosts(ctx context.Context, expression string) ([]domain.PostSearch, error) {
 	// 将表达式拆分为关键字数组
 	keywords := strings.Split(expression, " ")

@@ -3,6 +3,7 @@ package ioc
 import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
@@ -69,6 +70,7 @@ func InitSyncProducer(c sarama.Client) sarama.SyncProducer {
 func InitConsumers(
 	postConsumer *post.EventConsumer,
 	smsConsumer *sms.SMSConsumer,
+	commentConsumer *comment.PublishCommentEventConsumer,
 	emailConsumer *email.EmailConsumer,
 	publishConsumer *publish.PublishPostEventConsumer,
 	esConsumer *es.EsConsumer,
@@ -81,6 +83,7 @@ func InitConsumers(
 	return []events.Consumer{
 		postConsumer,
 		smsConsumer,
+		commentConsumer,
 		emailConsumer,
 		publishConsumer,
 		esConsumer,

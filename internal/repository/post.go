@@ -25,7 +25,7 @@ type PostRepository interface {
 	UpdateStatus(ctx context.Context, postId uint, uid int64, status uint8) error
 	GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error)
 	GetPublishPostById(ctx context.Context, postId uint) (domain.Post, error)
-	ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	ListPublishPosts(ctx context.Context, pagination domain.Pagination, biz ...int) ([]domain.Post, error)
 	ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	Delete(ctx context.Context, postId uint, uid int64) error
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
@@ -166,10 +166,11 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 
 	result := change.ToDomainPost(dp)
 
-	// 设置缓存
-	if err := p.cache.Set(ctx, result); err != nil {
-		p.l.Error("设置帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
-	}
+	go func() {
+		if err := p.cache.Set(ctx, result); err != nil {
+			p.l.Error("设置帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
+		}
+	}()
 
 	return result, nil
 }
@@ -188,26 +189,28 @@ func (p *postRepository) GetPublishPostById(ctx context.Context, postId uint) (d
 	dp, err := p.dao.GetPubById(ctx, postId)
 	if err != nil {
 		p.l.Error("获取已发布帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		// 缓存空对象
+		if err := p.cache.SetEmpty(ctx, int64(postId)); err != nil {
+			p.l.Error("设置空对象缓存失败", zap.Error(err))
+		}
 		return domain.Post{}, err
 	}
 
 	result := change.ToDomainPubPost(dp)
 
-	// 设置缓存
-	if err := p.cache.SetPub(ctx, cacheKey, result); err != nil {
-		p.l.Error("设置已发布帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
-	}
+	go func() {
+		if err := p.cache.SetPub(ctx, cacheKey, result); err != nil {
+			p.l.Error("设置已发布帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
+		}
+	}()
 
 	return result, nil
 }
 
 // ListPosts 获取作者帖子的列表
 func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	// 构建缓存key
-	cacheKey := fmt.Sprintf("%d", pagination.Page)
-
 	// 先从缓存中获取
-	posts, err := p.cache.GetList(ctx, cacheKey)
+	posts, err := p.cache.GetList(ctx, pagination.Page, int(*pagination.Size))
 	if err == nil && len(posts) > 0 {
 		return posts, nil
 	}
@@ -226,7 +229,7 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 
 	// 异步写入缓存
 	go func() {
-		if err := p.cache.SetList(ctx, cacheKey, result); err != nil {
+		if err := p.cache.SetList(ctx, pagination.Page, int(*pagination.Size), result); err != nil {
 			p.l.Error("缓存帖子列表失败",
 				zap.Error(err),
 				zap.Int("page", pagination.Page))
@@ -237,12 +240,9 @@ func (p *postRepository) ListPosts(ctx context.Context, pagination domain.Pagina
 }
 
 // ListPublishPosts 获取已发布的帖子列表
-func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error) {
-	// 构建缓存key
-	cacheKey := fmt.Sprintf("%d", pagination.Page)
-
+func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain.Pagination, biz ...int) ([]domain.Post, error) {
 	// 先从缓存中获取
-	posts, err := p.cache.GetPubList(ctx, cacheKey)
+	posts, err := p.cache.GetPubList(ctx, pagination.Page, int(*pagination.Size))
 	if err == nil && len(posts) > 0 {
 		return posts, nil
 	}
@@ -254,19 +254,29 @@ func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain
 		return nil, fmt.Errorf("从数据库获取已发布帖子列表失败: %w", err)
 	}
 
-	if len(pub) == 0 {
+	if len(pub) == 0 && len(biz) == 0 {
 		p.l.Info("没有找到已发布的帖子")
+		// 缓存空对象
+		if err := p.cache.SetEmpty(ctx, int64(pagination.Page)); err != nil {
+			p.l.Error("设置空对象缓存失败", zap.Error(err))
+		}
 		return []domain.Post{}, nil
 	}
 
 	result := change.FromDomainSlicePubPostList(pub)
 
-	// 异步写入缓存
 	go func() {
-		if err := p.cache.SetPubList(ctx, cacheKey, result); err != nil {
-			p.l.Error("缓存已发布帖子列表失败",
-				zap.Error(err),
-				zap.Int("page", pagination.Page))
+		// 如果是前三页
+		if pagination.Page <= 3 {
+			if err := p.cache.PreHeat(ctx, result); err != nil {
+				p.l.Error("预热已发布帖子列表缓存失败", zap.Error(err))
+			}
+		} else {
+			if err := p.cache.SetPubList(ctx, pagination.Page, int(*pagination.Size), result); err != nil {
+				p.l.Error("缓存已发布帖子列表失败",
+					zap.Error(err),
+					zap.Int("page", pagination.Page))
+			}
 		}
 	}()
 
@@ -314,15 +324,17 @@ func (p *postRepository) Delete(ctx context.Context, postId uint, uid int64) err
 		}
 	}
 
-	// 删除制作库列表缓存
-	if err := p.cache.DelList(ctx, strconv.Itoa(int(postId))); err != nil {
-		p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-	}
+	go func() {
+		// 删除制作库列表缓存
+		if err := p.cache.DelList(ctx, strconv.Itoa(int(postId))); err != nil {
+			p.l.Error("删除帖子列表缓存失败", zap.Error(err))
+		}
 
-	// 删除制作库缓存
-	if err := p.cache.Del(ctx, int64(postId)); err != nil {
-		p.l.Error("删除帖子缓存失败", zap.Error(err))
-	}
+		// 删除制作库缓存
+		if err := p.cache.Del(ctx, int64(postId)); err != nil {
+			p.l.Error("删除帖子缓存失败", zap.Error(err))
+		}
+	}()
 
 	return nil
 }

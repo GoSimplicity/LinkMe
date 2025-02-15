@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
+	aiCheck "github.com/GoSimplicity/LinkMe/utils/AiCheck"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )
@@ -19,10 +22,12 @@ const (
 )
 
 type CheckEventConsumer struct {
-	checkRepo repository.CheckRepository
-	client    sarama.Client
-	l         *zap.Logger
-	dlqProd   sarama.SyncProducer // 死信队列生产者
+	checkRepo       repository.CheckRepository
+	client          sarama.Client
+	l               *zap.Logger
+	dlqProd         sarama.SyncProducer // 死信队列生产者
+	postProducer    publish.Producer
+	commentProducer comment.Producer
 }
 
 func NewCheckEventConsumer(
@@ -30,12 +35,16 @@ func NewCheckEventConsumer(
 	client sarama.Client,
 	dlqProd sarama.SyncProducer,
 	l *zap.Logger,
+	postProducer publish.Producer,
+	commentProducer comment.Producer,
 ) *CheckEventConsumer {
 	return &CheckEventConsumer{
-		checkRepo: checkRepo,
-		client:    client,
-		l:         l,
-		dlqProd:   dlqProd,
+		checkRepo:       checkRepo,
+		client:          client,
+		l:               l,
+		dlqProd:         dlqProd,
+		postProducer:    postProducer,
+		commentProducer: commentProducer,
 	}
 }
 
@@ -75,7 +84,11 @@ func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { re
 func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 
 func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// h.consumer.l.Info("ConsumeClaim  function called")
+	// 输出获取的消息数量，确认消息是否被正确获取
+	h.consumer.l.Info("消息数", zap.Int("message_count", len(claim.Messages())))
 	for msg := range claim.Messages() {
+		h.consumer.l.Info("收到消息", zap.ByteString("message", msg.Value))
 		// 处理每一条消息
 		if err := h.consumer.processMessage(msg); err != nil {
 			h.consumer.l.Error("处理消息失败", zap.Error(err), zap.ByteString("message", msg.Value))
@@ -170,7 +183,7 @@ func (c *CheckEventConsumer) validateEvent(evt *CheckEvent) error {
 		return errors.New("事件为空")
 	}
 
-	if evt.PostId == 0 || evt.Uid == 0 || evt.Title == "" || evt.Content == "" {
+	if (evt.PostId == 0 && evt.BizId == 1) || evt.Uid == 0 || (evt.Title == "" && evt.BizId == 1) || evt.Content == "" {
 		c.l.Error("消息参数无效",
 			zap.Uint("post_id", evt.PostId),
 			zap.Int64("uid", evt.Uid))
@@ -187,6 +200,7 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 	}
 
 	check := domain.Check{
+		BizId:   evt.BizId,
 		PostID:  evt.PostId,
 		Uid:     evt.Uid,
 		Title:   evt.Title,
@@ -194,23 +208,58 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 		PlateID: evt.PlateID,
 	}
 
-	// 创建审核记录
-	code, err := c.checkRepo.Create(ctx, check)
-	if err != nil {
-		c.l.Error("创建审核记录失败",
-			zap.Uint("post_id", evt.PostId),
-			zap.Int64("uid", evt.Uid),
-			zap.Error(err))
-		return fmt.Errorf("创建审核记录失败: %w", err)
-	}
+	// 使用AI审核
+	checkResult, err := aiCheck.CheckPostContent(evt.Title, evt.Content)
+	if err != nil || !checkResult {
+		// 交由人工审核
+		code, err := c.checkRepo.Create(ctx, check)
+		if err != nil {
+			c.l.Error("创建审核记录失败",
+				zap.Uint("post_id", evt.PostId),
+				zap.Int64("uid", evt.Uid),
+				zap.Error(err))
+			return fmt.Errorf("创建审核记录失败: %w", err)
+		}
 
-	// 记录已存在,标记消息处理完成
-	if code == -1 {
-		c.l.Info("审核记录已存在",
-			zap.Uint("post_id", evt.PostId),
-			zap.Int64("uid", evt.Uid))
+		// 记录已存在,直接返回
+		if code == -1 {
+			c.l.Info("审核记录已存在",
+				zap.Uint("post_id", evt.PostId),
+				zap.Int64("uid", evt.Uid))
+			return nil
+		}
 		return nil
 	}
 
+	// AI审核通过,异步处理后续任务
+	go c.handleAsyncTasks(check)
+
 	return nil
+}
+
+// handleAsyncTasks 处理异步任务
+func (c *CheckEventConsumer) handleAsyncTasks(check domain.Check) {
+	_, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	var err error
+	if check.BizId == 1 {
+		err = c.postProducer.ProducePublishEvent(publish.PublishEvent{
+			PostId: check.PostID,
+			Uid:    check.Uid,
+			Status: domain.Published,
+			BizId:  check.BizId,
+		})
+	} else if check.BizId == 2 {
+		err = c.commentProducer.ProduceCommentEvent(comment.CommentEvent{
+			PostId: check.PostID,
+			Uid:    check.Uid,
+			Status: domain.Published,
+			BizId:  check.BizId,
+		})
+	}
+
+	if err != nil {
+		c.l.Error("异步任务执行失败", zap.Error(err))
+	}
 }

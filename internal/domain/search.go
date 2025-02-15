@@ -19,3 +19,10 @@ type UserSearch struct {
 	Phone    string
 	About    string
 }
+
+type CommentSearch struct {
+	Id       uint   // 评论ID
+	AuthorId int64  // 评论者ID
+	Status   uint8  // 评论状态
+	Content  string // 评论内容
+}

@@ -84,6 +84,7 @@ func toDAOCheck(domainCheck domain.Check) dao.Check {
 		Remark:    domainCheck.Remark,
 		CreatedAt: domainCheck.CreatedAt,
 		UpdatedAt: domainCheck.UpdatedAt,
+		BizId:     domainCheck.BizId,
 	}
 }
 
@@ -100,6 +101,7 @@ func toDomainCheck(daoCheck dao.Check) domain.Check {
 		Remark:    daoCheck.Remark,
 		CreatedAt: daoCheck.CreatedAt,
 		UpdatedAt: daoCheck.UpdatedAt,
+		BizId:     daoCheck.BizId,
 	}
 }
 

@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/redis/go-redis/v9"
-	"time"
 )
 
 type CommentCache interface {
@@ -52,11 +53,7 @@ func (u *commentCache) Set(ctx context.Context, dc domain.Comment) error {
 		return fmt.Errorf("序列化评论数据失败: %v", err)
 	}
 
-	// 向redis中插入数据,使用pipeline优化性能
-	pipe := u.cmd.Pipeline()
-	pipe.Set(ctx, key, data, u.expiration)
-	_, err = pipe.Exec(ctx)
-	if err != nil {
+	if err := u.cmd.Set(ctx, key, data, u.expiration).Err(); err != nil {
 		return fmt.Errorf("缓存评论数据失败: %v", err)
 	}
 	return nil
