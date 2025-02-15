@@ -35,7 +35,7 @@ func createMockLogger() *zap.Logger {
 
 // 测试CreatePostIndex函数
 func TestCreatePostIndex(t *testing.T) {
-	searchDAO := dao.NewSearchDAO(createMockGormDB(), createMockElasticsearchClient(), createMockLogger())
+	searchDAO := dao.NewSearchDAO(createMockElasticsearchClient(), createMockLogger())
 	err := searchDAO.CreatePostIndex(context.Background())
 	if err != nil {
 		t.Errorf("CreatePostIndex failed: %v", err)
@@ -44,7 +44,7 @@ func TestCreatePostIndex(t *testing.T) {
 
 // 测试SearchPosts函数
 func TestSearchPosts(t *testing.T) {
-	searchDAO := dao.NewSearchDAO(createMockGormDB(), createMockElasticsearchClient(), createMockLogger())
+	searchDAO := dao.NewSearchDAO(createMockElasticsearchClient(), createMockLogger())
 	keywords := []string{"test", "post"}
 	posts, err := searchDAO.SearchPosts(context.Background(), keywords)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestSearchPosts(t *testing.T) {
 
 // 测试SearchUsers函数
 func TestSearchUsers(t *testing.T) {
-	searchDAO := dao.NewSearchDAO(createMockGormDB(), createMockElasticsearchClient(), createMockLogger())
+	searchDAO := dao.NewSearchDAO(createMockElasticsearchClient(), createMockLogger())
 	keywords := []string{"test", "user"}
 	users, err := searchDAO.SearchUsers(context.Background(), keywords)
 	if err != nil {

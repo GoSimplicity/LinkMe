@@ -60,9 +60,9 @@ func (us *userService) SignUp(ctx context.Context, u domain.User) error {
 	go func() {
 		ctx := context.Background()
 		err := us.searchRepo.InputUser(ctx, domain.UserSearch{
-			Username: u.Username,
 			Id:       u.ID,
-			RealName: u.Profile.RealName,
+			Nickname: u.Username,
+			// TODO 字段待协调
 		})
 		if err != nil {
 			us.l.Error("更新搜索索引失败",
@@ -158,7 +158,7 @@ func (us *userService) UpdateProfile(ctx context.Context, profile domain.Profile
 			ctx := context.Background()
 			err := us.searchRepo.InputUser(ctx, domain.UserSearch{
 				Id:       profile.UserID,
-				RealName: profile.RealName,
+				Nickname: profile.RealName,
 			})
 			if err != nil {
 				us.l.Error("更新用户搜索索引失败",

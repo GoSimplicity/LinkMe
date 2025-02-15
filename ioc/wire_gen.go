@@ -40,7 +40,7 @@ func InitWebServer() *Cmd {
 	userCache := cache.NewUserCache(cmdable)
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
 	typedClient := InitES()
-	searchDAO := dao.NewSearchDAO(db, typedClient, logger)
+	searchDAO := dao.NewSearchDAO(typedClient, logger)
 	searchRepository := repository.NewSearchRepository(searchDAO)
 	userService := service.NewUserService(userRepository, logger, searchRepository)
 	handler := jwt.NewJWTHandler(cmdable)
