@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 )
@@ -20,6 +21,7 @@ type SearchRepository interface {
 	IsExistUser(ctx context.Context, userId int64) (bool, error)
 	InputUser(ctx context.Context, user domain.UserSearch) error // 处理输入用户
 	InputPost(ctx context.Context, post domain.PostSearch) error
+	InputComment(ctx context.Context, comment domain.CommentSearch) error
 	BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error
 	BulkInputUsers(ctx context.Context, users []domain.UserSearch) error
 	BulkInputLogs(ctx context.Context, event []domain.ReadEvent) error // 处理输入文章
@@ -67,6 +69,10 @@ func (s *searchRepository) InputUser(ctx context.Context, user domain.UserSearch
 
 func (s *searchRepository) InputPost(ctx context.Context, post domain.PostSearch) error {
 	return s.dao.InputPost(ctx, s.toDaoPostSearch(post))
+}
+
+func (s *searchRepository) InputComment(ctx context.Context, comment domain.CommentSearch) error {
+	return s.dao.InputComment(ctx, s.toDaoCommentSearch(comment))
 }
 
 func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error {

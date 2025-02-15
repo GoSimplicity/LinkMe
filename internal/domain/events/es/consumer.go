@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
@@ -299,6 +300,39 @@ func (r *EsConsumer) pushOrUpdateCommentIndex(ctx context.Context, comment Comme
 	}
 	r.l.Info("Comment 索引创建成功", zap.Int64("id", comment.ID))
 	return nil
+}
+
+// deleteCommentIndex 删除评论索引
+func (r *EsConsumer) deleteCommentIndex(ctx context.Context, comment Comment) error {
+	exists, err := r.isCommentIndexExists(ctx, comment.ID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		r.l.Debug("Comment 不存在于索引中，跳过删除", zap.Int64("id", comment.ID))
+		return nil
+	}
+
+	if err := r.rs.DeleteCommentIndex(ctx, uint(comment.ID)); err != nil {
+		r.l.Error("删除索引失败", zap.Int64("id", comment.ID), zap.Error(err))
+		return err
+	}
+
+	r.l.Info("Comment 索引删除成功", zap.Int64("id", comment.ID))
+	return nil
+}
+
+// isCommentIndexExists 查询Comment索引是否存在
+func (r *EsConsumer) isCommentIndexExists(ctx context.Context, commentID int64) (bool, error) {
+	exist, err := r.rs.IsExistComment(ctx, uint(commentID))
+	if err != nil {
+		r.l.Error("Elasticsearch 查询返回错误", zap.Error(err))
+		return false, fmt.Errorf("elasticsearch returned an error: %s", err)
+	}
+
+	r.l.Debug("Comment 索引查询结果", zap.Int64("id", commentID), zap.Bool("exists", exist))
+
+	return exist, nil
 }
 
 // pushOrUpdateUserIndex 创建或更新用户索引
