@@ -88,7 +88,7 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 			p.l.Error("删除已发布帖子缓存失败", zap.Error(err))
 		}
 
-		// 延迟双删
+		// 异步双删
 		payload := job.Payload{Key: key, PostId: post.ID}
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
@@ -97,7 +97,7 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 
 		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
 		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("延迟删除帖子缓存失败", zap.Error(err))
+			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
 		}
 	}
 
@@ -134,7 +134,7 @@ func (p *postRepository) UpdateStatus(ctx context.Context, postId uint, uid int6
 			p.l.Error("删除帖子列表缓存失败", zap.Error(err))
 		}
 
-		// 延迟双删
+		// 异步双删
 		payload := job.Payload{Key: key}
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
@@ -143,7 +143,7 @@ func (p *postRepository) UpdateStatus(ctx context.Context, postId uint, uid int6
 
 		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
 		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("延迟删除帖子缓存失败", zap.Error(err))
+			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
 		}
 	}
 
@@ -311,7 +311,7 @@ func (p *postRepository) Delete(ctx context.Context, postId uint, uid int64) err
 			p.l.Error("删除已发布帖子列表缓存失败", zap.Error(err))
 		}
 
-		// 延迟双删
+		// 异步双删
 		payload := job.Payload{Key: "*", PostId: postId}
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
@@ -320,7 +320,7 @@ func (p *postRepository) Delete(ctx context.Context, postId uint, uid int64) err
 
 		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
 		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("延迟删除帖子缓存失败", zap.Error(err))
+			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
 		}
 	}
 
