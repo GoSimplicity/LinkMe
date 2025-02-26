@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 	"strconv"
 	"strings"
+
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 
 	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
@@ -416,11 +417,6 @@ func (s *searchDAO) InputComment(ctx context.Context, comment CommentSearch) err
 		s.l.Error("Failed to input comment to elasticsearch", zap.Error(err))
 		return err
 	}
-	if _, err := s.client.Bulk().Index(PostIndex).Request(&req).Do(ctx); err != nil {
-		s.l.Error("bulk input posts failed", zap.Error(err))
-	}
-
-	s.l.Info("bulk input logs successfully")
 	return nil
 }
 
@@ -446,20 +442,6 @@ func (s *searchDAO) BulkInputPosts(ctx context.Context, posts []PostSearch) erro
 	}
 	if _, err := s.client.Bulk().Index(PostIndex).Request(&req).Do(ctx); err != nil {
 		s.l.Error("bulk input posts failed", zap.Error(err))
-	}
-
-	s.l.Info("bulk input logs successfully")
-	return nil
-}
-
-// BulkInputUsers 批量向es插入user，主要用于同步全量快照的数据
-func (s *searchDAO) BulkInputUsers(ctx context.Context, users []UserSearch) error {
-	var req bulk.Request
-	for _, user := range users {
-		req = append(req, user)
-	}
-	if _, err := s.client.Bulk().Index(UserIndex).Request(&req).Do(ctx); err != nil {
-		s.l.Error("bulk input logs failed", zap.Error(err))
 	}
 
 	s.l.Info("bulk input logs successfully")

@@ -59,11 +59,7 @@ func (p *postRepository) Create(ctx context.Context, post domain.Post) (uint, er
 		return 0, fmt.Errorf("创建帖子失败: %w", err)
 	}
 
-	// 删除制作库列表缓存
-	if err := p.cache.DelList(ctx, strconv.Itoa(int(post.ID))); err != nil {
-		p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-	}
-
+	p.refreshCache(job.RefreshTypeNormal, "*")
 	return id, nil
 }
 
@@ -78,44 +74,22 @@ func (p *postRepository) Update(ctx context.Context, post domain.Post) error {
 	}
 
 	if oldStatus == domain.Published {
-		key := "*"
-
-		if err := p.cache.DelPubList(ctx, key); err != nil {
-			p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-		}
-
-		if err := p.cache.DelPub(ctx, key); err != nil {
-			p.l.Error("删除已发布帖子缓存失败", zap.Error(err))
-		}
-
-		// 异步双删
-		payload := job.Payload{Key: key, PostId: post.ID}
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			p.l.Error("序列化任务负载失败", zap.Error(err))
-		}
-
-		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
-		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
-		}
+		p.refreshCache(job.RefreshTypeAll, "*", post.ID)
+		return nil
 	}
 
-	// 删除制作库列表缓存
-	if err := p.cache.DelList(ctx, strconv.Itoa(int(post.ID))); err != nil {
-		p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-	}
-
-	// 删除制作库缓存
-	if err := p.cache.Del(ctx, int64(post.ID)); err != nil {
-		p.l.Error("删除帖子缓存失败", zap.Error(err))
-	}
-
+	p.refreshCache(job.RefreshTypeNormal, "*", post.ID)
 	return nil
 }
 
 // UpdateStatus 更新帖子状态
 func (p *postRepository) UpdateStatus(ctx context.Context, postId uint, uid int64, status uint8) error {
+	post, err := p.dao.GetById(ctx, postId, uid)
+	if err != nil {
+		p.l.Error("获取帖子失败", zap.Error(err), zap.Uint("post_id", postId))
+		return fmt.Errorf("获取帖子失败: %w", err)
+	}
+
 	// 更新帖子状态
 	if err := p.dao.UpdateStatus(ctx, postId, uid, status); err != nil {
 		p.l.Error("更新帖子状态失败",
@@ -126,25 +100,12 @@ func (p *postRepository) UpdateStatus(ctx context.Context, postId uint, uid int6
 		return fmt.Errorf("更新帖子状态失败: %w", err)
 	}
 
-	// 如果不是草稿状态,需要清理缓存
-	if status != domain.Draft {
-		key := "*"
-
-		if err := p.cache.DelPubList(ctx, key); err != nil {
-			p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-		}
-
-		// 异步双删
-		payload := job.Payload{Key: key}
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			p.l.Error("序列化任务负载失败", zap.Error(err))
-		}
-
-		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
-		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
-		}
+	if status == domain.Published {
+		p.refreshCache(job.RefreshTypePub, "*")
+	} else if status != domain.Published && post.Status == domain.Published {
+		p.refreshCache(job.RefreshTypeAll, "*", postId)
+	} else {
+		p.refreshCache(job.RefreshTypeNormal, "*", postId)
 	}
 
 	return nil
@@ -153,7 +114,7 @@ func (p *postRepository) UpdateStatus(ctx context.Context, postId uint, uid int6
 // GetPostById 获取帖子详细信息
 func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64) (domain.Post, error) {
 	// 先从缓存中获取
-	post, err := p.cache.Get(ctx, int64(postId))
+	post, err := p.cache.Get(ctx, fmt.Sprint(postId))
 	if err == nil {
 		return post, nil
 	}
@@ -166,22 +127,13 @@ func (p *postRepository) GetPostById(ctx context.Context, postId uint, uid int64
 
 	result := change.ToDomainPost(dp)
 
-	go func() {
-		if err := p.cache.Set(ctx, result); err != nil {
-			p.l.Error("设置帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
-		}
-	}()
-
 	return result, nil
 }
 
 // GetPublishPostById 获取已发布的帖子详细信息
 func (p *postRepository) GetPublishPostById(ctx context.Context, postId uint) (domain.Post, error) {
-	// 构建缓存key
-	cacheKey := fmt.Sprintf("pub:%d", postId)
-
 	// 先从缓存中获取
-	post, err := p.cache.GetPub(ctx, cacheKey)
+	post, err := p.cache.GetPub(ctx, strconv.Itoa(int(postId)))
 	if err == nil {
 		return post, nil
 	}
@@ -190,7 +142,7 @@ func (p *postRepository) GetPublishPostById(ctx context.Context, postId uint) (d
 	if err != nil {
 		p.l.Error("获取已发布帖子失败", zap.Error(err), zap.Uint("post_id", postId))
 		// 缓存空对象
-		if err := p.cache.SetEmpty(ctx, int64(postId)); err != nil {
+		if err := p.cache.SetEmpty(ctx, fmt.Sprint(postId)); err != nil {
 			p.l.Error("设置空对象缓存失败", zap.Error(err))
 		}
 		return domain.Post{}, err
@@ -199,7 +151,7 @@ func (p *postRepository) GetPublishPostById(ctx context.Context, postId uint) (d
 	result := change.ToDomainPubPost(dp)
 
 	go func() {
-		if err := p.cache.SetPub(ctx, cacheKey, result); err != nil {
+		if err := p.cache.SetPub(ctx, strconv.Itoa(int(postId)), result); err != nil {
 			p.l.Error("设置已发布帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
 		}
 	}()
@@ -257,7 +209,7 @@ func (p *postRepository) ListPublishPosts(ctx context.Context, pagination domain
 	if len(pub) == 0 && len(biz) == 0 {
 		p.l.Info("没有找到已发布的帖子")
 		// 缓存空对象
-		if err := p.cache.SetEmpty(ctx, int64(pagination.Page)); err != nil {
+		if err := p.cache.SetEmpty(ctx, fmt.Sprint(pagination.Page)); err != nil {
 			p.l.Error("设置空对象缓存失败", zap.Error(err))
 		}
 		return []domain.Post{}, nil
@@ -302,39 +254,10 @@ func (p *postRepository) Delete(ctx context.Context, postId uint, uid int64) err
 	}
 
 	if post.Status == domain.Published {
-		// 删除已发布的帖子
-		if err := p.cache.DelPub(ctx, strconv.Itoa(int(postId))); err != nil {
-			p.l.Error("删除已发布帖子缓存失败", zap.Error(err))
-		}
-
-		if err := p.cache.DelPubList(ctx, "*"); err != nil {
-			p.l.Error("删除已发布帖子列表缓存失败", zap.Error(err))
-		}
-
-		// 异步双删
-		payload := job.Payload{Key: "*", PostId: postId}
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			p.l.Error("序列化任务负载失败", zap.Error(err))
-		}
-
-		task := asynq.NewTask(job.DeferRefreshPostCache, jsonPayload)
-		if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
-			p.l.Error("异步删除帖子缓存失败", zap.Error(err))
-		}
+		p.refreshCache(job.RefreshTypeAll, "*", postId)
 	}
 
-	go func() {
-		// 删除制作库列表缓存
-		if err := p.cache.DelList(ctx, strconv.Itoa(int(postId))); err != nil {
-			p.l.Error("删除帖子列表缓存失败", zap.Error(err))
-		}
-
-		// 删除制作库缓存
-		if err := p.cache.Del(ctx, int64(postId)); err != nil {
-			p.l.Error("删除帖子缓存失败", zap.Error(err))
-		}
-	}()
+	p.refreshCache(job.RefreshTypeNormal, "*", postId)
 
 	return nil
 }
@@ -345,6 +268,10 @@ func (p *postRepository) GetPost(ctx context.Context, postId uint) (domain.Post,
 	if err != nil {
 		p.l.Error("获取帖子失败", zap.Error(err), zap.Uint("post_id", postId))
 		return domain.Post{}, fmt.Errorf("获取帖子失败: %w", err)
+	}
+
+	if err := p.cache.Set(ctx, fmt.Sprint(postId), change.ToDomainPost(dp)); err != nil {
+		p.l.Error("设置帖子缓存失败", zap.Error(err), zap.Uint("post_id", postId))
 	}
 
 	return change.ToDomainPost(dp), nil
@@ -364,4 +291,22 @@ func (p *postRepository) ListAllPosts(ctx context.Context, pagination domain.Pag
 	}
 
 	return change.FromDomainSlicePost(posts), nil
+}
+
+func (p *postRepository) refreshCache(options ...interface{}) {
+	payload := job.Payload{
+		RefreshType: options[0].(int),
+		Key:         options[1].(string),
+		PostId:      options[2].(uint),
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		p.l.Error("序列化任务负载失败", zap.Error(err))
+	}
+
+	task := asynq.NewTask(job.RefreshPostCache, jsonPayload)
+	if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
+		p.l.Error("异步删除帖子缓存失败", zap.Error(err))
+	}
 }

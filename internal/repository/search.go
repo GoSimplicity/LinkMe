@@ -101,6 +101,11 @@ func (s *searchRepository) DeletePostIndex(ctx context.Context, postId uint) err
 func (s *searchRepository) DeleteCommentIndex(ctx context.Context, commentId uint) error {
 	return s.dao.DeleteCommentIndex(ctx, commentId)
 }
+
+func (s *searchRepository) InputComment(ctx context.Context, comment domain.CommentSearch) error {
+	return s.dao.InputComment(ctx, s.toDaoCommentSearch(comment))
+}
+
 func (s *searchRepository) toDaoPostSearch(domainPosts domain.PostSearch) dao.PostSearch {
 	return dao.PostSearch{
 		Content: domainPosts.Content,
