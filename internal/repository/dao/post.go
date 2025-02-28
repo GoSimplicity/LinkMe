@@ -39,7 +39,7 @@ type Post struct {
 	gorm.Model
 	Title        string `gorm:"size:255;not null"`            // 帖子标题
 	Content      string `gorm:"type:text;not null"`           // 帖子内容
-	Status       uint8  `gorm:"default:0"`                    // 帖子状态
+	Status       uint8  `gorm:"default:0"`                    // 帖子状态 
 	Uid          int64  `gorm:"column:uid;index"`             // 作者ID
 	Slug         string `gorm:"size:100;uniqueIndex"`         // 唯一标识
 	CategoryID   int64  `gorm:"index"`                        // 分类ID

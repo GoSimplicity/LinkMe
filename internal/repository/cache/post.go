@@ -12,9 +12,9 @@ import (
 )
 
 type PostCache interface {
-	Get(ctx context.Context, id int64) (domain.Post, error)
-	Set(ctx context.Context, post domain.Post) error
-	Del(ctx context.Context, id int64) error
+	Get(ctx context.Context, key string) (domain.Post, error)
+	Set(ctx context.Context, key string, post domain.Post) error
+	Del(ctx context.Context, key string) error
 	PreHeat(ctx context.Context, posts []domain.Post) error
 	GetList(ctx context.Context, page int, size int) ([]domain.Post, error)
 	SetList(ctx context.Context, page int, size int, posts []domain.Post) error
@@ -25,7 +25,8 @@ type PostCache interface {
 	GetPub(ctx context.Context, key string) (domain.Post, error)
 	SetPub(ctx context.Context, key string, post domain.Post) error
 	DelPub(ctx context.Context, key string) error
-	SetEmpty(ctx context.Context, id int64) error // 新增缓存空对象方法
+	SetEmpty(ctx context.Context, key string) error
+	IsEmpty(ctx context.Context, key string) (bool, error)
 }
 
 type postCache struct {
@@ -40,6 +41,7 @@ type postCache struct {
 }
 
 func NewPostCache(client redis.Cmdable) PostCache {
+	rand.Seed(time.Now().UnixNano()) // 初始化随机数种子
 	return &postCache{
 		client:        client,
 		expiration:    time.Minute * 30, // 基础过期时间30分钟
@@ -53,16 +55,21 @@ func NewPostCache(client redis.Cmdable) PostCache {
 }
 
 // Get 获取帖子缓存
-func (c *postCache) Get(ctx context.Context, id int64) (domain.Post, error) {
-	if id <= 0 {
-		return domain.Post{}, fmt.Errorf("无效的帖子ID: %d", id)
+func (c *postCache) Get(ctx context.Context, key string) (domain.Post, error) {
+	if key == "" {
+		return domain.Post{}, fmt.Errorf("无效的帖子ID: %s", key)
 	}
 
-	key := c.key(id)
-	data, err := c.client.Get(ctx, key).Bytes()
+	// 先检查是否是空对象
+	isEmpty, err := c.IsEmpty(ctx, key)
+	if err == nil && isEmpty {
+		return domain.Post{}, fmt.Errorf("帖子不存在 %s", key)
+	}
+
+	data, err := c.client.Get(ctx, c.key(key)).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			return domain.Post{}, fmt.Errorf("缓存中未找到帖子 %d", id)
+			return domain.Post{}, fmt.Errorf("缓存中未找到帖子 %s", key)
 		}
 		return domain.Post{}, fmt.Errorf("从缓存获取帖子失败: %v", err)
 	}
@@ -76,9 +83,9 @@ func (c *postCache) Get(ctx context.Context, id int64) (domain.Post, error) {
 }
 
 // Set 设置帖子缓存,使用随机过期时间防止缓存雪崩
-func (c *postCache) Set(ctx context.Context, post domain.Post) error {
-	if post.ID <= 0 {
-		return fmt.Errorf("无效的帖子ID: %d", post.ID)
+func (c *postCache) Set(ctx context.Context, key string, post domain.Post) error {
+	if key == "" {
+		return fmt.Errorf("无效的帖子ID: %s", key)
 	}
 
 	data, err := json.Marshal(post)
@@ -88,24 +95,39 @@ func (c *postCache) Set(ctx context.Context, post domain.Post) error {
 
 	// 在基础过期时间上增加随机时间,范围是0-5分钟
 	randomExpiration := c.expiration + time.Duration(rand.Int63n(300))*time.Second
-	key := c.key(int64(post.ID))
-	return c.client.Set(ctx, key, data, randomExpiration).Err()
+	err = c.client.Set(ctx, c.key(key), data, randomExpiration).Err()
+	if err != nil {
+		return fmt.Errorf("设置缓存失败: %v", err)
+	}
+
+	// 删除空对象标记(如果存在)
+	_ = c.client.Del(ctx, c.emptyKey(key))
+
+	return nil
 }
 
 // SetEmpty 缓存空对象,使用较短的过期时间
-func (c *postCache) SetEmpty(ctx context.Context, id int64) error {
-	if id <= 0 {
-		return fmt.Errorf("无效的帖子ID: %d", id)
+func (c *postCache) SetEmpty(ctx context.Context, key string) error {
+	if key == "" {
+		return fmt.Errorf("无效的帖子ID: %s", key)
 	}
 
-	key := c.emptyKey(id)
-	emptyPost := domain.Post{}
-	data, err := json.Marshal(emptyPost)
+	// 空对象使用空字符串标记，不需要存储完整结构
+	return c.client.Set(ctx, c.emptyKey(key), "1", time.Minute*5).Err()
+}
+
+// IsEmpty 检查是否存在空对象标记
+func (c *postCache) IsEmpty(ctx context.Context, key string) (bool, error) {
+	if key == "" {
+		return false, fmt.Errorf("无效的帖子ID: %s", key)
+	}
+
+	exists, err := c.client.Exists(ctx, c.emptyKey(key)).Result()
 	if err != nil {
-		return fmt.Errorf("序列化空对象失败: %v", err)
+		return false, err
 	}
 
-	return c.client.Set(ctx, key, data, time.Second*30).Err()
+	return exists > 0, nil
 }
 
 // PreHeat 预热热点缓存,设置更长的过期时间
@@ -114,35 +136,64 @@ func (c *postCache) PreHeat(ctx context.Context, posts []domain.Post) error {
 		return fmt.Errorf("帖子列表为空")
 	}
 
-	data, err := json.Marshal(posts)
-	if err != nil {
-		return fmt.Errorf("序列化帖子列表数据失败: %v", err)
+	// 使用Pipeline批量设置
+	pipe := c.client.Pipeline()
+
+	// 预热单个帖子缓存
+	for _, post := range posts {
+		if post.ID == 0 {
+			continue
+		}
+
+		data, err := json.Marshal(post)
+		if err != nil {
+			continue
+		}
+
+		// 热点数据设置更长过期时间
+		pipe.Set(ctx, c.pubKey(fmt.Sprint(post.ID)), data, time.Hour*2)
 	}
 
-	// 只缓存前三页,每页设置不同的过期时间
-	for i := 1; i <= 3; i++ {
-		key := c.pubListKey(fmt.Sprintf("%d_%d", i, len(posts))) // 加入size信息
-		expiration := time.Hour * time.Duration(4-i)             // 第一页3小时,第二页2小时,第三页1小时
-		if err := c.client.Set(ctx, key, data, expiration).Err(); err != nil {
-			return fmt.Errorf("缓存第%d页数据失败: %v", i, err)
+	// 预热列表缓存
+	postsData, err := json.Marshal(posts)
+	if err == nil {
+		// 只缓存前三页,每页设置不同的过期时间
+		for i := 1; i <= 3; i++ {
+			key := c.pubListKey(fmt.Sprintf("%d_%d", i, 10)) // 默认每页10条
+			expiration := time.Hour * time.Duration(4-i)     // 第一页3小时,第二页2小时,第三页1小时
+			pipe.Set(ctx, key, postsData, expiration)
 		}
+	}
+
+	// 执行批量操作
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("预热缓存失败: %v", err)
 	}
 
 	return nil
 }
 
 // Del 删除帖子缓存
-func (c *postCache) Del(ctx context.Context, id int64) error {
-	if id <= 0 {
-		return fmt.Errorf("无效的帖子ID: %d", id)
+func (c *postCache) Del(ctx context.Context, key string) error {
+	if key == "" {
+		return fmt.Errorf("无效的帖子ID: %s", key)
 	}
 
-	key := c.key(id)
-	return c.client.Del(ctx, key).Err()
+	pipe := c.client.Pipeline()
+	pipe.Del(ctx, c.key(key))
+	pipe.Del(ctx, c.emptyKey(key))
+	pipe.Del(ctx, c.pubKey(key))
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 // GetList 获取帖子列表缓存
 func (c *postCache) GetList(ctx context.Context, page int, size int) ([]domain.Post, error) {
+	if page <= 0 || size <= 0 {
+		return nil, fmt.Errorf("无效的分页参数: page=%d, size=%d", page, size)
+	}
+
 	key := fmt.Sprintf("%d_%d", page, size)
 	data, err := c.client.Get(ctx, c.listKey(key)).Bytes()
 	if err != nil {
@@ -154,6 +205,8 @@ func (c *postCache) GetList(ctx context.Context, page int, size int) ([]domain.P
 
 	var posts []domain.Post
 	if err = json.Unmarshal(data, &posts); err != nil {
+		// 删除可能损坏的缓存数据
+		_ = c.client.Del(ctx, c.listKey(key))
 		return nil, fmt.Errorf("反序列化帖子列表数据失败: %v", err)
 	}
 
@@ -162,6 +215,10 @@ func (c *postCache) GetList(ctx context.Context, page int, size int) ([]domain.P
 
 // SetList 设置帖子列表缓存
 func (c *postCache) SetList(ctx context.Context, page int, size int, posts []domain.Post) error {
+	if page <= 0 || size <= 0 {
+		return fmt.Errorf("无效的分页参数: page=%d, size=%d", page, size)
+	}
+
 	data, err := json.Marshal(posts)
 	if err != nil {
 		return fmt.Errorf("序列化帖子列表数据失败: %v", err)
@@ -214,6 +271,10 @@ func (c *postCache) DelList(ctx context.Context, key string) error {
 
 // GetPubList 获取已发布帖子列表缓存
 func (c *postCache) GetPubList(ctx context.Context, page int, size int) ([]domain.Post, error) {
+	if page <= 0 || size <= 0 {
+		return nil, fmt.Errorf("无效的分页参数: page=%d, size=%d", page, size)
+	}
+
 	key := fmt.Sprintf("%d_%d", page, size)
 	data, err := c.client.Get(ctx, c.pubListKey(key)).Bytes()
 	if err != nil {
@@ -225,6 +286,8 @@ func (c *postCache) GetPubList(ctx context.Context, page int, size int) ([]domai
 
 	var posts []domain.Post
 	if err = json.Unmarshal(data, &posts); err != nil {
+		// 删除可能损坏的缓存数据
+		_ = c.client.Del(ctx, c.pubListKey(key))
 		return nil, fmt.Errorf("反序列化已发布帖子列表数据失败: %v", err)
 	}
 
@@ -233,17 +296,21 @@ func (c *postCache) GetPubList(ctx context.Context, page int, size int) ([]domai
 
 // SetPubList 设置已发布帖子列表缓存
 func (c *postCache) SetPubList(ctx context.Context, page int, size int, posts []domain.Post) error {
+	if page <= 0 || size <= 0 {
+		return fmt.Errorf("无效的分页参数: page=%d, size=%d", page, size)
+	}
+
 	// 获取分布式锁
 	key := fmt.Sprintf("%d_%d", page, size)
-	lockKey := c.lockKey(key)
-	ok, err := c.client.SetNX(ctx, lockKey, "1", time.Second*5).Result()
+	lockKey := c.lockKey("publist:" + key)
+	success, err := c.acquireLock(ctx, lockKey, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("获取分布式锁失败: %v", err)
 	}
-	if !ok {
+	if !success {
 		return fmt.Errorf("获取分布式锁失败: 锁已被占用")
 	}
-	defer c.client.Del(ctx, lockKey)
+	defer c.releaseLock(ctx, lockKey)
 
 	data, err := json.Marshal(posts)
 	if err != nil {
@@ -296,15 +363,26 @@ func (c *postCache) DelPubList(ctx context.Context, key string) error {
 				if i == 2 { // 最后一次重试失败
 					return fmt.Errorf("批量删除缓存键失败(重试3次): %v", err)
 				}
+				time.Sleep(time.Millisecond * 50) // 失败后短暂等待再重试
 			}
 		}
 		return nil
 	}
-	return nil
+	return c.client.Del(ctx, c.pubListKey(key)).Err()
 }
 
 // GetPub 获取已发布帖子缓存
 func (c *postCache) GetPub(ctx context.Context, key string) (domain.Post, error) {
+	if key == "" {
+		return domain.Post{}, fmt.Errorf("无效的帖子ID: %s", key)
+	}
+
+	// 先检查是否是空对象
+	isEmpty, err := c.IsEmpty(ctx, key)
+	if err == nil && isEmpty {
+		return domain.Post{}, fmt.Errorf("帖子不存在 %s", key)
+	}
+
 	data, err := c.client.Get(ctx, c.pubKey(key)).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -323,16 +401,20 @@ func (c *postCache) GetPub(ctx context.Context, key string) (domain.Post, error)
 
 // SetPub 设置已发布帖子缓存
 func (c *postCache) SetPub(ctx context.Context, key string, post domain.Post) error {
+	if key == "" {
+		return fmt.Errorf("无效的帖子ID: %s", key)
+	}
+
 	// 获取分布式锁
-	lockKey := c.lockKey(key)
-	ok, err := c.client.SetNX(ctx, lockKey, "1", time.Second*5).Result()
+	lockKey := c.lockKey("pub:" + key)
+	success, err := c.acquireLock(ctx, lockKey, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("获取分布式锁失败: %v", err)
 	}
-	if !ok {
+	if !success {
 		return fmt.Errorf("获取分布式锁失败: 锁已被占用")
 	}
-	defer c.client.Del(ctx, lockKey)
+	defer c.releaseLock(ctx, lockKey)
 
 	data, err := json.Marshal(post)
 	if err != nil {
@@ -341,16 +423,38 @@ func (c *postCache) SetPub(ctx context.Context, key string, post domain.Post) er
 
 	// 使用随机过期时间
 	randomExpiration := c.expiration + time.Duration(rand.Int63n(300))*time.Second
-	return c.client.Set(ctx, c.pubKey(key), data, randomExpiration).Err()
+	err = c.client.Set(ctx, c.pubKey(key), data, randomExpiration).Err()
+	if err != nil {
+		return fmt.Errorf("设置缓存失败: %v", err)
+	}
+
+	// 删除空对象标记(如果存在)
+	_ = c.client.Del(ctx, c.emptyKey(key))
+
+	return nil
 }
 
 // DelPub 删除已发布帖子缓存
 func (c *postCache) DelPub(ctx context.Context, key string) error {
+	if key == "" {
+		return fmt.Errorf("无效的帖子ID: %s", key)
+	}
+
 	return c.client.Del(ctx, c.pubKey(key)).Err()
 }
 
-func (c *postCache) key(id int64) string {
-	return c.prefix + fmt.Sprint(id)
+// 辅助方法: 获取分布式锁
+func (c *postCache) acquireLock(ctx context.Context, lockKey string, expiration time.Duration) (bool, error) {
+	return c.client.SetNX(ctx, lockKey, "1", expiration).Result()
+}
+
+// 辅助方法: 释放分布式锁
+func (c *postCache) releaseLock(ctx context.Context, lockKey string) {
+	_ = c.client.Del(ctx, lockKey)
+}
+
+func (c *postCache) key(key string) string {
+	return c.prefix + key
 }
 
 func (c *postCache) listKey(key string) string {
@@ -365,10 +469,10 @@ func (c *postCache) pubKey(key string) string {
 	return c.pubPrefix + key
 }
 
-func (c *postCache) emptyKey(id int64) string {
-	return c.emptyPrefix + fmt.Sprint(id)
+func (c *postCache) emptyKey(key string) string {
+	return c.emptyPrefix + key
 }
 
-func (c *postCache) lockKey(key interface{}) string {
-	return c.lockPrefix + fmt.Sprint(key)
+func (c *postCache) lockKey(key string) string {
+	return c.lockPrefix + key
 }
