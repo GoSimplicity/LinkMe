@@ -28,6 +28,7 @@ type PostDAO interface {
 	Delete(ctx context.Context, postId uint, uid int64) error
 	ListAll(ctx context.Context, pagination domain.Pagination) ([]Post, error)
 	GetPost(ctx context.Context, postId uint) (Post, error)
+	GetPostsCount(ctx context.Context) (int64, error)
 }
 
 type postDAO struct {
@@ -39,7 +40,7 @@ type Post struct {
 	gorm.Model
 	Title        string `gorm:"size:255;not null"`            // 帖子标题
 	Content      string `gorm:"type:text;not null"`           // 帖子内容
-	Status       uint8  `gorm:"default:0"`                    // 帖子状态 
+	Status       uint8  `gorm:"default:0"`                    // 帖子状态
 	Uid          int64  `gorm:"column:uid;index"`             // 作者ID
 	Slug         string `gorm:"size:100;uniqueIndex"`         // 唯一标识
 	CategoryID   int64  `gorm:"index"`                        // 分类ID
@@ -111,11 +112,14 @@ func (p *postDAO) Update(ctx context.Context, post Post) error {
 
 	// 更新帖子基本信息
 	res := p.db.WithContext(ctx).Model(&Post{}).Where("id = ? AND uid = ?", post.ID, post.Uid).Updates(map[string]interface{}{
-		"title":      post.Title,
-		"content":    post.Content,
-		"plate_id":   post.PlateID,
-		"status":     post.Status,
-		"updated_at": time.Now(),
+		"title":       post.Title,
+		"content":     post.Content,
+		"plate_id":    post.PlateID,
+		"status":      post.Status,
+		"is_submit":   post.IsSubmit,
+		"category_id": post.CategoryID,
+		"tags":        post.Tags,
+		"updated_at":  time.Now(),
 	})
 
 	if res.Error != nil {
@@ -330,4 +334,14 @@ func (p *postDAO) ListAll(ctx context.Context, pagination domain.Pagination) ([]
 	}
 
 	return posts, nil
+}
+
+// GetPostsCount 获取帖子总数
+func (p *postDAO) GetPostsCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := p.db.WithContext(ctx).Model(&Post{}).Count(&count).Error; err != nil {
+		p.l.Error("获取帖子总数失败", zap.Error(err))
+		return 0, err
+	}
+	return count, nil
 }

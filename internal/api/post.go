@@ -33,11 +33,12 @@ func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup.POST("/list", ph.List)                   // 获取个人帖子列表
 	postGroup.POST("/list_pub", ph.ListPub)            // 获取公开帖子列表
 	postGroup.POST("/list_all", ph.ListAll)            // 获取所有帖子列表
-	postGroup.GET("/get/:id", ph.GetPost)              // 获取帖子详情
+	postGroup.GET("/get/:postId", ph.GetPost)          // 获取帖子详情
 	postGroup.GET("/detail/:postId", ph.Detail)        // 获取个人帖子详情
 	postGroup.GET("/detail_pub/:postId", ph.DetailPub) // 获取公开帖子详情
 	postGroup.POST("/like", ph.Like)                   // 点赞/取消点赞
 	postGroup.POST("/collect", ph.Collect)             // 收藏/取消收藏
+	postGroup.GET("/count", ph.GetPostsCount)          // 获取帖子总数
 }
 
 // Edit 创建新帖子
@@ -150,7 +151,7 @@ func (ph *PostHandler) List(ctx *gin.Context) {
 
 // ListPub 获取公开帖子列表
 func (ph *PostHandler) ListPub(ctx *gin.Context) {
-	var req req.ListPubReq
+	var req req.ListReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
 		return
@@ -286,7 +287,7 @@ func (ph *PostHandler) Collect(ctx *gin.Context) {
 
 // ListAll 获取所有帖子列表
 func (ph *PostHandler) ListAll(ctx *gin.Context) {
-	var req req.ListPostReq
+	var req req.ListReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
 		return
@@ -319,4 +320,14 @@ func (ph *PostHandler) GetPost(ctx *gin.Context) {
 	}
 
 	apiresponse.SuccessWithData(ctx, post)
+}
+
+// GetPostsCount 获取帖子总数
+func (ph *PostHandler) GetPostsCount(ctx *gin.Context) {
+	count, err := ph.svc.GetPostsCount(ctx)
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, err.Error())
+		return
+	}
+	apiresponse.SuccessWithData(ctx, count)
 }

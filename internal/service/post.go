@@ -27,6 +27,7 @@ type PostService interface {
 	Delete(ctx context.Context, postId uint, uid int64) error
 	ListAll(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
+	GetPostsCount(ctx context.Context) (int64, error)
 }
 
 type postService struct {
@@ -213,4 +214,9 @@ func (p *postService) ListAll(ctx context.Context, pagination domain.Pagination)
 	offset := int64(pagination.Page-1) * *pagination.Size
 	pagination.Offset = &offset
 	return p.repo.ListAllPosts(ctx, pagination)
+}
+
+// GetPostsCount 获取帖子数量
+func (p *postService) GetPostsCount(ctx context.Context) (int64, error) {
+	return p.repo.GetPostsCount(ctx)
 }

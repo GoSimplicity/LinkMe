@@ -20,16 +20,6 @@ type ListReq struct {
 	Size *int64 `json:"size,omitempty"` // 每页数据量
 }
 
-type ListPubReq struct {
-	Page int    `json:"page,omitempty"` // 当前页码
-	Size *int64 `json:"size,omitempty"` // 每页数据量
-}
-
-type ListPostReq struct {
-	Page int    `json:"page,omitempty"` // 当前页码
-	Size *int64 `json:"size,omitempty"` // 每页数据量
-}
-
 type DetailPostReq struct {
 	PostId uint `uri:"postId"`
 }
@@ -58,10 +48,10 @@ type CollectReq struct {
 	Collectd bool `json:"collectd,omitempty"`
 }
 
-type InteractReq struct {
-	BizId   []int64 `json:"bizId,omitempty"`
-	BizName string  `json:"bizName,omitempty"`
-}
+// type InteractReq struct {
+// 	BizId   []int64 `json:"bizId,omitempty"`
+// 	BizName string  `json:"bizName,omitempty"`
+// }
 
-type GetPostCountReq struct {
-}
+// type GetPostCountReq struct {
+// }

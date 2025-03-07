@@ -15,32 +15,33 @@ const (
 )
 
 type Post struct {
-	ID           uint
-	Title        string
-	Content      string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    sql.NullTime
-	ReadCount    int64
-	LikeCount    int64
-	CollectCount int64
-	Uid          int64
-	Status       uint8
-	PlateID      int64
-	Slug         string
-	CategoryID   int64
-	Tags         string
-	CommentCount int64
-	IsSubmit     bool
+	ID           uint         `json:"id"`
+	Title        string       `json:"title"`
+	Content      string       `json:"content"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	DeletedAt    sql.NullTime `json:"deleted_at"`
+	ReadCount    int64        `json:"read_count"`
+	LikeCount    int64        `json:"like_count"`
+	CollectCount int64        `json:"collect_count"`
+	Uid          int64        `json:"uid"`
+	Status       uint8        `json:"status"`
+	PlateID      int64        `json:"plate_id"`
+	Slug         string       `json:"slug"`
+	CategoryID   int64        `json:"category_id"`
+	Tags         string       `json:"tags"`
+	CommentCount int64        `json:"comment_count"`
+	IsSubmit     bool         `json:"is_submit"`
+	Total        int64        `json:"total"`
 }
 
 type Interactive struct {
-	BizID        uint
-	ReadCount    int64
-	LikeCount    int64
-	CollectCount int64
-	Liked        bool
-	Collected    bool
+	BizID        uint  `json:"biz_id"`
+	ReadCount    int64 `json:"read_count"`
+	LikeCount    int64 `json:"like_count"`
+	CollectCount int64 `json:"collect_count"`
+	Liked        bool  `json:"liked"`
+	Collected    bool  `json:"collected"`
 }
 
 func (i *Interactive) IncrementReadCount() {
