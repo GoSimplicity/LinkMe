@@ -30,6 +30,7 @@ type PostRepository interface {
 	Delete(ctx context.Context, postId uint, uid int64) error
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 	ListAllPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
+	GetPostsCount(ctx context.Context) (int64, error)
 }
 
 type postRepository struct {
@@ -297,7 +298,10 @@ func (p *postRepository) refreshCache(options ...interface{}) {
 	payload := job.Payload{
 		RefreshType: options[0].(int),
 		Key:         options[1].(string),
-		PostId:      options[2].(uint),
+	}
+
+	if len(options) > 2 {
+		payload.PostId = options[2].(uint)
 	}
 
 	jsonPayload, err := json.Marshal(payload)
@@ -309,4 +313,8 @@ func (p *postRepository) refreshCache(options ...interface{}) {
 	if _, err := p.asynqClient.Enqueue(task, asynq.ProcessIn(time.Second*5)); err != nil {
 		p.l.Error("异步删除帖子缓存失败", zap.Error(err))
 	}
+}
+
+func (p *postRepository) GetPostsCount(ctx context.Context) (int64, error) {
+	return p.dao.GetPostsCount(ctx)
 }
