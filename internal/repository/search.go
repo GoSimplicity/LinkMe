@@ -79,14 +79,6 @@ func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.Po
 	return s.dao.BulkInputPosts(ctx, daoPosts)
 }
 
-func (s *searchRepository) BulkInputPosts(ctx context.Context, posts []domain.PostSearch) error {
-	var daoPosts []dao.PostSearch
-	for _, post := range posts {
-		daoPosts = append(daoPosts, s.toDaoPostSearch(post))
-	}
-	return s.dao.BulkInputPosts(ctx, daoPosts)
-}
-
 func (s *searchRepository) BulkInputUsers(ctx context.Context, users []domain.UserSearch) error {
 	var daoUsers []dao.UserSearch
 	for _, user := range users {
