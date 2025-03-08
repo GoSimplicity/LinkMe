@@ -1,17 +1,16 @@
 package dao
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"time"
+  "context"
+  "errors"
+  "fmt"
+  "time"
 
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	sf "github.com/bwmarrin/snowflake"
-	"github.com/casbin/casbin/v2"
-	"github.com/go-sql-driver/mysql"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
+  "github.com/GoSimplicity/LinkMe/internal/domain"
+  "github.com/casbin/casbin/v2"
+  "github.com/go-sql-driver/mysql"
+  "go.uber.org/zap"
+  "gorm.io/gorm"
 )
 
 var (
@@ -67,7 +66,7 @@ type Profile struct {
 	Phone    *string `gorm:"type:varchar(15);uniqueIndex"`
 }
 
-func NewUserDAO(db *gorm.DB, node *sf.Node, l *zap.Logger, ce *casbin.Enforcer) UserDAO {
+func NewUserDAO(db *gorm.DB, l *zap.Logger, ce *casbin.Enforcer) UserDAO {
 	return &userDAO{
 		db: db,
 		l:  l,

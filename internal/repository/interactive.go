@@ -6,6 +6,7 @@ import (
 
 	. "github.com/GoSimplicity/LinkMe/internal/constants"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 
 	"go.uber.org/zap"
@@ -24,14 +25,16 @@ type InteractiveRepository interface {
 }
 
 type InteractiveRepositoryImpl struct {
-	dao dao.InteractiveDAO
-	l   *zap.Logger
+	dao   dao.InteractiveDAO
+	cache cache.InteractiveCache
+	l     *zap.Logger
 }
 
-func NewInteractiveRepository(dao dao.InteractiveDAO, l *zap.Logger) InteractiveRepository {
+func NewInteractiveRepository(dao dao.InteractiveDAO, l *zap.Logger, cache cache.InteractiveCache) InteractiveRepository {
 	return &InteractiveRepositoryImpl{
-		dao: dao,
-		l:   l,
+		dao:   dao,
+		cache: cache,
+		l:     l,
 	}
 }
 

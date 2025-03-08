@@ -25,20 +25,21 @@ func NewPostHandler(svc service.PostService, intSvc service.InteractiveService) 
 func (ph *PostHandler) RegisterRoutes(server *gin.Engine) {
 	postGroup := server.Group("/api/posts")
 
-	postGroup.POST("/edit", ph.Edit)                   // 编辑帖子
-	postGroup.POST("/update", ph.Update)               // 更新帖子
-	postGroup.POST("/publish", ph.Publish)             // 发布帖子
-	postGroup.POST("/withdraw", ph.Withdraw)           // 撤回帖子
-	postGroup.DELETE("/delete/:postId", ph.DeletePost) // 删除帖子
-	postGroup.POST("/list", ph.List)                   // 获取个人帖子列表
-	postGroup.POST("/list_pub", ph.ListPub)            // 获取公开帖子列表
-	postGroup.POST("/list_all", ph.ListAll)            // 获取所有帖子列表
-	postGroup.GET("/get/:postId", ph.GetPost)          // 获取帖子详情
-	postGroup.GET("/detail/:postId", ph.Detail)        // 获取个人帖子详情
-	postGroup.GET("/detail_pub/:postId", ph.DetailPub) // 获取公开帖子详情
-	postGroup.POST("/like", ph.Like)                   // 点赞/取消点赞
-	postGroup.POST("/collect", ph.Collect)             // 收藏/取消收藏
-	postGroup.GET("/count", ph.GetPostsCount)          // 获取帖子总数
+	postGroup.POST("/edit", ph.Edit)
+	postGroup.POST("/update", ph.Update)
+	postGroup.POST("/publish", ph.Publish)
+	postGroup.POST("/withdraw", ph.Withdraw)
+	postGroup.DELETE("/delete/:postId", ph.DeletePost)
+	postGroup.POST("/list", ph.List)
+	postGroup.POST("/list_pub", ph.ListPub)
+	postGroup.POST("/list_all", ph.ListAll)
+	postGroup.GET("/get/:postId", ph.GetPost)
+	postGroup.GET("/detail/:postId", ph.Detail)
+	postGroup.GET("/detail_pub/:postId", ph.DetailPub)
+	postGroup.POST("/like", ph.Like)
+	postGroup.POST("/collect", ph.Collect)
+	postGroup.GET("/count", ph.GetPostsCount)
+	postGroup.POST("/get_by_plate", ph.GetPostsByPlate)
 }
 
 // Edit 创建新帖子
@@ -247,8 +248,6 @@ func (ph *PostHandler) Like(ctx *gin.Context) {
 
 	if req.Liked {
 		err = ph.intSvc.Like(ctx, req.PostId, uc.Uid)
-	} else {
-		err = ph.intSvc.CancelLike(ctx, req.PostId, uc.Uid)
 	}
 
 	if err != nil {
@@ -330,4 +329,24 @@ func (ph *PostHandler) GetPostsCount(ctx *gin.Context) {
 		return
 	}
 	apiresponse.SuccessWithData(ctx, count)
+}
+
+// GetPostsByPlate 根据板块获取帖子
+func (ph *PostHandler) GetPostsByPlate(ctx *gin.Context) {
+	var req req.SearchByPlateReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
+		return
+	}
+
+	posts, err := ph.svc.GetPostsByPlate(ctx, req.PlateId, domain.Pagination{
+		Page: req.Page,
+		Size: req.Size,
+	})
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, err.Error())
+		return
+	}
+
+	apiresponse.SuccessWithData(ctx, posts)
 }

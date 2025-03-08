@@ -16,7 +16,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/job"
-	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
@@ -32,10 +31,9 @@ import (
 
 func InitWebServer() *Cmd {
 	db := InitDB()
-	node := InitializeSnowflakeNode()
 	logger := InitLogger()
 	enforcer := InitCasbin(db)
-	userDAO := dao.NewUserDAO(db, node, logger, enforcer)
+	userDAO := dao.NewUserDAO(db, logger, enforcer)
 	cmdable := InitRedis()
 	userCache := cache.NewUserCache(cmdable)
 	userRepository := repository.NewUserRepository(userDAO, userCache, logger)
@@ -56,7 +54,8 @@ func InitWebServer() *Cmd {
 	postProducer := post.NewSaramaSyncProducer(syncProducer)
 	checkProducer := check.NewSaramaCheckProducer(syncProducer)
 	interactiveDAO := dao.NewInteractiveDAO(db, logger)
-	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger)
+	interactiveCache := cache.NewInteractiveCache(cmdable)
+	interactiveRepository := repository.NewInteractiveRepository(interactiveDAO, logger, interactiveCache)
 	postService := service.NewPostService(postRepository, logger, postProducer, checkProducer, interactiveRepository)
 	interactiveService := service.NewInteractiveService(interactiveRepository, logger)
 	postHandler := api.NewPostHandler(postService, interactiveService)
@@ -70,7 +69,7 @@ func InitWebServer() *Cmd {
 	activityRepository := repository.NewActivityRepository(activityDAO)
 	publishProducer := publish.NewSaramaSyncProducer(syncProducer, logger)
 	commentProducer := comment.NewSaramaCommentProducer(syncProducer)
-	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer,commentProducer)
+	checkService := service.NewCheckService(checkRepository, searchRepository, logger, activityRepository, publishProducer, commentProducer)
 	checkHandler := api.NewCheckHandler(checkService)
 	v := InitMiddlewares(handler, logger)
 	apiDAO := dao.NewApiDAO(db, logger)
@@ -78,12 +77,12 @@ func InitWebServer() *Cmd {
 	permissionRepository := repository.NewPermissionRepository(logger, permissionDAO)
 	permissionService := service.NewPermissionService(logger, permissionRepository)
 	permissionHandler := api.NewPermissionHandler(permissionService, logger)
-	rankingParameterDAO := dao.NewRankingParameterDAO( db,logger)
-	rankingParameterRepository := repository.NewRankingParameterRepository(rankingParameterDAO, logger)
 	rankingRedisCache := cache.NewRankingRedisCache(cmdable, logger)
 	rankingLocalCache := cache.NewRankingLocalCache(logger)
-	rankingRepository := repository.NewRankingCache(rankingRedisCache, rankingLocalCache, logger)
-	rankingService := service.NewRankingService(interactiveRepository, postRepository, rankingRepository,rankingParameterRepository, logger)
+	rankingRepository := repository.NewRankingRepository(rankingRedisCache, rankingLocalCache, logger)
+	rankingParameterDAO := dao.NewRankingParameterDAO(db, logger)
+	rankingParameterRepository := repository.NewRankingParameterRepository(rankingParameterDAO, logger)
+	rankingService := service.NewRankingService(interactiveRepository, postRepository, rankingRepository, rankingParameterRepository, logger)
 	rankingHandler := api.NewRakingHandler(rankingService)
 	plateDAO := dao.NewPlateDAO(logger, db)
 	plateRepository := repository.NewPlateRepository(logger, plateDAO)
@@ -93,8 +92,8 @@ func InitWebServer() *Cmd {
 	activityHandler := api.NewActivityHandler(activityService, enforcer)
 	commentDAO := dao.NewCommentDAO(db, logger)
 	commentCache := cache.NewCommentCache(cmdable)
-	commentRepository := repository.NewCommentRepository(commentDAO,commentCache)
-	commentService := service.NewCommentService(commentRepository,checkProducer)
+	commentRepository := repository.NewCommentRepository(commentDAO, commentCache)
+	commentService := service.NewCommentService(commentRepository, checkProducer)
 	commentHandler := api.NewCommentHandler(commentService)
 	searchService := service.NewSearchService(searchRepository)
 	searchHandler := api.NewSearchHandler(searchService)
@@ -125,18 +124,17 @@ func InitWebServer() *Cmd {
 	tencentSms := InitSms()
 	smsRepository := repository.NewSmsRepository(smsDAO, smsCache, logger, tencentSms)
 	smsConsumer := sms.NewSMSConsumer(smsRepository, client, logger, smsCache)
-	commentConsumer := comment.NewPublishCommentEventConsumer(commentRepository,searchRepository, client, logger)
+	publishCommentEventConsumer := comment.NewPublishCommentEventConsumer(commentRepository, searchRepository, client, logger)
 	emailCache := cache.NewEmailCache(cmdable)
 	emailRepository := repository.NewEmailRepository(emailCache, logger)
 	emailConsumer := email.NewEmailConsumer(emailRepository, client, logger)
 	publishPostEventConsumer := publish.NewPublishPostEventConsumer(postRepository, client, syncProducer, logger)
 	esConsumer := es.NewEsConsumer(client, logger, searchRepository)
-	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, syncProducer, logger, publishProducer,commentProducer)
+	checkEventConsumer := check.NewCheckEventConsumer(checkRepository, client, syncProducer, logger, publishProducer, commentProducer)
 	postDeadLetterConsumer := post.NewPostDeadLetterConsumer(interactiveRepository, historyRepository, client, logger)
 	publishDeadLetterConsumer := publish.NewPublishDeadLetterConsumer(postRepository, client, logger)
 	checkDeadLetterConsumer := check.NewCheckDeadLetterConsumer(checkRepository, client, logger)
-	v2 := InitConsumers(eventConsumer, smsConsumer,commentConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
-	mockUserRepository := mock.NewMockUserRepository(db, logger, enforcer)
+	v2 := InitConsumers(eventConsumer, smsConsumer, publishCommentEventConsumer, emailConsumer, publishPostEventConsumer, esConsumer, checkEventConsumer, postDeadLetterConsumer, publishDeadLetterConsumer, checkDeadLetterConsumer)
 	refreshCacheTask := job.NewRefreshCacheTask(postCache, logger)
 	interfacesRankingService := InitRankingService(rankingService)
 	timedTask := job.NewTimedTask(logger, interfacesRankingService)
@@ -147,7 +145,6 @@ func InitWebServer() *Cmd {
 	cmd := &Cmd{
 		Server:    engine,
 		Consumer:  v2,
-		Mock:      mockUserRepository,
 		Routes:    routes,
 		Asynq:     server,
 		Scheduler: timedScheduler,

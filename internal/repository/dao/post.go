@@ -29,6 +29,7 @@ type PostDAO interface {
 	ListAll(ctx context.Context, pagination domain.Pagination) ([]Post, error)
 	GetPost(ctx context.Context, postId uint) (Post, error)
 	GetPostsCount(ctx context.Context) (int64, error)
+	GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]Post, error)
 }
 
 type postDAO struct {
@@ -40,7 +41,7 @@ type Post struct {
 	gorm.Model
 	Title        string `gorm:"size:255;not null"`            // 帖子标题
 	Content      string `gorm:"type:text;not null"`           // 帖子内容
-	Status       uint8  `gorm:"default:0"`                    // 帖子状态 
+	Status       uint8  `gorm:"default:0"`                    // 帖子状态
 	Uid          int64  `gorm:"column:uid;index"`             // 作者ID
 	Slug         string `gorm:"size:100;uniqueIndex"`         // 唯一标识
 	CategoryID   int64  `gorm:"index"`                        // 分类ID
@@ -344,4 +345,27 @@ func (p *postDAO) GetPostsCount(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+// GetPostsByPlate 根据板块获取帖子
+func (p *postDAO) GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]Post, error) {
+	if plateId <= 0 {
+		return nil, ErrInvalidParams
+	}
+
+	var posts []Post
+	err := p.db.WithContext(ctx).Model(&Post{}).
+		Where("plate_id = ?", plateId).
+		Preload("Plate").
+		Order("created_at DESC").
+		Limit(int(*pagination.Size)).
+		Offset(int(*pagination.Offset)).
+		Find(&posts).Error
+
+	if err != nil {
+		p.l.Error("根据板块搜索帖子失败", zap.Error(err), zap.Int64("plate_id", plateId))
+		return nil, err
+	}
+
+	return posts, nil
 }

@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"github.com/GoSimplicity/LinkMe/internal/domain/events"
-	"github.com/GoSimplicity/LinkMe/ioc"
-	"github.com/spf13/viper"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain/events"
+	"github.com/GoSimplicity/LinkMe/ioc"
+	"github.com/spf13/viper"
 
 	"github.com/GoSimplicity/LinkMe/config"
 	"github.com/gin-gonic/gin"
@@ -70,11 +71,6 @@ func Init() {
 			zap.L().Fatal("启动异步任务服务器失败", zap.Error(err))
 		}
 	}()
-
-	// 启动 Mock 数据
-	if err := cmd.Mock.MockUser(); err != nil {
-		zap.L().Fatal("生成模拟数据失败", zap.Error(err))
-	}
 
 	// 在新的goroutine中启动服务器
 	go func() {

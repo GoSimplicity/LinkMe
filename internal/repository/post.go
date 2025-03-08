@@ -31,6 +31,7 @@ type PostRepository interface {
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 	ListAllPosts(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPostsCount(ctx context.Context) (int64, error)
+	GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]domain.Post, error)
 }
 
 type postRepository struct {
@@ -317,4 +318,13 @@ func (p *postRepository) refreshCache(options ...interface{}) {
 
 func (p *postRepository) GetPostsCount(ctx context.Context) (int64, error) {
 	return p.dao.GetPostsCount(ctx)
+}
+
+func (p *postRepository) GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]domain.Post, error) {
+	posts, err := p.dao.GetPostsByPlate(ctx, plateId, pagination)
+	if err != nil {
+		return nil, fmt.Errorf("获取帖子失败: %w", err)
+	}
+
+	return change.FromDomainSlicePost(posts), nil
 }
