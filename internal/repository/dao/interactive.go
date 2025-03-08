@@ -18,11 +18,11 @@ const (
 )
 
 var (
-	ErrRecordNotFound = gorm.ErrRecordNotFound
-	ErrLikeNotFound   = errors.New("用户未点赞,无法取消")
-	ErrLikeAlready    = errors.New("点赞已取消,请勿重复操作")
+	ErrRecordNotFound  = gorm.ErrRecordNotFound
+	ErrLikeNotFound    = errors.New("用户未点赞,无法取消")
+	ErrLikeAlready     = errors.New("点赞已取消,请勿重复操作")
 	ErrCollectNotFound = errors.New("用户未收藏,无法取消")
-	ErrCollectAlready = errors.New("收藏已取消,请勿重复操作")
+	ErrCollectAlready  = errors.New("收藏已取消,请勿重复操作")
 )
 
 type InteractiveDAO interface {
@@ -67,7 +67,7 @@ type UserCollectionBiz struct {
 // Interactive 互动信息结构体
 type Interactive struct {
 	ID           int64 `gorm:"primaryKey;autoIncrement"`
-	BizID        uint  `gorm:"uniqueIndex"`
+	BizID        uint  `gorm:"index"`
 	ReadCount    int64 `gorm:"column:read_count"`
 	LikeCount    int64 `gorm:"column:like_count"`
 	CollectCount int64 `gorm:"column:collect_count"`

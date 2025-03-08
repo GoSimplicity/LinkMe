@@ -14,7 +14,6 @@ import (
 // InteractiveService 定义互动相关的业务接口
 type InteractiveService interface {
 	Like(ctx context.Context, postId uint, uid int64) error
-	CancelLike(ctx context.Context, postId uint, uid int64) error
 	Collect(ctx context.Context, postId uint, uid int64) error
 	CancelCollect(ctx context.Context, postId uint, uid int64) error
 	Get(ctx context.Context, postId uint) (domain.Interactive, error)
@@ -46,18 +45,10 @@ func (i *interactiveService) Like(ctx context.Context, postId uint, uid int64) e
 	}
 
 	if exist {
-		return errors.New("已点赞")
+		return i.repo.DecrLike(ctx, postId, uid)
 	}
 
 	return i.repo.IncrLike(ctx, postId, uid)
-}
-
-// CancelLike 处理取消点赞逻辑
-func (i *interactiveService) CancelLike(ctx context.Context, postId uint, uid int64) error {
-	if postId == 0 || uid <= 0 {
-		return errors.New("invalid parameters")
-	}
-	return i.repo.DecrLike(ctx, postId, uid)
 }
 
 // Collect 处理收藏逻辑

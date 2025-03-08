@@ -55,3 +55,9 @@ type CollectReq struct {
 
 // type GetPostCountReq struct {
 // }
+
+type SearchByPlateReq struct {
+	PlateId int64  `json:"plateId,omitempty"`
+	Page    int    `json:"page,omitempty"`
+	Size    *int64 `json:"size,omitempty"`
+}

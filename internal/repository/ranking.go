@@ -20,7 +20,7 @@ type rankingRepository struct {
 	l          *zap.Logger
 }
 
-func NewRankingCache(redisCache cache.RankingRedisCache, localCache cache.RankingLocalCache, l *zap.Logger) RankingRepository {
+func NewRankingRepository(redisCache cache.RankingRedisCache, localCache cache.RankingLocalCache, l *zap.Logger) RankingRepository {
 	return &rankingRepository{
 		redisCache: redisCache,
 		localCache: localCache,

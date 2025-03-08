@@ -28,6 +28,7 @@ type PostService interface {
 	ListAll(ctx context.Context, pagination domain.Pagination) ([]domain.Post, error)
 	GetPost(ctx context.Context, postId uint) (domain.Post, error)
 	GetPostsCount(ctx context.Context) (int64, error)
+	GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]domain.Post, error)
 }
 
 type postService struct {
@@ -219,4 +220,11 @@ func (p *postService) ListAll(ctx context.Context, pagination domain.Pagination)
 // GetPostsCount 获取帖子数量
 func (p *postService) GetPostsCount(ctx context.Context) (int64, error) {
 	return p.repo.GetPostsCount(ctx)
+}
+
+// GetPostsByPlate 根据板块获取帖子
+func (p *postService) GetPostsByPlate(ctx context.Context, plateId int64, pagination domain.Pagination) ([]domain.Post, error) {
+	offset := int64(pagination.Page-1) * *pagination.Size
+	pagination.Offset = &offset
+	return p.repo.GetPostsByPlate(ctx, plateId, pagination)
 }

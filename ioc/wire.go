@@ -5,13 +5,13 @@ package ioc
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
+	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/email"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/es"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/post"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/sms"
 	"github.com/GoSimplicity/LinkMe/internal/job"
-	"github.com/GoSimplicity/LinkMe/internal/mock"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
@@ -31,7 +31,6 @@ func InitWebServer() *Cmd {
 		InitSaramaClient,
 		InitConsumers,
 		InitSyncProducer,
-		// InitializeSnowflakeNode,
 		InitCasbin,
 		InitSms,
 		InitES,
@@ -78,7 +77,8 @@ func InitWebServer() *Cmd {
 		repository.NewCheckRepository,
 		repository.NewSmsRepository,
 		repository.NewPermissionRepository,
-		repository.NewRankingCache,
+		repository.NewRankingRepository,
+		repository.NewRankingParameterRepository,
 		repository.NewEmailRepository,
 		repository.NewPlateRepository,
 		repository.NewActivityRepository,
@@ -97,6 +97,8 @@ func InitWebServer() *Cmd {
 		cache.NewEmailCache,
 		cache.NewRelationCache,
 		cache.NewPostCache,
+		cache.NewCommentCache,
+		cache.NewInteractiveCache,
 		dao.NewUserDAO,
 		dao.NewPostDAO,
 		dao.NewInteractiveDAO,
@@ -112,6 +114,7 @@ func InitWebServer() *Cmd {
 		dao.NewRoleDAO,
 		dao.NewMenuDAO,
 		dao.NewApiDAO,
+		dao.NewRankingParameterDAO,
 		post.NewSaramaSyncProducer,
 		post.NewEventConsumer,
 		post.NewPostDeadLetterConsumer,
@@ -126,7 +129,8 @@ func InitWebServer() *Cmd {
 		check.NewSaramaCheckProducer,
 		check.NewCheckDeadLetterConsumer,
 		es.NewEsConsumer,
-		mock.NewMockUserRepository,
+		comment.NewSaramaCommentProducer,
+		comment.NewPublishCommentEventConsumer,
 		job.NewRoutes,
 		job.NewRefreshCacheTask,
 		job.NewTimedTask,
