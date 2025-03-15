@@ -1,9 +1,0 @@
-http.host: "0.0.0.0"
-path.config: /usr/share/logstash/pipeline
-xpack.monitoring.enabled: false
-pipeline.workers: 2
-pipeline.batch.size: 125
-pipeline.batch.delay: 50
-queue.type: memory
-queue.max_bytes: 1024mb 
-log.level: info
