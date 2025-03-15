@@ -18,12 +18,15 @@ func main() {
 	if err := di.InitViper(); err != nil {
 		panic("初始化配置失败: " + err.Error())
 	}
+	app, err := di.ProvideApp()
+	if err != nil {
+		panic("初始化应用失败: " + err.Error())
+	}
 
-	logger := di.InitZap()
-	defer logger.Sync()
+	defer app.Logger.Sync()
 
 	// 替换全局logger
-	zap.ReplaceGlobals(logger)
+	zap.ReplaceGlobals(app.Logger)
 
 	mode := viper.GetString("server.mode")
 	if mode == "" {
@@ -31,9 +34,7 @@ func main() {
 	}
 	gin.SetMode(mode)
 
-	r := gin.New()
-	// 使用自定义的日志中间件和恢复中间件
-	r.Use(ginLogger(), gin.Recovery())
+	r := app.Server
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -72,62 +73,4 @@ func main() {
 	}
 
 	zap.L().Info("服务器已成功关闭")
-}
-
-// ginLogger 自定义 Gin 的日志中间件
-func ginLogger() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		path := c.Request.URL.Path
-		method := c.Request.Method
-		clientIP := c.ClientIP()
-		userAgent := c.Request.UserAgent()
-
-		c.Next()
-
-		end := time.Now()
-		latency := end.Sub(start)
-		statusCode := c.Writer.Status()
-		errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
-
-		// 构建基础日志字段
-		fields := []zap.Field{
-			zap.Int("状态码", statusCode),
-			zap.String("请求方法", method),
-			zap.String("请求路径", path),
-			zap.String("客户端IP", clientIP),
-			zap.Duration("响应时间", latency),
-		}
-
-		// 只有在有用户代理信息时才添加该字段
-		if userAgent != "" {
-			fields = append(fields, zap.String("用户代理", userAgent))
-		}
-
-		// 只有在有错误信息时才添加该字段
-		if errorMessage != "" {
-			fields = append(fields, zap.String("错误信息", errorMessage))
-		}
-
-		// 添加响应时间的人性化显示
-		if latency > time.Second {
-			fields = append(fields, zap.String("耗时", latency.Round(time.Millisecond).String()))
-		} else {
-			fields = append(fields, zap.String("耗时", latency.Round(time.Microsecond).String()))
-		}
-
-		// 根据状态码选择日志级别和添加状态描述
-		statusDesc := http.StatusText(statusCode)
-		if statusDesc != "" {
-			fields = append(fields, zap.String("状态描述", statusDesc))
-		}
-
-		if statusCode >= 500 {
-			zap.L().Error("HTTP请求失败", fields...)
-		} else if statusCode >= 400 {
-			zap.L().Warn("HTTP请求异常", fields...)
-		} else {
-			zap.L().Info("HTTP请求成功", fields...)
-		}
-	}
 }

@@ -1,6 +1,10 @@
 server:
   addr: :8081
   mode: debug
+jwt:
+  auth_key: "SDFJEIQ#@#$%^DJSKJL"
+  refresh_key: "CVJLSKJLR#$%K$JG"
+  issuer: "linkme"
 log:
   dir: logs
   level: debug
@@ -8,3 +12,18 @@ log:
   max_backups: 5
   max_age: 30
   compress: true
+db:
+  dsn: "root:root@tcp(127.0.0.1:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 60
+  log_level: info
+redis:
+  addr: "127.0.0.1:6379"
+  password: "root"
+  db: 0
+  pool_size: 10
+  min_idle_conns: 1
+  max_retries: 3
+  read_timeout: 10s
+  write_timeout: 10s

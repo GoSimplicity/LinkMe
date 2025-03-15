@@ -11,23 +11,19 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// InitZap 初始化日志系统并返回一个配置好的logger
-func InitZap() *zap.Logger {
+// InitLogger 初始化日志系统并返回一个配置好的logger
+func InitLogger() *zap.Logger {
 	// 从配置获取日志目录，如果未配置则使用默认值
 	logDir := viper.GetString("log.dir")
 	if logDir == "" {
 		logDir = "logs"
 	}
 
-	// 确保日志目录存在
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		panic("创建日志目录失败: " + err.Error())
 	}
 
-	// 构建日志文件名
 	logFile := filepath.Join(logDir, "linkme-"+time.Now().Format("2006-01-02")+".log")
-
-	// 从配置中获取日志级别，默认为info
 	logLevel := getLogLevel(viper.GetString("log.level"))
 
 	// 日志轮转配置
