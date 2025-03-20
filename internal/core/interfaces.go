@@ -1,7 +1,7 @@
 package core
 
 // 通用 Repository 接口
-type Repository interface {
+type GeneralRepository interface {
 	Create(entity interface{}) error
 	FindByID(id interface{}) (interface{}, error)
 	FindOne(query interface{}) (interface{}, error)
@@ -12,7 +12,7 @@ type Repository interface {
 }
 
 // 通用 Service 接口
-type Service interface {
+type GeneralService interface {
 	Create(ctx interface{}, dto interface{}) (interface{}, error)
 	Get(ctx interface{}, query interface{}) (interface{}, error)
 	List(ctx interface{}, query interface{}, page, size int) ([]interface{}, int64, error)
@@ -21,7 +21,7 @@ type Service interface {
 }
 
 // 通用 Database 接口
-type Database interface {
+type GeneralDatabase interface {
 	Create(ctx interface{}, entity interface{}) error
 	FindOne(ctx interface{}, query interface{}) (interface{}, error)
 	FindAll(ctx interface{}, query interface{}, page, size int) ([]interface{}, int64, error)

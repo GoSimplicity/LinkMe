@@ -3,6 +3,7 @@
 package di
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
 	ijwt "github.com/GoSimplicity/LinkMe/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -15,6 +16,10 @@ type App struct {
 	Logger *zap.Logger
 	Server *gin.Engine
 }
+
+var ServiceSet = wire.NewSet(
+	service.NewUserService,
+)
 
 var UtilsSet = wire.NewSet(
 	ijwt.NewJWTHandler,
@@ -30,6 +35,6 @@ var Injector = wire.NewSet(
 )
 
 func ProvideApp() (*App, error) {
-	wire.Build(Injector, UtilsSet)
+	wire.Build(Injector, UtilsSet, ServiceSet)
 	return &App{}, nil
 }
