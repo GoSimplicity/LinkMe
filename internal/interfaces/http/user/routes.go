@@ -1,23 +1,21 @@
 package user
 
 import (
-	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(server *gin.Engine, userSvc service.UserService) {
-	h := NewHandler(userSvc)
+func RegisterRoutes(server *gin.Engine, userHdl *UserHandler) {
 	r := server.Group("/api/v1")
 	// 公共接口组 - 无需认证
 	publicGroup := r.Group("/users")
 	{
 		// 注册登录相关
-		publicGroup.POST("/register", h.Register)
-		publicGroup.POST("/login", h.Login)
-		publicGroup.POST("/login-sms", h.LoginSMS)
-		publicGroup.POST("/send-sms", h.SendSMS)
-		publicGroup.POST("/send-email", h.SendEmail)
-		publicGroup.POST("/refresh-token", h.RefreshToken)
+		publicGroup.POST("/register", userHdl.Register)
+		publicGroup.POST("/login", userHdl.Login)
+		publicGroup.POST("/login-sms", userHdl.LoginSMS)
+		publicGroup.POST("/send-sms", userHdl.SendSMS)
+		publicGroup.POST("/send-email", userHdl.SendEmail)
+		publicGroup.POST("/refresh-token", userHdl.RefreshToken)
 	}
 
 	// 需要认证的接口组 - 用户自身操作
@@ -25,11 +23,11 @@ func RegisterRoutes(server *gin.Engine, userSvc service.UserService) {
 	// TODO: 添加中间件进行认证
 	// authGroup.Use(middleware.JWTMiddleware())
 	{
-		authGroup.POST("/logout", h.Logout)
-		authGroup.GET("/profile", h.GetProfile)
-		authGroup.PUT("/profile", h.UpdateProfile)
-		authGroup.PUT("/password", h.ChangePassword)
-		authGroup.DELETE("/account", h.DeleteUser)
+		authGroup.POST("/logout", userHdl.Logout)
+		authGroup.GET("/profile", userHdl.GetProfile)
+		authGroup.PUT("/profile", userHdl.UpdateProfile)
+		authGroup.PUT("/password", userHdl.ChangePassword)
+		authGroup.DELETE("/account", userHdl.DeleteUser)
 	}
 
 	// 管理员接口组 - 需要管理员权限
@@ -37,9 +35,9 @@ func RegisterRoutes(server *gin.Engine, userSvc service.UserService) {
 	// TODO: 添加管理员权限验证中间件
 	// adminGroup.Use(middleware.AdminAuth())
 	{
-		adminGroup.GET("", h.List)
-		adminGroup.GET("/:id", h.GetUserById)
-		adminGroup.PUT("/:id", h.UpdateUserById)
-		adminGroup.DELETE("/:id", h.DeleteUserById)
+		adminGroup.GET("", userHdl.List)
+		adminGroup.GET("/:id", userHdl.GetUserById)
+		adminGroup.PUT("/:id", userHdl.UpdateUserById)
+		adminGroup.DELETE("/:id", userHdl.DeleteUserById)
 	}
 }

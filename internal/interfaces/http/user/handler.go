@@ -1,4 +1,3 @@
-// interfaces/http/user/handler.go
 package user
 
 import (
@@ -6,40 +5,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
+type UserHandler struct {
 	userSvc service.UserService
 }
 
-func NewHandler(userSvc service.UserService) *Handler {
-	return &Handler{userSvc: userSvc}
+func NewUserHandler(userSvc service.UserService) *UserHandler {
+	return &UserHandler{userSvc: userSvc}
 }
 
-func (h *Handler) Register(c *gin.Context) {}
+func (h *UserHandler) Register(c *gin.Context) {}
 
-func (h *Handler) Login(c *gin.Context) {}
+func (h *UserHandler) Login(c *gin.Context) {}
 
-func (h *Handler) LoginSMS(c *gin.Context) {}
+func (h *UserHandler) LoginSMS(c *gin.Context) {}
 
-func (h *Handler) SendSMS(c *gin.Context) {}
+func (h *UserHandler) SendSMS(c *gin.Context) {}
 
-func (h *Handler) SendEmail(c *gin.Context) {}
+func (h *UserHandler) SendEmail(c *gin.Context) {}
 
-func (h *Handler) RefreshToken(c *gin.Context) {}
+func (h *UserHandler) RefreshToken(c *gin.Context) {}
 
-func (h *Handler) Logout(c *gin.Context) {}
+func (h *UserHandler) Logout(c *gin.Context) {}
 
-func (h *Handler) GetProfile(c *gin.Context) {}
+func (h *UserHandler) GetProfile(c *gin.Context) {}
 
-func (h *Handler) UpdateProfile(c *gin.Context) {}
+func (h *UserHandler) UpdateProfile(c *gin.Context) {}
 
-func (h *Handler) ChangePassword(c *gin.Context) {}
+func (h *UserHandler) ChangePassword(c *gin.Context) {}
 
-func (h *Handler) DeleteUser(c *gin.Context) {}
+func (h *UserHandler) DeleteUser(c *gin.Context) {}
 
-func (h *Handler) List(c *gin.Context) {}
+func (h *UserHandler) List(c *gin.Context) {}
 
-func (h *Handler) GetUserById(c *gin.Context) {}
+func (h *UserHandler) GetUserById(c *gin.Context) {}
 
-func (h *Handler) UpdateUserById(c *gin.Context) {}
+func (h *UserHandler) UpdateUserById(c *gin.Context) {}
 
-func (h *Handler) DeleteUserById(c *gin.Context) {}
+func (h *UserHandler) DeleteUserById(c *gin.Context) {}

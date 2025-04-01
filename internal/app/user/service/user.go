@@ -1,6 +1,9 @@
 package service
 
-import "github.com/GoSimplicity/LinkMe/internal/core"
+import (
+	"github.com/GoSimplicity/LinkMe/internal/app/user/repository"
+	"github.com/GoSimplicity/LinkMe/internal/core"
+)
 
 type UserService interface {
 	core.GeneralService
@@ -8,10 +11,11 @@ type UserService interface {
 }
 
 type userService struct {
+	repo repository.UserRepository
 }
 
-func NewUserService() UserService {
-	return &userService{}
+func NewUserService(repo repository.UserRepository) UserService {
+	return &userService{repo: repo}
 }
 
 // Create implements UserService.

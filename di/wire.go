@@ -3,7 +3,10 @@
 package di
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/app/user/repository"
 	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
+	"github.com/GoSimplicity/LinkMe/internal/interfaces/http/user"
+	"github.com/GoSimplicity/LinkMe/internal/pkg/infra/database/dao"
 	ijwt "github.com/GoSimplicity/LinkMe/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -17,8 +20,20 @@ type App struct {
 	Server *gin.Engine
 }
 
+var HandlerSet = wire.NewSet(
+	user.NewUserHandler,
+)
+
 var ServiceSet = wire.NewSet(
 	service.NewUserService,
+)
+
+var RepositorySet = wire.NewSet(
+	repository.NewUserRepository,
+)
+
+var DatabaseSet = wire.NewSet(
+	dao.NewUserDao,
 )
 
 var UtilsSet = wire.NewSet(
@@ -35,6 +50,6 @@ var Injector = wire.NewSet(
 )
 
 func ProvideApp() (*App, error) {
-	wire.Build(Injector, UtilsSet, ServiceSet)
+	wire.Build(Injector, UtilsSet, ServiceSet, RepositorySet, DatabaseSet, HandlerSet)
 	return &App{}, nil
 }

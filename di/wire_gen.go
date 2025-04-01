@@ -7,7 +7,10 @@
 package di
 
 import (
+	"github.com/GoSimplicity/LinkMe/internal/app/user/repository"
 	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
+	"github.com/GoSimplicity/LinkMe/internal/interfaces/http/user"
+	"github.com/GoSimplicity/LinkMe/internal/pkg/infra/database/dao"
 	"github.com/GoSimplicity/LinkMe/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -23,8 +26,11 @@ func ProvideApp() (*App, error) {
 	cmdable := InitRedis()
 	handler := jwt.NewJWTHandler(cmdable)
 	v := InitMiddlewares(handler, logger)
-	userService := service.NewUserService()
-	engine := InitWebServer(v, userService)
+	userDao := dao.NewUserDao(db)
+	userRepository := repository.NewUserRepository(userDao)
+	userService := service.NewUserService(userRepository)
+	userHandler := user.NewUserHandler(userService)
+	engine := InitWebServer(v, userHandler)
 	app := &App{
 		DB:     db,
 		Logger: logger,
@@ -41,7 +47,13 @@ type App struct {
 	Server *gin.Engine
 }
 
+var HandlerSet = wire.NewSet(user.NewUserHandler)
+
 var ServiceSet = wire.NewSet(service.NewUserService)
+
+var RepositorySet = wire.NewSet(repository.NewUserRepository)
+
+var DatabaseSet = wire.NewSet(dao.NewUserDao)
 
 var UtilsSet = wire.NewSet(jwt.NewJWTHandler)
 
