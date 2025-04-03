@@ -31,38 +31,49 @@ type SendEmailReq struct {
 }
 
 type DeleteUserReq struct {
-	Username string `json:"username" binding:"required"` // 用户名
-	Password string `json:"password" binding:"required"` // 密码
+	ID int64 `json:"id" binding:"required"`
+}
+
+type GetProfileReq struct {
+	ID int64 `json:"id" binding:"required"`
 }
 
 type UpdateProfileReq struct {
-	RealName string `json:"realName,omitempty"` // 真实姓名
-	Avatar   string `json:"avatar,omitempty"`   // 头像URL
-	About    string `json:"about,omitempty"`    // 个人简介
-	Birthday string `json:"birthday,omitempty"` // 生日
-	Phone    string `json:"phone,omitempty"`    // 手机号
-}
-
-type UpdateProfileAdminReq struct {
-	UserID   int64  `json:"userId" binding:"required"` // 用户ID
-	RealName string `json:"realName,omitempty"`        // 真实姓名
-	Avatar   string `json:"avatar,omitempty"`          // 头像URL
-	About    string `json:"about,omitempty"`           // 个人简介
-	Birthday string `json:"birthday,omitempty"`        // 生日
-	Phone    string `json:"phone,omitempty"`           // 手机号
+	ID       int64   `json:"id"`
+	RealName string  `json:"realName"`
+	Avatar   string  `json:"avatar"`
+	About    string  `json:"about"`
+	Birthday string  `json:"birthday"`
+	Email    string  `json:"email"`
+	Phone    *string `json:"phone"`
 }
 
 type ListUserReq struct {
-	Page int    `json:"page,omitempty" form:"page"`
-	Size *int64 `json:"size,omitempty" form:"size"`
+	Page   int    `json:"page,omitempty" form:"page"`
+	Size   int    `json:"size,omitempty" form:"size"`
+	Search string `json:"search,omitempty" form:"search"`
 }
 
 type LogoutReq struct {
+	ID int64 `json:"id" binding:"required"` // 用户ID
 }
 
 type RefreshTokenReq struct {
 	RefreshToken string `json:"refreshToken" binding:"required"` // 刷新令牌
 }
 
-type GetProfileReq struct {
+type GetUserReq struct {
+	ID int64 `json:"id" binding:"required"` // 用户ID
+}
+
+type UpdateUserReq struct {
+	ID       int64   `json:"id"`
+	Username string  `json:"username"`
+	Password string  `json:"password"`
+	RealName string  `json:"realName"`
+	Avatar   string  `json:"avatar"`
+	About    string  `json:"about"`
+	Birthday string  `json:"birthday"`
+	Email    string  `json:"email"`
+	Phone    *string `json:"phone"`
 }

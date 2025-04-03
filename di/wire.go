@@ -5,6 +5,7 @@ package di
 import (
 	"github.com/GoSimplicity/LinkMe/internal/app/user/repository"
 	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
+	"github.com/GoSimplicity/LinkMe/internal/core/cache"
 	"github.com/GoSimplicity/LinkMe/internal/interfaces/http/user"
 	"github.com/GoSimplicity/LinkMe/internal/pkg/infra/database/dao"
 	ijwt "github.com/GoSimplicity/LinkMe/utils"
@@ -34,6 +35,10 @@ var RepositorySet = wire.NewSet(
 
 var DatabaseSet = wire.NewSet(
 	dao.NewUserDao,
+)
+
+var CacheSet = wire.NewSet(
+	cache.NewCoreCache,
 )
 
 var UtilsSet = wire.NewSet(

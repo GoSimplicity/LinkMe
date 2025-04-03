@@ -9,6 +9,7 @@ package di
 import (
 	"github.com/GoSimplicity/LinkMe/internal/app/user/repository"
 	"github.com/GoSimplicity/LinkMe/internal/app/user/service"
+	"github.com/GoSimplicity/LinkMe/internal/core/cache"
 	"github.com/GoSimplicity/LinkMe/internal/interfaces/http/user"
 	"github.com/GoSimplicity/LinkMe/internal/pkg/infra/database/dao"
 	"github.com/GoSimplicity/LinkMe/utils"
@@ -23,14 +24,14 @@ import (
 func ProvideApp() (*App, error) {
 	db := InitDB()
 	logger := InitLogger()
-	cmdable := InitRedis()
-	handler := jwt.NewJWTHandler(cmdable)
-	v := InitMiddlewares(handler, logger)
+	v := InitMiddlewares(logger)
 	userDao := dao.NewUserDao(db)
 	userRepository := repository.NewUserRepository(userDao)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, logger)
 	userHandler := user.NewUserHandler(userService)
-	engine := InitWebServer(v, userHandler)
+	cmdable := InitRedis()
+	handler := utils.NewJWTHandler(cmdable)
+	engine := InitWebServer(v, userHandler, handler)
 	app := &App{
 		DB:     db,
 		Logger: logger,
@@ -55,7 +56,9 @@ var RepositorySet = wire.NewSet(repository.NewUserRepository)
 
 var DatabaseSet = wire.NewSet(dao.NewUserDao)
 
-var UtilsSet = wire.NewSet(jwt.NewJWTHandler)
+var CacheSet = wire.NewSet(cache.NewCoreCache)
+
+var UtilsSet = wire.NewSet(utils.NewJWTHandler)
 
 var Injector = wire.NewSet(
 	InitLogger,

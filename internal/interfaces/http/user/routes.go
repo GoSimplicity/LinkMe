@@ -1,10 +1,12 @@
 package user
 
 import (
+	"github.com/GoSimplicity/LinkMe/middleware"
+	"github.com/GoSimplicity/LinkMe/utils"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(server *gin.Engine, userHdl *UserHandler) {
+func RegisterRoutes(server *gin.Engine, userHdl *UserHandler, ijwt utils.Handler) {
 	r := server.Group("/api/v1")
 	// 公共接口组 - 无需认证
 	publicGroup := r.Group("/users")
@@ -20,24 +22,22 @@ func RegisterRoutes(server *gin.Engine, userHdl *UserHandler) {
 
 	// 需要认证的接口组 - 用户自身操作
 	authGroup := r.Group("/users")
-	// TODO: 添加中间件进行认证
-	// authGroup.Use(middleware.JWTMiddleware())
+	authGroup.Use(middleware.NewJWTMiddleware(ijwt).CheckLogin())
 	{
 		authGroup.POST("/logout", userHdl.Logout)
 		authGroup.GET("/profile", userHdl.GetProfile)
-		authGroup.PUT("/profile", userHdl.UpdateProfile)
-		authGroup.PUT("/password", userHdl.ChangePassword)
+		authGroup.POST("/profile", userHdl.UpdateProfile)
+		authGroup.POST("/password", userHdl.ChangePassword)
 		authGroup.DELETE("/account", userHdl.DeleteUser)
 	}
 
 	// 管理员接口组 - 需要管理员权限
 	adminGroup := r.Group("/admin/users")
-	// TODO: 添加管理员权限验证中间件
-	// adminGroup.Use(middleware.AdminAuth())
+	adminGroup.Use(middleware.NewJWTMiddleware(ijwt).CheckLogin())
 	{
 		adminGroup.GET("", userHdl.List)
-		adminGroup.GET("/:id", userHdl.GetUserById)
-		adminGroup.PUT("/:id", userHdl.UpdateUserById)
-		adminGroup.DELETE("/:id", userHdl.DeleteUserById)
+		adminGroup.GET("/:id", userHdl.GetUser)
+		adminGroup.POST("/:id", userHdl.UpdateUser)
+		adminGroup.DELETE("/:id", userHdl.DeleteUser)
 	}
 }
