@@ -1,9 +1,6 @@
-version: '3'
-
 services:
   nginx-gateway:
     image: nginx:1.21.5
-    container_name: nginx-gateway
     restart: always
     privileged: true
     environment:
@@ -21,22 +18,34 @@ services:
   linkme:
     # 使用项目根目录下的 Dockerfile 自行构建镜像  
     image: linkme/gomodd:v1.22.3
-    container_name: linkme
     environment:
       TZ: Asia/Shanghai
       GOPROXY: https://goproxy.cn,direct
+      LINKME_SERVER_ADDR: ":9999"
+      LINKME_METRICS_ADDR: ":9091"
+      LINKME_DB_DSN: "root:v6SxhWHyZC7S@tcp(mysql:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+      LINKME_REDIS_ADDR: "redis:6379"
+      LINKME_REDIS_PASSWORD: "v6SxhWHyZC7S"
+      LINKME_KAFKA_ADDR: "kafka:9092"
+      LINKME_ES_ADDR: "http://elasticsearch:9200"
+      LINKME_SMS_PROVIDER: "mock"
+      LINKME_EMAIL_PROVIDER: "mock"
+      LINKME_ARK_API_PROVIDER: "mock"
     working_dir: /go/linkme
+    ports:
+      - 9999:9999
     volumes:
       - .:/go/linkme
     privileged: true
     restart: always
     networks:
       - linkme_net
+    depends_on:
+      - mysql
+      - redis
+      - kafka
+      - elasticsearch
 
 networks:
   linkme_net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-

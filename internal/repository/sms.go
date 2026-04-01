@@ -9,6 +9,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/pkg/sms"
 	"github.com/GoSimplicity/LinkMe/utils"
 	"github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 	tencenterros "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	"go.uber.org/zap"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 )
 
 const locked = "sms_locked"
+const mockSMSID = "mock-sms"
 
 // SmsRepository 接口定义了异步 SMS 记录操作的相关方法
 type SmsRepository interface {
@@ -95,14 +97,21 @@ func (s *smsRepository) SendCode(ctx context.Context, number string) error {
 		s.l.Warn("用户今日发送验证码次数过多", zap.String("number", number))
 		return fmt.Errorf("用户今日发送验证码次数过多")
 	}
-	_, err := s.cache.SetNX(ctx, number, locked, time.Second*60)
+	lockResult, err := s.cache.SetNX(ctx, number, locked, time.Second*60)
 	if err != nil {
 		s.l.Warn("[smsService SendCode] s.repo.SetNX 报错: ", zap.Error(err))
 		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
 	}
+	if !lockResult.Val() {
+		return fmt.Errorf("验证码发送过于频繁，请稍后再尝试")
+	}
 	vCode := utils.GenRandomCode(6)
-	//todo: sms商无缝切换
-	smsID, driver, err := s.client.Send(ctx, []string{vCode}, []string{number}...)
+	smsID, driver, err := mockSMSID, "mock", error(nil)
+	if viper.GetString("sms.provider") == "tencent" && s.client != nil {
+		smsID, driver, err = s.client.Send(ctx, []string{vCode}, []string{number}...)
+	} else {
+		s.l.Info("短信验证码走模拟通道", zap.String("number", number), zap.String("vCode", vCode))
+	}
 	id, _ := strconv.ParseInt(smsID, 10, 64)
 	log := dao.VCodeSmsLog{
 		SmsId:       id,
@@ -126,6 +135,7 @@ func (s *smsRepository) SendCode(ctx context.Context, number string) error {
 	// 非SDK异常，直接失败
 	if err != nil {
 		s.l.Error("[smsService SendCode] an error has returned: ", zap.Error(err))
+		s.cache.ReleaseLock(ctx, number)
 		return err
 	}
 	if err = s.StoreVCode(ctx, smsID, number, vCode); err != nil {

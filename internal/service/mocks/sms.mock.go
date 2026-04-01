@@ -3,9 +3,7 @@
 
 // Package mocks is a generated GoMock package.
 
-//
-//	mockgen -source=internal/service/sms.go -destination=internal/service/mocks/sms.mock.go -package=mocks
-//
+// mockgen -source=internal/service/sms.go -destination=internal/service/mocks/sms.mock.go -package=mocks
 package mocks
 
 import (

@@ -10,10 +10,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 
 	"github.com/elastic/go-elasticsearch/v8/typedapi/indices/create"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/elastic/go-elasticsearch/v8"
@@ -91,32 +93,40 @@ var once sync.Once
 
 // NewSearchDAO 创建并返回一个新的 SearchDAO 实例
 func NewSearchDAO(client *elasticsearch.TypedClient, l *zap.Logger) SearchDAO {
-	//先创建索引，再执行批量插入请求
 	s := &searchDAO{
 		client: client,
 		l:      l,
 	}
-	//在初始化的同时，提前创建好es的user索引和post索引
-	once.Do(func() {
-		ctx := context.Background()
-		if err := s.CreatePostIndex(ctx); err != nil {
-			s.l.Error("failed to create post index", zap.Error(err))
-		}
-		if err := s.CreateUserIndex(ctx); err != nil {
-			s.l.Error("failed to create user index", zap.Error(err))
-		}
-	})
+	if viper.GetBool("es.bootstrap_indexes") {
+		once.Do(func() {
+			ctx := context.Background()
+			if err := s.CreatePostIndex(ctx); err != nil {
+				s.l.Error("failed to create post index", zap.Error(err))
+			}
+			if err := s.CreateUserIndex(ctx); err != nil {
+				s.l.Error("failed to create user index", zap.Error(err))
+			}
+			if err := s.CreateCommentIndex(ctx); err != nil {
+				s.l.Error("failed to create comment index", zap.Error(err))
+			}
+			if err := s.CreateLogsIndex(ctx); err != nil {
+				s.l.Error("failed to create logs index", zap.Error(err))
+			}
+		})
+	}
 
 	return s
 }
 
 // CreateIndex 创建一个新的index, 可指定mapping属性
 func (s *searchDAO) createIndex(ctx context.Context, indexName string, properties ...interface{}) error {
-	if success, err := s.client.Indices.Exists(indexName).IsSuccess(ctx); success || err != nil {
-		if err != nil {
-			s.l.Error("Failed to check if index exists", zap.Error(err))
-		}
-		//如果索引已经存在，说明索引内数据已经过期，需要删除该索引
+	success, err := s.client.Indices.Exists(indexName).IsSuccess(ctx)
+	if err != nil {
+		s.l.Error("Failed to check if index exists", zap.Error(err))
+		return err
+	}
+
+	if success {
 		if _, err := s.client.Indices.Delete(indexName).Do(ctx); err != nil {
 			return err
 		}
@@ -131,7 +141,7 @@ func (s *searchDAO) createIndex(ctx context.Context, indexName string, propertie
 		}
 	}
 
-	_, err := s.client.Indices.Create(indexName).Request(&create.Request{
+	_, err = s.client.Indices.Create(indexName).Request(&create.Request{
 		Mappings: &types.TypeMapping{
 			Properties: prop,
 		},
@@ -202,7 +212,7 @@ func (s *searchDAO) CreateUserIndex(ctx context.Context, properties ...interface
 // CreateLogsIndex 创建日志索引
 func (s *searchDAO) CreateLogsIndex(ctx context.Context) error {
 	prop := map[string]types.Property{
-		"timestamp": types.NewDateProperty(),
+		"timestamp": types.NewLongNumberProperty(),
 		"level":     types.NewKeywordProperty(),
 		"message":   types.NewTextProperty(),
 	}
@@ -261,7 +271,7 @@ func (s *searchDAO) SearchPosts(ctx context.Context, keywords []string) ([]PostS
 		Must: []types.Query{
 			{
 				Term: map[string]types.TermQuery{
-					"status.keyword": {Value: "Published"},
+					"status": {Value: domain.Published},
 				},
 			},
 			{

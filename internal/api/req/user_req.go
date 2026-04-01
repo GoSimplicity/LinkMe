@@ -48,7 +48,8 @@ type UpdateProfileAdminReq struct {
 }
 
 type LoginSMSReq struct {
-	Code string `json:"code"`
+	Number string `json:"number"`
+	Code   string `json:"code"`
 }
 
 type ListUserReq struct {

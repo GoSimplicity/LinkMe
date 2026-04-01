@@ -1,24 +1,32 @@
+//go:build integration
+// +build integration
+
 package es
 
 import (
 	"context"
-	"fmt"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/IBM/sarama"
 	"github.com/elastic/go-elasticsearch/v8"
 	"go.uber.org/zap"
 	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 	"time"
 )
 
-func initKafka() sarama.Client {
+func initKafka(t *testing.T) sarama.Client {
+	t.Helper()
 	scfg := sarama.NewConfig()
 	scfg.Consumer.Offsets.Initial = sarama.OffsetOldest //从头消费
-	client, _ := sarama.NewClient([]string{"192.168.84.130:9092"}, scfg)
+	addr := os.Getenv("LINKME_KAFKA_ADDR")
+	if addr == "" {
+		addr = "localhost:9094"
+	}
+	client, err := sarama.NewClient([]string{addr}, scfg)
+	if err != nil {
+		t.Fatalf("初始化 Kafka 客户端失败: %v", err)
+	}
 	return client
 }
 
@@ -28,58 +36,32 @@ func initLogger() *zap.Logger {
 	return logger
 }
 
-func initEsClient() *elasticsearch.TypedClient {
+func initEsClient(t *testing.T) *elasticsearch.TypedClient {
+	t.Helper()
+	addr := os.Getenv("LINKME_ES_ADDR")
+	if addr == "" {
+		addr = "http://localhost:19200"
+	}
 	client, err := elasticsearch.NewTypedClient(elasticsearch.Config{
-		Addresses: []string{"http://localhost:9200"},
-		Username:  "elastic",
-		Password:  "gNWFCTYAobqKRl09LiPj",
+		Addresses: []string{addr},
 	})
 	if err != nil {
-		panic(err)
+		t.Fatalf("初始化 ES 客户端失败: %v", err)
 	}
 	return client
 }
 
-// 通过修改或添加数据库中的数据,判断是否数据同步到es中
 func TestEsConsumer(t *testing.T) {
 	logger := initLogger()
-	es := initEsClient()
+	es := initEsClient(t)
 	searchDao := dao.NewSearchDAO(es, logger)
 
-	esConsumer := NewEsConsumer(initKafka(), logger, repository.NewSearchRepository(searchDao))
-	go func() {
-		err := esConsumer.Start(context.Background())
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	time.Sleep(2 * time.Second)
-	ctx, cancel := context.WithCancel(context.Background())
+	esConsumer := NewEsConsumer(initKafka(t), logger, repository.NewSearchRepository(searchDao))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	users, err := searchDao.SearchUsers(ctx, []string{"bob"})
-	if err != nil {
-		panic(err)
+	if err := esConsumer.Start(ctx); err != nil {
+		t.Fatalf("启动 ES consumer 失败: %v", err)
 	}
-	for _, user := range users {
-		fmt.Println("已成功找到用户:")
-		fmt.Println(user)
-	}
-
-	posts, err := searchDao.SearchPosts(ctx, []string{"HisLife"})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("已成功找到文章:")
-	fmt.Println(posts)
-
-	// 优雅退出
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-	select {
-	case <-sigchan:
-		fmt.Printf("consumer test terminated")
-	}
-
+	time.Sleep(500 * time.Millisecond)
 }

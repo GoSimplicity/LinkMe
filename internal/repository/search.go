@@ -136,7 +136,7 @@ func (s *searchRepository) toDaoUserSearch(domainUsers domain.UserSearch) dao.Us
 }
 
 func (s *searchRepository) toDaoReadEvent(events []domain.ReadEvent) []dao.ReadEvent {
-	daoEvents := make([]dao.ReadEvent, len(events))
+	daoEvents := make([]dao.ReadEvent, 0, len(events))
 	for _, e := range events {
 		daoEvent := dao.ReadEvent{
 			Timestamp: e.Timestamp,

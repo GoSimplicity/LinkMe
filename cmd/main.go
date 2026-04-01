@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"log"
+	"errors"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"github.com/GoSimplicity/LinkMe/ioc"
 	"github.com/spf13/viper"
 
 	"github.com/GoSimplicity/LinkMe/config"
-	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -23,28 +22,13 @@ func main() {
 }
 
 func Init() {
-	// 初始化配置
 	config.InitViper()
-
-	// 初始化 Web 服务器和其他组件
 	cmd := ioc.InitWebServer()
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	server := cmd.Server
-	server.GET("/headers", printHeaders)
+	metricsServer := startMetricsServer(viper.GetString("metrics.addr"))
 
-	// 创建一个用于接收系统信号的通道
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	// 启动 Prometheus 监控
-	go func() {
-
-		if err := startMetricsServer(); err != nil {
-			zap.L().Fatal("启动监控服务器失败", zap.Error(err))
-		}
-	}()
-
-	// 启动定时任务和worker
 	go func() {
 		if err := cmd.Scheduler.RegisterTimedTasks(); err != nil {
 			zap.L().Fatal("注册定时任务失败", zap.Error(err))
@@ -55,16 +39,14 @@ func Init() {
 		}
 	}()
 
-	// 启动消费者
 	for _, s := range cmd.Consumer {
 		go func(consumer events.Consumer) {
-			if err := consumer.Start(context.Background()); err != nil {
+			if err := consumer.Start(rootCtx); err != nil && !errors.Is(err, context.Canceled) {
 				zap.L().Fatal("启动消费者失败", zap.Error(err))
 			}
 		}(s)
 	}
 
-	// 注册任务处理器并启动异步任务服务器
 	go func() {
 		mux := cmd.Routes.RegisterHandlers()
 		if err := cmd.Asynq.Run(mux); err != nil {
@@ -72,43 +54,48 @@ func Init() {
 		}
 	}()
 
-	// 在新的goroutine中启动服务器
+	appServer := &http.Server{
+		Addr:    viper.GetString("server.addr"),
+		Handler: cmd.Server,
+	}
+
 	go func() {
-		if err := server.Run(viper.GetString("server.addr")); err != nil {
+		if err := appServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			zap.L().Fatal("启动Web服务器失败", zap.Error(err))
 		}
 	}()
 
-	// 等待中断信号
-	<-quit
+	<-rootCtx.Done()
 	zap.L().Info("正在关闭服务器...")
 
-	// 关闭异步任务服务器
 	cmd.Asynq.Shutdown()
-
 	cmd.Scheduler.Stop()
 
-	zap.L().Info("服务器已成功关闭")
-	os.Exit(0)
-}
-
-// printHeaders 打印请求头信息
-func printHeaders(c *gin.Context) {
-	headers := c.Request.Header
-	for key, values := range headers {
-		for _, value := range values {
-			c.String(http.StatusOK, "%s: %s\n", key, value)
-		}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+		zap.L().Error("关闭监控服务器失败", zap.Error(err))
 	}
+	if err := appServer.Shutdown(shutdownCtx); err != nil {
+		zap.L().Error("关闭Web服务器失败", zap.Error(err))
+	}
+
+	zap.L().Info("服务器已成功关闭")
 }
 
 // startMetricsServer 启动 Prometheus 监控服务器
-func startMetricsServer() error {
-	http.Handle("/metrics", promhttp.Handler())
-	// 启动 HTTP 服务器并捕获可能的错误
-	if err := http.ListenAndServe(":9091", nil); err != nil {
-		log.Fatalf("Prometheus 启动失败: %v", err)
-		return err
+func startMetricsServer(addr string) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
 	}
-	return nil
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			zap.L().Fatal("Prometheus 启动失败", zap.Error(err))
+		}
+	}()
+	return server
 }

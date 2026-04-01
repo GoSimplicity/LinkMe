@@ -5,7 +5,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
-	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,7 +35,10 @@ func (ch *CheckHandler) ApproveCheck(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	err := ch.svc.ApproveCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -55,7 +57,10 @@ func (ch *CheckHandler) RejectCheck(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	err := ch.svc.RejectCheck(ctx, req.CheckID, req.Remark, uc.Uid)
 	if err != nil {
@@ -71,6 +76,9 @@ func (ch *CheckHandler) ListChecks(ctx *gin.Context) {
 	var req req.ListCheckReq
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+	if _, ok := requireUser(ctx); !ok {
 		return
 	}
 
@@ -91,6 +99,9 @@ func (ch *CheckHandler) CheckDetail(ctx *gin.Context) {
 	var req req.CheckDetailReq
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		apiresponse.ErrorWithData(ctx, err)
+		return
+	}
+	if _, ok := requireUser(ctx); !ok {
 		return
 	}
 

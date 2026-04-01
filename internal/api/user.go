@@ -224,7 +224,10 @@ func (uh *UserHandler) WriteOff(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	// 删除用户
 	if err := uh.svc.DeleteUser(ctx, req.Username, req.Password, uc.Uid); err != nil {
@@ -253,7 +256,10 @@ func (uh *UserHandler) GetProfile(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	profile, err := uh.svc.GetProfileByUserID(ctx, uc.Uid)
 	if err != nil {
@@ -272,7 +278,10 @@ func (uh *UserHandler) UpdateProfileByID(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	err := uh.svc.UpdateProfile(ctx, domain.Profile{
 		RealName: req.RealName,
@@ -297,8 +306,23 @@ func (uh *UserHandler) LoginSMS(ctx *gin.Context) {
 		apiresponse.ErrorWithMessage(ctx, "无效的请求参数")
 		return
 	}
-	// TODO: 实现短信登录逻辑
-	apiresponse.Success(ctx)
+
+	du, err := uh.svc.LoginBySMS(ctx, req.Number, req.Code)
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, UserLoginFailure)
+		return
+	}
+
+	jwtToken, refreshToken, err := uh.ijwt.SetLoginToken(ctx, du.ID)
+	if err != nil {
+		apiresponse.ErrorWithMessage(ctx, UserLoginFailure)
+		return
+	}
+
+	apiresponse.SuccessWithData(ctx, map[string]string{
+		"accessToken":  jwtToken,
+		"refreshToken": refreshToken,
+	})
 }
 
 // ListUser 获取用户列表（管理员使用）

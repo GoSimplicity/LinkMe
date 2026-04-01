@@ -6,7 +6,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
-	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -115,7 +114,13 @@ func (lh *LotteryDrawHandler) GetLotteryDraw(ctx *gin.Context, req req.GetLotter
 
 // ParticipateLotteryDraw 参与抽奖活动
 func (lh *LotteryDrawHandler) ParticipateLotteryDraw(ctx *gin.Context, req req.ParticipateReq) (Result, error) {
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
 
 	err := lh.svc.ParticipateLotteryDraw(ctx, req.ActivityID, uc.Uid)
 	if err != nil {
@@ -195,7 +200,13 @@ func (lh *LotteryDrawHandler) GetSecondKillEvent(ctx *gin.Context, req req.GetSe
 
 // ParticipateSecondKill 参与秒杀活动
 func (lh *LotteryDrawHandler) ParticipateSecondKill(ctx *gin.Context, req req.ParticipateReq) (Result, error) {
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return Result{
+			Code: ServerRequestError,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
 
 	err := lh.svc.ParticipateSecondKill(ctx, req.ActivityID, uc.Uid)
 	if err != nil {

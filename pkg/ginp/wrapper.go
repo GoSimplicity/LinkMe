@@ -1,8 +1,8 @@
 package ginp
 
 import (
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 )
 
@@ -10,75 +10,63 @@ import (
 func WrapBody[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
-		// 使用 ShouldBindJSON 替换 Bind，以便于更好地处理错误，避免直接 panic
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			// 当请求体解析失败时，返回适当的HTTP错误响应而非 panic
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, Result{
-				Msg: "无效的请求负载",
-			})
+			apiresponse.BadRequestError(ctx, "无效的请求参数")
 			return
 		}
 
 		res, err := bizFn(ctx, req)
 		if err != nil {
-			// 记录错误（在生产环境中建议使用结构化日志）
-			log.Printf("执行业务逻辑时发生错误: %v", err)
-			// 根据应用需求自定义错误响应
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "服务器内部错误"})
+			apiresponse.InternalServerErrorWithDetails(ctx, gin.H{"error": err.Error()}, res.Msg)
 			return
 		}
 
-		// 成功处理，返回结果
-		ctx.JSON(http.StatusOK, res)
+		ctx.JSON(http.StatusOK, apiresponse.ApiResponse{
+			Code:    res.Code,
+			Data:    res.Data,
+			Message: res.Msg,
+		})
 	}
 }
 
 func WrapParam[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
-		// 使用 ShouldBindJSON 替换 Bind，以便于更好地处理错误，避免直接 panic
 		if err := ctx.ShouldBindUri(&req); err != nil {
-			// 当请求体解析失败时，返回适当的HTTP错误响应而非 panic
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "无效的请求负载"})
+			apiresponse.BadRequestError(ctx, "无效的路径参数")
 			return
 		}
 
 		res, err := bizFn(ctx, req)
 		if err != nil {
-			// 记录错误（在生产环境中建议使用结构化日志）
-			log.Printf("执行业务逻辑时发生错误: %v", err)
-			// 根据应用需求自定义错误响应
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})
+			apiresponse.InternalServerErrorWithDetails(ctx, gin.H{"error": err.Error()}, res.Msg)
 			return
 		}
-		// 成功处理，返回结果
-		ctx.JSON(http.StatusOK, res)
+		ctx.JSON(http.StatusOK, apiresponse.ApiResponse{
+			Code:    res.Code,
+			Data:    res.Data,
+			Message: res.Msg,
+		})
 	}
 }
 
 func WrapQuery[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
-		// 使用 ShouldBindQuery 绑定查询参数
 		if err := ctx.ShouldBindQuery(&req); err != nil {
-			// 当请求参数解析失败时，返回适当的HTTP错误响应而非 panic
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, Result{
-				Msg: "无效的请求参数",
-			})
+			apiresponse.BadRequestError(ctx, "无效的查询参数")
 			return
 		}
 		res, err := bizFn(ctx, req)
 		if err != nil {
-			// 记录错误（在生产环境中建议使用结构化日志）
-			log.Printf("执行业务逻辑时发生错误: %v", err)
-			// 根据应用需求自定义错误响应
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, Result{
-				Msg: "服务器内部错误",
-			})
+			apiresponse.InternalServerErrorWithDetails(ctx, gin.H{"error": err.Error()}, res.Msg)
 			return
 		}
-		// 成功处理，返回结果
-		ctx.JSON(http.StatusOK, res)
+		ctx.JSON(http.StatusOK, apiresponse.ApiResponse{
+			Code:    res.Code,
+			Data:    res.Data,
+			Message: res.Msg,
+		})
 	}
 }
 
@@ -87,15 +75,13 @@ func WrapNoParam(bizFn func(ctx *gin.Context) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		res, err := bizFn(ctx)
 		if err != nil {
-			// 记录错误（在生产环境中建议使用结构化日志）
-			log.Printf("执行业务逻辑时发生错误: %v", err)
-			// 根据应用需求自定义错误响应
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, Result{
-				Msg: "服务器内部错误",
-			})
+			apiresponse.InternalServerErrorWithDetails(ctx, gin.H{"error": err.Error()}, res.Msg)
 			return
 		}
-		// 成功处理，返回结果
-		ctx.JSON(http.StatusOK, res)
+		ctx.JSON(http.StatusOK, apiresponse.ApiResponse{
+			Code:    res.Code,
+			Data:    res.Data,
+			Message: res.Msg,
+		})
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
-	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,7 +49,10 @@ func (ph *PostHandler) Edit(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	id, err := ph.svc.Create(ctx, domain.Post{
 		ID:      req.PostId,
@@ -75,7 +77,10 @@ func (ph *PostHandler) Update(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	if err := ph.svc.Update(ctx, domain.Post{
 		ID:      req.PostId,
@@ -99,7 +104,10 @@ func (ph *PostHandler) Publish(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	if err := ph.svc.Publish(ctx, req.PostId, uc.Uid); err != nil {
 		apiresponse.ErrorWithMessage(ctx, err.Error())
@@ -117,7 +125,10 @@ func (ph *PostHandler) Withdraw(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	if err := ph.svc.Withdraw(ctx, req.PostId, uc.Uid); err != nil {
 		apiresponse.ErrorWithMessage(ctx, err.Error())
@@ -135,7 +146,10 @@ func (ph *PostHandler) List(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	du, err := ph.svc.ListPosts(ctx, domain.Pagination{
 		Page: req.Page,
@@ -158,12 +172,12 @@ func (ph *PostHandler) ListPub(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uid := currentUserID(ctx)
 
 	du, err := ph.svc.ListPublishPosts(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
-		Uid:  uc.Uid,
+		Uid:  uid,
 	})
 	if err != nil {
 		apiresponse.ErrorWithMessage(ctx, err.Error())
@@ -181,7 +195,10 @@ func (ph *PostHandler) Detail(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	post, err := ph.svc.GetPostById(ctx, req.PostId, uc.Uid)
 	if err != nil {
@@ -205,9 +222,9 @@ func (ph *PostHandler) DetailPub(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uid := currentUserID(ctx)
 
-	post, err := ph.svc.GetPublishPostById(ctx, req.PostId, uc.Uid)
+	post, err := ph.svc.GetPublishPostById(ctx, req.PostId, uid)
 	if err != nil {
 		apiresponse.ErrorWithMessage(ctx, err.Error())
 		return
@@ -224,7 +241,10 @@ func (ph *PostHandler) DeletePost(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	if err := ph.svc.Delete(ctx, req.PostId, uc.Uid); err != nil {
 		apiresponse.ErrorWithMessage(ctx, err.Error())
@@ -242,12 +262,17 @@ func (ph *PostHandler) Like(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	var err error
 
 	if req.Liked {
 		err = ph.intSvc.Like(ctx, req.PostId, uc.Uid)
+	} else {
+		err = ph.intSvc.CancelLike(ctx, req.PostId, uc.Uid)
 	}
 
 	if err != nil {
@@ -266,7 +291,10 @@ func (ph *PostHandler) Collect(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 
 	var err error
 

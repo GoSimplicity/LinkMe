@@ -6,6 +6,7 @@ import (
 
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -20,6 +21,7 @@ var (
 type UserService interface {
 	SignUp(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, username string, password string) (domain.User, error)
+	LoginBySMS(ctx context.Context, number string, code string) (domain.User, error)
 	ChangePassword(ctx context.Context, username string, password string, newPassword string, confirmPassword string) error
 	DeleteUser(ctx context.Context, username string, password string, uid int64) error
 	UpdateProfile(ctx context.Context, profile domain.Profile) error
@@ -32,12 +34,14 @@ type userService struct {
 	repo       repository.UserRepository
 	l          *zap.Logger
 	searchRepo repository.SearchRepository
+	smsRepo    repository.SmsRepository
 }
 
-func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo repository.SearchRepository) UserService {
+func NewUserService(repo repository.UserRepository, l *zap.Logger, searchRepo repository.SearchRepository, smsRepo repository.SmsRepository) UserService {
 	return &userService{
 		repo:       repo,
 		searchRepo: searchRepo,
+		smsRepo:    smsRepo,
 		l:          l,
 	}
 }
@@ -90,6 +94,30 @@ func (us *userService) Login(ctx context.Context, username string, password stri
 	}
 
 	return u, nil
+}
+
+// LoginBySMS 短信验证码登录
+func (us *userService) LoginBySMS(ctx context.Context, number string, code string) (domain.User, error) {
+	if number == "" || code == "" || us.smsRepo == nil {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+
+	smsID := viper.GetString("sms.tencent.smsID")
+	if smsID == "" {
+		smsID = "mock-sms"
+	}
+
+	ok, err := us.smsRepo.CheckCode(ctx, smsID, number, code)
+	if err != nil || !ok {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+
+	user, err := us.repo.FindByPhone(ctx, number)
+	if err != nil {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+
+	return user, nil
 }
 
 // ChangePassword 修改密码

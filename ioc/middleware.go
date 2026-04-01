@@ -1,7 +1,6 @@
 package ioc
 
 import (
-	"strings"
 	"time"
 
 	"github.com/GoSimplicity/LinkMe/middleware"
@@ -9,6 +8,7 @@ import (
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -23,20 +23,33 @@ func InitMiddlewares(ih ijwt.Handler, l *zap.Logger) []gin.HandlerFunc {
 	// 注册指标
 	prom.RegisterMetrics()
 
-	return []gin.HandlerFunc{
-		cors.New(cors.Config{
-			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-			AllowCredentials: true, // 允许携带凭证
-			AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"}, 
-			ExposeHeaders:    []string{"x-jwt-token", "x-refresh-token"}, 
-			AllowOriginFunc: func(origin string) bool {
-				if strings.HasPrefix(origin, "http://localhost") {
+	corsConfig := cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowCredentials: true,
+		AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token", "X-Request-ID"},
+		ExposeHeaders:    []string{"x-jwt-token", "x-refresh-token"},
+		MaxAge:           12 * time.Hour,
+	}
+
+	if viper.GetBool("cors.allow_all") {
+		corsConfig.AllowAllOrigins = true
+	} else {
+		allowedOrigins := viper.GetStringSlice("cors.allow_origins")
+		corsConfig.AllowOriginFunc = func(origin string) bool {
+			if origin == "" {
+				return true
+			}
+			for _, item := range allowedOrigins {
+				if item == origin {
 					return true
 				}
-				return strings.Contains(origin, "")
-			},
-			MaxAge: 12 * time.Hour, 
-		}),
+			}
+			return false
+		}
+	}
+
+	return []gin.HandlerFunc{
+		cors.New(corsConfig),
 		// 统计响应时间
 		prom.TrackActiveRequestsMiddleware(),
 		// 统计活跃请求数

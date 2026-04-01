@@ -14,6 +14,11 @@ import (
 func InitLogger() *zap.Logger {
 	// 从配置获取日志目录
 	logDir := viper.GetString("log.dir")
+	if logDir != "" {
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			panic(err)
+		}
+	}
 	logFile := filepath.Join(logDir, "linkme-"+time.Now().Format("2006-01-02")+"-json.log")
 
 	// 日志轮转配置

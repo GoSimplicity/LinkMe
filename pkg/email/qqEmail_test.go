@@ -1,12 +1,23 @@
+//go:build integration
+// +build integration
+
 package qqEmail
 
 import (
+	"os"
 	"testing"
 
 	"github.com/GoSimplicity/LinkMe/utils"
 )
 
 func TestQQEmail(t *testing.T) {
+	if os.Getenv("LINKME_EMAIL_PROVIDER") != "qq" {
+		t.Skip("当前未启用 QQ 邮件 provider")
+	}
+	if os.Getenv("LINKME_EMAIL_QQ_FROM") == "" || os.Getenv("LINKME_EMAIL_QQ_PASSWORD") == "" {
+		t.Skip("QQ 邮件凭据未配置")
+	}
+
 	type args struct {
 		to      string
 		subject string

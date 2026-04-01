@@ -69,16 +69,16 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
-	// 使用errgroup并发处理异步任务
 	go func() {
-		// 创建带超时的context
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		// 并发执行发布事件和记录活动
-		done := make(chan error, 3)
+		expectedTasks := 1
+		if check.BizId == 1 || check.BizId == 2 {
+			expectedTasks++
+		}
+		done := make(chan error, expectedTasks)
 		go func() {
-			// 用于区分审核的业务类型[1：帖子 2：评论]
 			if check.BizId == 1 {
 				done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 					PostId: check.PostID,
@@ -93,16 +93,16 @@ func (s *checkService) ApproveCheck(ctx context.Context, checkID int64, remark s
 					Status: domain.Published,
 					BizId:  check.BizId,
 				})
+			} else {
+				done <- nil
 			}
-
 		}()
 
 		go func() {
 			done <- s.recordActivity(uid, "审核通过")
 		}()
 
-		// 等待所有goroutine完成或超时
-		for i := 0; i < 3; i++ {
+		for i := 0; i < expectedTasks; i++ {
 			select {
 			case err := <-done:
 				if err != nil {
@@ -145,14 +145,11 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 		return fmt.Errorf("更新审核状态失败: %w", err)
 	}
 
-	// 使用errgroup并发处理异步任务
 	go func() {
-		// 创建带超时的context
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		// 并发执行发布事件和记录活动
-		done := make(chan error, 3)
+		done := make(chan error, 2)
 		go func() {
 			done <- s.postProducer.ProducePublishEvent(publish.PublishEvent{
 				PostId: check.PostID,
@@ -165,8 +162,7 @@ func (s *checkService) RejectCheck(ctx context.Context, checkID int64, remark st
 			done <- s.recordActivity(uid, "审核拒绝")
 		}()
 
-		// 等待所有goroutine完成或超时
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 2; i++ {
 			select {
 			case err := <-done:
 				if err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
-	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,7 +36,10 @@ func (h *HistoryHandler) GetHistory(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 	history, err := h.svc.GetHistory(ctx, domain.Pagination{
 		Page: req.Page,
 		Size: req.Size,
@@ -60,7 +62,10 @@ func (h *HistoryHandler) DeleteOneHistory(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 	if err := h.svc.DeleteOneHistory(ctx, req.PostId, uc.Uid); err != nil {
 		apiresponse.ErrorWithMessage(ctx, HistoryDeleteError)
 		return
@@ -78,7 +83,10 @@ func (h *HistoryHandler) DeleteAllHistory(ctx *gin.Context) {
 		return
 	}
 
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return
+	}
 	if req.IsDeleteAll {
 		if err := h.svc.DeleteAllHistory(ctx, uc.Uid); err != nil {
 			apiresponse.ErrorWithMessage(ctx, HistoryDeleteError)

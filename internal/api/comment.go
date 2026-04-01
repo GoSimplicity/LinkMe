@@ -7,7 +7,6 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/service"
 	. "github.com/GoSimplicity/LinkMe/pkg/ginp"
 	icontentfilter "github.com/GoSimplicity/LinkMe/utils/contentfilter"
-	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,7 +34,13 @@ func (ch *CommentHandler) RegisterRoutes(server *gin.Engine) {
 
 // CreateComment 创建评论处理器方法
 func (ch *CommentHandler) CreateComment(ctx *gin.Context, req req.CreateCommentReq) (Result, error) {
-	uc := ctx.MustGet("user").(ijwt.UserClaims)
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return Result{
+			Code: CreateCommentErrorCode,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
 	// 进行敏感词过滤
 	SensitiveContent := icontentfilter.SensitiveFilterFun(req.Content)
 	comment := domain.Comment{
@@ -83,6 +88,13 @@ func (ch *CommentHandler) ListComments(ctx *gin.Context, req req.ListCommentsReq
 
 // DeleteComment 删除评论处理器方法
 func (ch *CommentHandler) DeleteComment(ctx *gin.Context, req req.DeleteCommentReq) (Result, error) {
+	if _, ok := requireUser(ctx); !ok {
+		return Result{
+			Code: DeleteCommentErrorCode,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
+
 	err := ch.svc.DeleteComment(ctx, req.CommentId)
 	if err != nil {
 		return Result{

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	. "github.com/GoSimplicity/LinkMe/internal/constants"
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	ijwt "github.com/GoSimplicity/LinkMe/utils/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -21,41 +21,34 @@ func NewJWTMiddleware(hdl ijwt.Handler) *JWTMiddleware {
 // CheckLogin 校验JWT
 func (m *JWTMiddleware) CheckLogin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		path := ctx.Request.URL.Path
-		// 如果请求的路径是下述路径，则不进行token验证
-		if path == "/api/user/signup" ||
-			path == "/api/user/login" ||
-			path == "/api/user/refresh_token" ||
-			path == "/api/user/change_password" ||
-			path == "/api/user/send_sms" ||
-			path == "/api/user/send_email" {
+		tokenStr := m.ExtractToken(ctx)
+		if tokenStr == "" {
 			return
 		}
-		// 从请求中提取token
-		tokenStr := m.ExtractToken(ctx)
+
 		var uc ijwt.UserClaims
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
 			return []byte(viper.GetString("jwt.auth_key")), nil
 		})
 		if err != nil {
-			// token 错误
-			ctx.AbortWithStatus(RequestsERROR)
+			apiresponse.UnauthorizedErrorWithDetails(ctx, nil, "登录态无效")
+			ctx.Abort()
 			return
 		}
 		if token == nil || !token.Valid {
-			// token 非法或过期
-			ctx.AbortWithStatus(RequestsERROR)
+			apiresponse.UnauthorizedErrorWithDetails(ctx, nil, "登录态无效")
+			ctx.Abort()
 			return
 		}
-		// 检查是否携带ua头
 		if uc.UserAgent == "" {
-			ctx.AbortWithStatus(RequestsERROR)
+			apiresponse.UnauthorizedErrorWithDetails(ctx, nil, "登录态无效")
+			ctx.Abort()
 			return
 		}
-		// 检查会话是否有效
 		err = m.CheckSession(ctx, uc.Ssid)
 		if err != nil {
-			ctx.AbortWithStatus(RequestsERROR)
+			apiresponse.UnauthorizedErrorWithDetails(ctx, nil, "登录态已失效")
+			ctx.Abort()
 			return
 		}
 		ctx.Set("user", uc)

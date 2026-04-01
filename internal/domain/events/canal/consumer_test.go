@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package canal
 
 import (
@@ -6,8 +9,6 @@ import (
 	"fmt"
 	"github.com/IBM/sarama"
 	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -92,39 +93,41 @@ type ChangeEvent struct {
 type consumerGroupHandler struct {
 }
 
-func initKafka() sarama.Client {
+func initKafka(t *testing.T) sarama.Client {
+	t.Helper()
 	scfg := sarama.NewConfig()
 	scfg.Consumer.Offsets.Initial = sarama.OffsetOldest // 关键配置：从头消费
-	client, _ := sarama.NewClient([]string{"192.168.84.130:9092"}, scfg)
+	addr := os.Getenv("LINKME_CANAL_KAFKA_ADDR")
+	if addr == "" {
+		t.Skip("未配置 Canal Kafka 地址，跳过 Canal 集成测试")
+	}
+	client, err := sarama.NewClient([]string{addr}, scfg)
+	if err != nil {
+		t.Fatalf("初始化 Kafka 客户端失败: %v", err)
+	}
 	return client
 }
 
 func TestConsumer(t *testing.T) {
+	topic := os.Getenv("LINKME_CANAL_TOPIC")
+	if topic == "" {
+		t.Skip("未配置 Canal Topic，跳过 Canal 集成测试")
+	}
 	// 配置 Kafka 消费者
-	cg, err := sarama.NewConsumerGroupFromClient("es_consumer_group", initKafka())
+	cg, err := sarama.NewConsumerGroupFromClient("es_consumer_group", initKafka(t))
 	if err != nil {
-		panic(err)
+		t.Fatalf("创建 Canal Consumer Group 失败: %v", err)
 	}
+	defer cg.Close()
 
-	// 订阅 Topic
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	go func() {
-		for {
-			if err := cg.Consume(context.Background(), []string{"oracle.linkme.users"}, &consumerGroupHandler{}); err != nil {
-				fmt.Printf("退出了消费循环异常: %v", err)
-				time.Sleep(time.Second * 5)
-			}
-			time.Sleep(time.Second * 2)
-		}
+		_ = cg.Consume(ctx, []string{topic}, &consumerGroupHandler{})
 	}()
-
-	// 优雅退出
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 	select {
-	case <-sigchan:
-		fmt.Printf("consumer test terminated")
+	case <-ctx.Done():
 	}
-
 }
 
 func handleEvent(event ChangeEvent) {

@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
 	"github.com/GoSimplicity/LinkMe/internal/domain"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
+	"time"
 )
 
 // EsConsumer 结构体用于消费Kafka消息并将数据同步到Elasticsearch
@@ -108,7 +108,7 @@ func NewEsConsumer(client sarama.Client, l *zap.Logger, rs repository.SearchRepo
 }
 
 // Start 启动Kafka消费者，监听消息并进行处理
-func (r *EsConsumer) Start(_ context.Context) error {
+func (r *EsConsumer) Start(ctx context.Context) error {
 	cg, err := sarama.NewConsumerGroupFromClient("es_consumer_group", r.client)
 	if err != nil {
 		return err
@@ -118,7 +118,15 @@ func (r *EsConsumer) Start(_ context.Context) error {
 
 	go func() {
 		for {
-			if err := cg.Consume(context.Background(), []string{"oracle.linkme.users", "oracle.linkme.posts"}, &consumerGroupHandler{r: r}); err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			if err := cg.Consume(ctx, []string{"oracle.linkme.users", "oracle.linkme.posts"}, &consumerGroupHandler{r: r}); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				r.l.Error("退出了消费循环异常", zap.Error(err))
 				time.Sleep(time.Second * 5)
 			}

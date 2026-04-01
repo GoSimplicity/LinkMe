@@ -69,7 +69,15 @@ func (r *RelationHandler) ListFolloweeRelations(ctx *gin.Context, req req.ListFo
 
 // FollowUser 处理关注用户的请求
 func (r *RelationHandler) FollowUser(ctx *gin.Context, req req.FollowUserReq) (Result, error) {
-	if err := r.svc.FollowUser(ctx, req.FollowerID, req.FolloweeID); err != nil {
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return Result{
+			Code: FollowUserERRORCode,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
+
+	if err := r.svc.FollowUser(ctx, uc.Uid, req.FolloweeID); err != nil {
 		return Result{
 			Code: FollowUserERRORCode,
 			Msg:  FollowUserERRORMsg,
@@ -82,7 +90,15 @@ func (r *RelationHandler) FollowUser(ctx *gin.Context, req req.FollowUserReq) (R
 }
 
 func (r *RelationHandler) CancelFollowUser(ctx *gin.Context, req req.CancelFollowUserReq) (Result, error) {
-	if err := r.svc.CancelFollowUser(ctx, req.FollowerID, req.FolloweeID); err != nil {
+	uc, ok := requireUser(ctx)
+	if !ok {
+		return Result{
+			Code: CancelFollowUserERRORCode,
+			Msg:  "未登录或登录已过期",
+		}, nil
+	}
+
+	if err := r.svc.CancelFollowUser(ctx, uc.Uid, req.FolloweeID); err != nil {
 		return Result{
 			Code: CancelFollowUserERRORCode,
 			Msg:  CancelFollowUserERRORMsg,

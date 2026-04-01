@@ -2,6 +2,7 @@ package ioc
 
 import (
 	"github.com/GoSimplicity/LinkMe/internal/api"
+	"github.com/GoSimplicity/LinkMe/pkg/apiresponse"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,6 +26,12 @@ func InitWeb(userHdl *api.UserHandler,
 ) *gin.Engine {
 	server := gin.Default()
 	server.Use(m...)
+	server.GET("/healthz", func(ctx *gin.Context) {
+		apiresponse.SuccessWithData(ctx, gin.H{"status": "ok"})
+	})
+	server.GET("/readyz", func(ctx *gin.Context) {
+		apiresponse.SuccessWithData(ctx, gin.H{"status": "ready"})
+	})
 	userHdl.RegisterRoutes(server)
 	postHdl.RegisterRoutes(server)
 	historyHdl.RegisterRoutes(server)

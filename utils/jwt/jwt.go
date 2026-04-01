@@ -65,6 +65,7 @@ type RefreshClaims struct {
 type handler struct {
 	client        redis.Cmdable
 	signingMethod jwt.SigningMethod
+	jwtExpiration time.Duration
 	rcExpiration  time.Duration
 	key1          []byte
 	key2          []byte
@@ -75,11 +76,20 @@ func NewJWTHandler(c redis.Cmdable) Handler {
 	key1 := viper.GetString("jwt.auth_key")
 	key2 := viper.GetString("jwt.refresh_key")
 	issuer := viper.GetString("jwt.issuer")
+	authExpireMinutes := viper.GetInt64("jwt.auth_expire")
+	if authExpireMinutes <= 0 {
+		authExpireMinutes = 30
+	}
+	refreshExpireHours := viper.GetInt64("jwt.refresh_expire")
+	if refreshExpireHours <= 0 {
+		refreshExpireHours = 150
+	}
 
 	return &handler{
 		client:        c,
 		signingMethod: jwt.SigningMethodHS512,
-		rcExpiration:  time.Hour * 24 * 7,
+		jwtExpiration: time.Minute * time.Duration(authExpireMinutes),
+		rcExpiration:  time.Hour * time.Duration(refreshExpireHours),
 		key1:          []byte(key1),
 		key2:          []byte(key2),
 		issuer:        issuer,
@@ -104,21 +114,13 @@ func (h *handler) SetLoginToken(ctx *gin.Context, uid int64) (string, string, er
 
 // SetJWTToken 设置短Token
 func (h *handler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) (string, error) {
-	// 从配置文件中获取JWT的过期时间
-	expirationMinutes := viper.GetInt64("jwt.expiration")
-
-	// 如果未设置或值无效，设置一个默认值，例如30分钟
-	if expirationMinutes <= 0 {
-		expirationMinutes = 30
-	}
-
 	uc := UserClaims{
 		Uid:         uid,
 		Ssid:        ssid,
 		UserAgent:   ctx.GetHeader("User-Agent"),
 		ContentType: ctx.GetHeader("Content-Type"),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(expirationMinutes))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.jwtExpiration)),
 			Issuer:    h.issuer,
 		},
 	}
@@ -206,6 +208,10 @@ func (h *handler) ClearToken(ctx *gin.Context) error {
 		return err
 	}
 
+	if err := h.invalidateSession(ctx, claims.Ssid); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -234,6 +240,10 @@ func (h *handler) addToBlacklist(ctx *gin.Context, authToken string, expiresAt t
 		return err
 	}
 	return nil
+}
+
+func (h *handler) invalidateSession(ctx *gin.Context, ssid string) error {
+	return h.client.Set(ctx, fmt.Sprintf("linkme:user:ssid:%s", ssid), "invalid", h.rcExpiration).Err()
 }
 
 // VerifyRefreshToken 验证refresh token

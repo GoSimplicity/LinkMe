@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	contentfilter "github.com/GoSimplicity/LinkMe/utils/contentfilter"
 	ark "github.com/sashabaranov/go-openai"
 	"github.com/sony/gobreaker"
 	"github.com/spf13/viper"
@@ -35,7 +36,7 @@ func init() {
 }
 
 type config struct {
-	KEY string `yaml:"dsn"`
+	Key string `mapstructure:"key"`
 }
 
 // 获取单例 client
@@ -45,7 +46,7 @@ func getClient() *ark.Client {
 		if err := viper.UnmarshalKey("ark_api", &c); err != nil {
 			panic(fmt.Errorf("init failed：%v", err))
 		}
-		ARK_API_KEY := c.KEY // 这个AIP是可以修改的
+		ARK_API_KEY := c.Key
 		config := ark.DefaultConfig(ARK_API_KEY)
 		config.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 		client = ark.NewClientWithConfig(config)
@@ -55,6 +56,11 @@ func getClient() *ark.Client {
 }
 
 func CheckPostContent(title string, content string) (bool, error) {
+	if viper.GetString("ark_api.provider") != "ark" || viper.GetString("ark_api.key") == "" {
+		filtered := contentfilter.SensitiveFilterFun(title + "\n" + content)
+		return filtered == title+"\n"+content, nil
+	}
+
 	result, err := breaker.Execute(func() (interface{}, error) {
 		client := getClient()
 		checkLanguage := "你是一个负责评论审核的人工智能，请对输入的内容进行审查，判断其是否包含违规信息。返回结果如下: 如果是 1 说明内容包含违规信息, 如果是 0 说明内容不包含违规信息, 如果是 -1 说明无法判断或其他错误"
@@ -62,7 +68,7 @@ func CheckPostContent(title string, content string) (bool, error) {
 		resp, err := client.CreateChatCompletion(
 			context.Background(),
 			ark.ChatCompletionRequest{
-				Model: "ep-20250207162731-kvrzk",
+				Model: viper.GetString("ark_api.model"),
 				Messages: []ark.ChatCompletionMessage{
 					{
 						Role:    ark.ChatMessageRoleSystem,

@@ -1,6 +1,8 @@
 package ioc
 
 import (
+	"errors"
+
 	"github.com/GoSimplicity/LinkMe/internal/domain/events"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/check"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
@@ -17,22 +19,21 @@ import (
 
 // InitSaramaClient 初始化Sarama客户端，用于连接到Kafka集群
 func InitSaramaClient() sarama.Client {
-	type Config struct {
-		Addr []string `yaml:"addr"`
+	addresses := viper.GetStringSlice("kafka.addr")
+	if len(addresses) == 0 {
+		if addr := viper.GetString("kafka.addr"); addr != "" {
+			addresses = []string{addr}
+		}
 	}
-
-	var cfg Config
-
-	err := viper.UnmarshalKey("kafka", &cfg)
-	if err != nil {
-		panic(err)
+	if len(addresses) == 0 {
+		panic(errors.New("kafka 地址不能为空"))
 	}
 
 	scfg := sarama.NewConfig()
 	// 配置生产者需要返回确认成功的消息
 	scfg.Producer.Return.Successes = true
 
-	client, err := sarama.NewClient(cfg.Addr, scfg)
+	client, err := sarama.NewClient(addresses, scfg)
 	if err != nil {
 		panic(err)
 	}

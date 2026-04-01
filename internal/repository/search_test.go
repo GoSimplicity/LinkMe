@@ -1,8 +1,15 @@
+//go:build integration
+// +build integration
+
 package repository_test
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/GoSimplicity/LinkMe/internal/repository/dao"
 	"github.com/elastic/go-elasticsearch/v8"
 	"go.uber.org/zap"
@@ -12,10 +19,12 @@ import (
 
 // 辅助函数，用于创建一个模拟的Elasticsearch客户端，便于测试
 func createMockElasticsearchClient() *elasticsearch.TypedClient {
+	addr := os.Getenv("LINKME_ES_ADDR")
+	if addr == "" {
+		addr = "http://localhost:19200"
+	}
 	client, err := elasticsearch.NewTypedClient(elasticsearch.Config{
-		Addresses: []string{"http://localhost:9200"},
-		Username:  "elastic",
-		Password:  "07X-o2S2eD7TrGodvKJw",
+		Addresses: []string{addr},
 	})
 	if err != nil {
 		panic(err)
@@ -44,16 +53,30 @@ func TestCreatePostIndex(t *testing.T) {
 
 // 测试SearchPosts函数
 func TestSearchPosts(t *testing.T) {
-	searchDAO := dao.NewSearchDAO(createMockElasticsearchClient(), createMockLogger())
-	keywords := []string{"test", "post"}
+	client := createMockElasticsearchClient()
+	searchDAO := dao.NewSearchDAO(client, createMockLogger())
+	ctx := context.Background()
+	keyword := fmt.Sprintf("integration-post-%d", time.Now().UnixNano())
+	if err := searchDAO.InputPost(ctx, dao.PostSearch{
+		Id:      uint(time.Now().UnixNano()),
+		Title:   keyword,
+		Content: keyword + "-content",
+		Status:  1,
+	}); err != nil {
+		t.Fatalf("InputPost failed: %v", err)
+	}
+	if _, err := client.Indices.Refresh().Index(dao.PostIndex).Do(ctx); err != nil {
+		t.Fatalf("Refresh post index failed: %v", err)
+	}
+
+	keywords := []string{keyword}
 	posts, err := searchDAO.SearchPosts(context.Background(), keywords)
 	if err != nil {
 		t.Errorf("SearchPosts failed: %v", err)
 		return
 	}
 	if len(posts) == 0 {
-		t.Log("No posts found, but test passed as long as there's no error")
-		return
+		t.Fatal("SearchPosts returned no results")
 	}
 	// 可以进一步验证返回的帖子数据结构是否符合预期
 	for _, post := range posts {
@@ -64,14 +87,29 @@ func TestSearchPosts(t *testing.T) {
 
 // 测试SearchUsers函数
 func TestSearchUsers(t *testing.T) {
-	searchDAO := dao.NewSearchDAO(createMockElasticsearchClient(), createMockLogger())
-	keywords := []string{"test", "user"}
+	client := createMockElasticsearchClient()
+	searchDAO := dao.NewSearchDAO(client, createMockLogger())
+	ctx := context.Background()
+	keyword := fmt.Sprintf("integration-user-%d", time.Now().UnixNano())
+	if err := searchDAO.InputUser(ctx, dao.UserSearch{
+		Id:       time.Now().UnixNano(),
+		Nickname: keyword,
+		Email:    keyword + "@example.com",
+		Phone:    "13800138000",
+	}); err != nil {
+		t.Fatalf("InputUser failed: %v", err)
+	}
+	if _, err := client.Indices.Refresh().Index(dao.UserIndex).Do(ctx); err != nil {
+		t.Fatalf("Refresh user index failed: %v", err)
+	}
+
+	keywords := []string{keyword}
 	users, err := searchDAO.SearchUsers(context.Background(), keywords)
 	if err != nil {
 		t.Errorf("SearchUsers failed: %v", err)
 	}
 	if len(users) == 0 {
-		t.Log("No users found, but test passed as long as there's no error")
+		t.Fatal("SearchUsers returned no results")
 	}
 	// 可以进一步验证返回的用户数据结构是否符合预期
 	for _, user := range users {

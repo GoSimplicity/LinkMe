@@ -10,8 +10,8 @@
 package mocks
 
 import (
-	domain "github.com/GoSimplicity/LinkMe/internal/domain"
 	context "context"
+	domain "github.com/GoSimplicity/LinkMe/internal/domain"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"

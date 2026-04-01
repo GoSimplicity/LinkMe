@@ -1,0 +1,61 @@
+server:
+  addr: ":9999"
+
+metrics:
+  addr: ":9091"
+
+jwt:
+  auth_key: "replace-with-your-auth-key"
+  refresh_key: "replace-with-your-refresh-key"
+  issuer: "linkme"
+  auth_expire: 30
+  refresh_expire: 150
+
+log:
+  dir: "logs"
+
+db:
+  dsn: "root:root@tcp(localhost:3306)/linkme?charset=utf8mb4&parseTime=True&loc=Local"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+
+kafka:
+  addr:
+    - "localhost:9092"
+
+es:
+  addr: "http://localhost:9200"
+  bootstrap_indexes: true
+
+sms:
+  provider: "mock"
+  tencent:
+    secretId: ""
+    secretKey: ""
+    endPoint: "sms.tencentcloudapi.com"
+    smsID: ""
+    sign: ""
+    templateID: ""
+
+email:
+  provider: "mock"
+  qq:
+    from: ""
+    password: ""
+    host: "smtp.qq.com"
+    port: 587
+
+ark_api:
+  provider: "mock"
+  key: ""
+  model: "ep-20250207162731-kvrzk"
+
+cors:
+  allow_all: false
+  allow_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"

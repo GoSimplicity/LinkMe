@@ -1,16 +1,16 @@
 package dao
 
 import (
-  "context"
-  "errors"
-  "fmt"
-  "time"
+	"context"
+	"errors"
+	"fmt"
+	"time"
 
-  "github.com/GoSimplicity/LinkMe/internal/domain"
-  "github.com/casbin/casbin/v2"
-  "github.com/go-sql-driver/mysql"
-  "go.uber.org/zap"
-  "gorm.io/gorm"
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/casbin/casbin/v2"
+	"github.com/go-sql-driver/mysql"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 var (
@@ -145,15 +145,16 @@ func (ud *userDAO) FindByUsername(ctx context.Context, username string) (User, e
 }
 
 func (ud *userDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
-	var user User
-	err := ud.db.WithContext(ctx).Where("phone = ? AND deleted = ?", phone, false).First(&user).Error
+	var profile Profile
+	err := ud.db.WithContext(ctx).Where("phone = ?", phone).First(&profile).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return User{}, ErrUserNotFound
 		}
 		return User{}, err
 	}
-	return user, nil
+
+	return ud.FindByID(ctx, profile.UserID)
 }
 
 func (ud *userDAO) UpdatePasswordByUsername(ctx context.Context, username string, newPassword string) error {

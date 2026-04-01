@@ -6,6 +6,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/repository/cache"
 	qqEmail "github.com/GoSimplicity/LinkMe/pkg/email"
 	"github.com/GoSimplicity/LinkMe/utils"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -37,6 +38,10 @@ func (e emailRepository) SendCode(ctx context.Context, email string) error {
 		return err
 	}
 	body := fmt.Sprintf("您的验证码是：%s", vCode)
+	if viper.GetString("email.provider") != "qq" {
+		e.l.Info("[emailRepository.SendCode] 邮件验证码走模拟通道", zap.String("email", email), zap.String("vCode", vCode))
+		return nil
+	}
 	return qqEmail.SendEmail(email, "【LinkMe】密码重置", body)
 }
 

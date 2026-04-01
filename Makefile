@@ -1,4 +1,14 @@
 IMAGE_NAME=linkme/gomodd:v1.22.3
+GO ?= go
+
+fmt:
+	gofmt -w $$(find . -name '*.go' -not -path './vendor/*')
+
+test-unit:
+	$(GO) test ./...
+
+test-integration:
+	$(GO) test -tags=integration ./...
 
 # 创建数据目录并提权
 init:
@@ -12,6 +22,9 @@ env-up:
 # 构建 Docker 镜像
 build:
 	docker build -t $(IMAGE_NAME) .
+
+build-app:
+	$(GO) build ./...
 
 # 启动项目
 up: build

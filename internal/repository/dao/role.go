@@ -327,6 +327,7 @@ func (r *roleDAO) GetRole(ctx context.Context, roleId int) (*Role, error) {
 
 	return &role, nil
 }
+
 // GetUserRole 获取用户的角色信息
 func (r *roleDAO) GetUserRole(ctx context.Context, userId int) (*Role, error) {
 	if userId <= 0 {

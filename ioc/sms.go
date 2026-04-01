@@ -29,9 +29,15 @@ func newClient() *tencentsms.Client {
 
 // InitSms 初始化腾讯云短信实例
 func InitSms() *sms.TencentSms {
+	if viper.GetString("sms.provider") != "tencent" {
+		return nil
+	}
 	smsID := viper.GetString("sms.tencent.smsID")
 	sign := viper.GetString("sms.tencent.sign")
 	templateID := viper.GetString("sms.tencent.templateID")
+	if smsID == "" || sign == "" || templateID == "" {
+		return nil
+	}
 	// 创建腾讯云短信实例
 	return sms.NewTencentSms(newClient(), smsID, sign, templateID)
 }
