@@ -1,4 +1,4 @@
-package AiCheck
+package aicheck
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	contentfilter "github.com/GoSimplicity/LinkMe/utils/contentfilter"
+	"github.com/GoSimplicity/LinkMe/utils/contentfilter"
 	ark "github.com/sashabaranov/go-openai"
 	"github.com/sony/gobreaker"
 	"github.com/spf13/viper"
@@ -44,13 +44,13 @@ func getClient() *ark.Client {
 	clientOnce.Do(func() {
 		var c config
 		if err := viper.UnmarshalKey("ark_api", &c); err != nil {
-			panic(fmt.Errorf("init failed：%v", err))
+			panic(fmt.Errorf("初始化 ark 配置失败: %w", err))
 		}
-		ARK_API_KEY := c.Key
-		config := ark.DefaultConfig(ARK_API_KEY)
-		config.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
-		client = ark.NewClientWithConfig(config)
-		fmt.Println("AI 审核 client 初始化完成")
+		arkAPIKey := c.Key
+		clientConfig := ark.DefaultConfig(arkAPIKey)
+		clientConfig.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
+		client = ark.NewClientWithConfig(clientConfig)
+		zap.L().Info("AI 审核 client 初始化完成")
 	})
 	return client
 }
@@ -82,7 +82,7 @@ func CheckPostContent(title string, content string) (bool, error) {
 			},
 		)
 		if err != nil {
-			fmt.Printf("ChatCompletion error: %v\n", err)
+			zap.L().Warn("AI 审核调用失败", zap.Error(err))
 			return false, errors.New("AI 审核失败")
 		}
 		ans := true

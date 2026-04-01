@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/GoSimplicity/LinkMe/internal/domain"
-	"github.com/redis/go-redis/v9"
 	"math/rand"
 	"time"
+
+	"github.com/GoSimplicity/LinkMe/internal/domain"
+	"github.com/redis/go-redis/v9"
 )
 
 type CheckCache interface {
@@ -89,7 +90,6 @@ func (c *checkCache) DeleteKeysWithPattern(ctx context.Context, pattern string) 
 			if err := c.client.Del(ctx, keys...).Err(); err != nil {
 				return fmt.Errorf("failed to delete Redis keys: %w", err)
 			}
-			fmt.Printf("Deleted keys: %v\n", keys)
 		}
 
 		// 如果 cursor 为 0，说明遍历结束

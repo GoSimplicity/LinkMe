@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/redis/go-redis/v9"
 	"os"
+
+	"github.com/redis/go-redis/v9"
 )
 
-const (
-	SCRIPTPATH = "./script/commit.lua"
-)
+const scriptPath = "./script/commit.lua"
 
 var (
 	hash   string
@@ -34,12 +33,12 @@ type redisEXCmd struct {
 func init() {
 	//加载脚本
 	if script == "" {
-		t, _ := os.ReadFile(SCRIPTPATH)
+		t, _ := os.ReadFile(scriptPath)
 		script = string(t)
 	}
 }
-func NewRedisCmd(cmd redis.Cmdable) RedisEXCmd {
 
+func NewRedisCmd(cmd redis.Cmdable) RedisEXCmd {
 	return &redisEXCmd{
 		cmd: cmd,
 	}
@@ -56,7 +55,6 @@ func (rc *redisEXCmd) AddCommand(args ...string) {
 
 // Exec 执行脚本
 func (rc *redisEXCmd) Exec() error {
-	//fmt.Println(rc.commandsTab[:rc.commandsCnt])
 	cmd, _ := json.Marshal(rc.commandsTab[:rc.commandsCnt])
 	//标记清除存储的命令
 	rc.commandsCnt = 0
@@ -90,7 +88,6 @@ func (rc *redisEXCmd) Exec() error {
 }
 
 func (rc *redisEXCmd) Rollback() {
-	//fmt.Println(rc.rollbackTab)
 	luaScript := `
 	local cmds = cjson.decode(ARGV[1])	
 	for _, cmd in ipairs(cmds) do 

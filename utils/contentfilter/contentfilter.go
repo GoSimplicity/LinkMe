@@ -143,6 +143,7 @@ func (tn *TrieNode) getSubNode(char rune) *TrieNode {
 func (tn *TrieNode) addSubNode(char rune, node *TrieNode) {
 	tn.subNodes[char] = node
 }
+
 func SensitiveFilterFun(content string) string {
 	// 创建敏感词过滤器
 	filter := NewSensitiveFilter()
@@ -156,21 +157,3 @@ func SensitiveFilterFun(content string) string {
 
 	return filteredText
 }
-
-//func TestA(t *testing.T) {
-//	// 创建敏感词过滤器
-//	filter := NewSensitiveFilter()
-//
-//	// 加载敏感词文件
-//	err := filter.LoadFromFile("sensitive-words.txt")
-//	if err != nil {
-//		fmt.Println("加载敏感词文件失败:", err)
-//		return
-//	}
-//
-//	// 测试过滤
-//	text := "开票hshvse赌博"
-//	filteredText := filter.Filter(text)
-//	fmt.Println("过滤前:", text)
-//	fmt.Println("过滤后:", filteredText)
-//}

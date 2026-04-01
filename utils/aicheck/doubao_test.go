@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package AiCheck
+package aicheck
 
 import (
 	"context"

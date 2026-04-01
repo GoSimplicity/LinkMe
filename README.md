@@ -1,141 +1,186 @@
-# LinkMe - 开源论坛项目
+# LinkMe
 
-![LinkMe](https://socialify.git.ci/wangzijian2002/LinkMe/image?description=1&font=Source%20Code%20Pro&forks=1&issues=1&language=1&logo=https%3A%2F%2Fgithub.com%2Fwangzijian2002%2FLinkMe%2Fassets%2F71474660%2F22ef2063-ab82-481f-898f-29d95fa70236&name=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
+LinkMe 是一个基于 Go 的论坛后端服务仓库。当前代码库仍然是单体部署形态，但运行时已经包含 HTTP API、异步任务、定时任务、Kafka 消费者和监控端点。
 
-## 项目简介
-LinkMe 是一个使用 Go 语言开发的论坛项目。它旨在为用户提供一个简洁、高效、可扩展的在线交流平台。本项目使用DDD领域设计理念，采用模块化的设计，使得添加新功能或进行定制化修改变得非常容易。LinkMe 支持多种数据库后端，并且可以通过 Kubernetes 进行部署。
+## 当前项目状态
 
-## 项目部署文档
-[启动文档](./doc/LinkMe项目启动文档.md)
+- 单入口服务：`cmd/main.go`
+- HTTP 服务：Gin
+- 认证与权限：JWT + Casbin
+- 数据存储：MySQL、Redis、Elasticsearch
+- 异步链路：Kafka、Asynq、定时热榜任务
+- 日志与监控：Zap JSON 日志、Prometheus、Grafana、ELK
+- 提供商模式：短信、邮件、AI 审核默认可走 `mock`
 
-## 微服务项目地址
-https://github.com/GoSimplicity/LinkMe-microservices
+相关仓库：
 
-## 前端项目地址
-https://github.com/GoSimplicity/LinkMe-web
+- 微服务版本：https://github.com/GoSimplicity/LinkMe-microservices
+- 前端项目：https://github.com/GoSimplicity/LinkMe-web
 
-## 功能特性
-- 用户注册、登录、注销
-- 用户角色RBAC
-- 用户关系
-- 用户评论
-- 发布帖子、评论、点赞
-- 历史记录
-- 帖子审核
-- 用户个人资料编辑
-- 论坛版块管理
-- 自动获取热门榜单
-- 用户、帖子搜索
-- Kubernetes 一键部署
-- 前后端分离架构
+## 运行链路
+
+当前进程启动后会同时运行以下组件：
+
+- Web API 服务，默认监听 `:9999`
+- 健康检查接口：`/healthz`、`/readyz`
+- Prometheus 指标服务，默认监听 `:9091`
+- Asynq Worker
+- Asynq Scheduler
+- Kafka Consumers
+- 热榜定时任务，当前实现为每小时刷新一次
+
+## 核心能力
+
+- 用户注册、登录、刷新令牌、短信登录、邮箱/短信验证码发送
+- 用户资料查询与更新、用户列表、权限码查询
+- 帖子草稿编辑、更新、发布、撤回、删除、详情、列表、按版块筛选
+- 点赞、收藏、浏览历史、近期活动
+- 评论创建、删除、分页加载、楼中楼回复
+- 关注/取关、粉丝与关注列表、计数查询
+- 版块管理、热榜查询、搜索
+- 内容审核、角色、权限、菜单、API 资源管理
+- 抽奖与秒杀活动接口
 
 ## 技术栈
-- Go 语言
-- Gin Web 框架
-- Wire 依赖注入
-- Kubernetes 集群管理
-- MySQL 数据库
-- Redis 缓存数据库
-- MongoDB 文档数据库
-- Kafka 消息队列
-- Prometheus 监控
-- ELK 日志收集
-- Canal 数据同步
-- ElasticSearch 搜索引擎
-- Docker 容器化
-- 随项目进度技术栈实时更新..
 
-## 目录结构
-```
-.
-├── config           # 项目配置文件目录
-├── deploy           # docker及k8s部署文件目录
-├── doc              # 项目文档目录
-├── internal         # 项目内部包，含核心业务逻辑
-├── ioc              # IoC容器配置，负责依赖注入设置
-├── pkg              # 自定义工具包与库
-├── job              # 定时任务目录
-├── logs             # 项目日志目录
-├── utils            # 项目工具包目录
-├── main.go          # 项目入口文件
-├── middleware       # 中间件目录
-├── tmp              # 临时文件目录
-├── wire_gen.go      # Wire工具生成的代码
-├── wire.go          # Wire配置，声明依赖注入关系
-```
+- Go 1.22
+- Gin
+- Wire
+- GORM
+- Casbin
+- Redis / Kafka / Elasticsearch / MySQL
+- Asynq
+- Prometheus / Grafana / ELK
 
-## 如何贡献
-我们欢迎任何形式的贡献，包括但不限于：
-- 提交代码（Pull Requests）
-- 报告问题（Issues）
-- 文档改进
-- 功能建议
-  请确保在贡献代码之前阅读了我们的[贡献指南](#贡献指南)。
+说明：
 
-## 贡献指南
-- Fork 本仓库
-- 创建您的特性分支 (`git checkout -b my-new-feature`)
-- 提交您的改动 (`git commit -am 'Add some feature'`)
-- 将您的分支推送到 GitHub (`git push origin my-new-feature`)
-- 创建一个 Pull Request
-## 开始使用
+- 仓库里仍保留了 MongoDB 初始化代码和 K8s YAML，但它不是当前默认启动链路的一部分。
+- `Dockerfile` 当前是开发态 `modd` 运行镜像，不是最小化生产镜像。
 
-### 克隆项目
+## 快速开始
+
+### 方式一：本地进程 + Docker Compose 依赖环境
+
+1. 安装依赖并复制配置：
+
 ```bash
-git@github.com:GoSimplicity/LinkMe.git
+go mod tidy
+cp config/config.example.yaml config/config.yaml
 ```
 
-### 环境要求
-- Docker 20.10.0+
-- Docker Compose 2.0.0+
+2. 启动依赖环境：
 
-### 部署步骤(一键部署)
 ```bash
-make deploy
-```
-
-#### 一键重新部署
-```bash
-make redeploy
-```
-
-### 部署步骤(手动部署)
-
-#### 创建数据目录并提权
-```bash
-mkdir -p ./data/kafka/data && chmod -R 777 ./data/kafka
-```
-
-#### 启动项目依赖
-```bash
+make init
 docker-compose -f docker-compose-env.yaml up -d
 ```
 
-#### 构建镜像
+3. 首次初始化数据库：
+
 ```bash
-docker build -t linkme/gomodd:v1.22.3 .
+docker-compose -f docker-compose-env.yaml exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" linkme' < deploy/init/linkme.sql
 ```
 
-#### 启动项目
+4. 按 `docker-compose-env.yaml` 的宿主机端口修改本地配置：
+
+- MySQL：`localhost:43306`
+- Redis：`localhost:46379`
+- Kafka：`localhost:9094`
+- Elasticsearch：`http://localhost:19200`
+
+5. 启动服务：
+
 ```bash
+go run ./cmd/main.go
+```
+
+### 方式二：Docker Compose 启动应用与网关
+
+```bash
+make init
+docker-compose -f docker-compose-env.yaml up -d
+make build
 docker-compose up -d
 ```
 
-### 项目超级管理员账号
+默认入口：
+
+- Nginx 网关：`http://localhost:8888`
+- 应用端口：`http://localhost:9999`
+- 指标端口：`http://localhost:9091/metrics`
+
+## 常用命令
+
 ```bash
-admin/admin
+make fmt
+make test-unit
+make build-app
+make env-up
+make build
+make up
+make down
+make deploy
+make logs
 ```
 
+## 配置说明
+
+配置文件示例见 `config/config.example.yaml`。
+
+- 默认配置文件路径：`config/config.yaml`
+- 环境变量前缀：`LINKME_`
+- 点号会被转换为下划线
+- `kafka.addr` 同时兼容 YAML 数组和单个环境变量字符串
+
+常用配置项：
+
+- `server.addr`
+- `metrics.addr`
+- `db.dsn`
+- `redis.addr`
+- `redis.password`
+- `kafka.addr`
+- `es.addr`
+- `sms.provider`
+- `email.provider`
+- `ark_api.provider`
+- `cors.allow_all`
+- `cors.allow_origins`
+
+提供商建议：
+
+- 本地联调默认用 `mock`
+- 短信真实发送使用 `sms.provider=tencent`
+- 邮件真实发送使用 `email.provider=qq`
+- AI 审核真实调用使用 `ark_api.provider=ark`
+
+## 目录结构
+
+```text
+.
+├── cmd/main.go                 # 单进程启动入口
+├── config/                     # Viper 配置与示例配置
+├── deploy/                     # 初始化 SQL、Compose 依赖和 K8s YAML
+├── doc/                        # 项目文档
+├── internal/api/               # HTTP Handler 与请求参数
+├── internal/constants/         # 常量定义
+├── internal/domain/            # 领域模型与事件定义
+├── internal/job/               # Asynq 任务与定时任务
+├── internal/repository/        # 仓储实现（DB / Cache / ES）
+├── internal/service/           # 业务服务
+├── ioc/                        # 依赖注入与基础设施初始化
+├── middleware/                 # 中间件
+├── pkg/                        # 通用基础组件
+└── utils/                      # 辅助工具与内容审核能力
+```
+
+## 文档索引
+
+- [启动与调试文档](./doc/LinkMe项目启动文档.md)
+- [功能模块总览](./doc/function_module.md)
+- [Canal Kafka Connector 调试记录](./doc/canal-kafka-connector.md)
+- [项目面试亮点（偏设计表达）](./doc/project_interview_highlights.md)
 
 ## 许可证
-本项目使用 MIT 许可证，详情请见 [LICENSE](./LICENSE) 文件。
 
-## 联系方式
-- Email: [wzijian62@gmail.com](mailto:wzijian62@gmail.com)
-- 为了方便交流，可以加我vx：GoSimplicity 我拉你进微信群
-
-## 致谢
-感谢所有为本项目做出贡献的人！
-
----
-欢迎来到 LinkMe，让我们一起构建更好的论坛社区！
+本项目使用 MIT 许可证，详情见 [LICENSE](./LICENSE)。

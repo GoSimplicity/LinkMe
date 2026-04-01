@@ -3,12 +3,13 @@ package mock
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"strconv"
-	"time"
 )
 
 type MockUserRepository interface {

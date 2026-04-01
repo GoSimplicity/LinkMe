@@ -11,7 +11,7 @@ import (
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/comment"
 	"github.com/GoSimplicity/LinkMe/internal/domain/events/publish"
 	"github.com/GoSimplicity/LinkMe/internal/repository"
-	aiCheck "github.com/GoSimplicity/LinkMe/utils/AiCheck"
+	"github.com/GoSimplicity/LinkMe/utils/aicheck"
 	"github.com/IBM/sarama"
 	"go.uber.org/zap"
 )
@@ -209,7 +209,7 @@ func (c *CheckEventConsumer) handleEvent(ctx context.Context, evt *CheckEvent) e
 	}
 
 	// 使用AI审核
-	checkResult, err := aiCheck.CheckPostContent(evt.Title, evt.Content)
+	checkResult, err := aicheck.CheckPostContent(evt.Title, evt.Content)
 	if err != nil || !checkResult {
 		// 交由人工审核
 		code, err := c.checkRepo.Create(ctx, check)
