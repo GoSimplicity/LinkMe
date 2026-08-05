@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: linkme-prometheus
-          image: bitnami/prometheus:latest
+          image: soldevelo/prometheus:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsGroup: 0
